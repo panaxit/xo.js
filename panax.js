@@ -1,9 +1,11 @@
 Object.defineProperty(xo.session, 'login', {
-    value: async function (username, password, connection_id) {
+    value: async function (username, password, connection_id = window.location.hostname) {
         try {
-            xover.session.user_login = username
+            let _username = username.value || username
+            let _password = password.value || password
+            xover.session.user_login = _username
             xover.session.status = 'authorizing';
-            let response = await xover.server.login(new URLSearchParams({ 'connection_id': connection_id }), { headers: { authorization: `Basic ${btoa(username + ':' + password)}` } });
+            let response = await xover.server.login(new URLSearchParams({ 'connection_id': connection_id }), { headers: { authorization: `Basic ${btoa(_username + ':' + _password)}` } });
             xover.session.status = 'authorized';
             xover.sections.active.render();
         } catch (e) {
@@ -96,6 +98,23 @@ app.request = async function (object_name, mode) {
 }
 
 px = {}
+px.getEntityInfo = function (input_document) {
+    var current_document = (input_document || ((event || {}).target || {}).store || xover.stores[(window.location.hash || "#")]);
+    if (!current_document) return undefined;
+    var entity;
+    current_document = (current_document.documentElement || current_document)
+    if (current_document && current_document.getAttribute && current_document.getAttribute("mode") && current_document.getAttribute("Name")) {
+        entity = {}
+        entity["schema"] = current_document.getAttribute("Schema");
+        entity["name"] = current_document.getAttribute("Name");
+        entity["mode"] = current_document.getAttribute("mode");
+        entity["pageIndex"] = current_document.getAttribute("pageIndex");
+        entity["pageSize"] = current_document.getAttribute("pageSize");
+        entity["filters"] = (current_document.getAttribute("filters") || ''); //Se reemplazan las comillas simples por dobles comillas simples. Revisar si esto se puede hacer en px.request
+    }
+    return entity;
+}
+
 px.request = async function (request_or_entity_name, mode, filters, ref) {
     if (!request_or_entity_name) {
         return null;

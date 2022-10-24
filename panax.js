@@ -31,8 +31,8 @@ Object.defineProperty(xo.session, 'logout', {
 })
 
 xo.listener.on(['beforeRender::#shell', 'beforeAppendToHTMLElement::MAIN', 'beforeAppendToHTMLElement::BODY'], ({ target }) => {
-    if (!(event.detail.args || []).filter(el => !(el instanceof HTMLStyleElement || el instanceof HTMLScriptElement)).length) return;
-    [...target.childNodes].filter(el => el.matches && !el.matches(`script,[role=alertdialog],[role=alert],[role=dialog]`)).removeAll()
+    if (!(event.detail.args || []).filter(el => !(el instanceof HTMLStyleElement || el instanceof HTMLScriptElement || el.matches("dialog,[role=alertdialog],[role=alert],[role=dialog]"))).length) return;
+    [...target.childNodes].filter(el => el.matches && !el.matches(`script,dialog,[role=alertdialog],[role=alert],[role=dialog]`)).removeAll()
 })
 
 xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state'))]`, function ({ element, attribute, old, value }) {
@@ -48,8 +48,9 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
 xo.listener.on(`beforeChange::xo:r/@meta:*`, function ({ node, element, attribute, old, value }) {
     let references = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${node.localName}"]/px:Mappings/px:Mapping/@Referencer`);
     let src_element = event.srcEvent.srcElement;
-    let values = value.split("/")
-    references.forEach((reference, ix) => element.set(reference.value, values[ix]));
+    let selected_record = src_element[src_element.selectedIndex].scope.filter("self::xo:r")
+
+    references.forEach(reference => element.set(reference.value, selected_record && selected_record.get(reference.parentNode.get("Referencee")) || ""));
     let option = src_element[src_element.selectedIndex]
     event.detail.value = option.value && option.text || "";
 })
@@ -81,6 +82,7 @@ xo.listener.on('beforeChange::@headerText', function ({ element, attribute, valu
     if (!element.has(`initial:${attribute.localName}`)) {
         element.set(`initial:${attribute.localName}`, old)
     }
+    element.set(`prev:${attribute.localName}`, old)
     event.detail.value = event.detail.value.replace(/:/g, '').trim()
 })
 
@@ -94,7 +96,7 @@ app.request = async function (object_name, mode) {
     let parts = object_name.split('/') || [];
     let name = parts.pop();
     let schema = parts.pop();
-    return xo.sources.defaults["#" + name] || xo.xml.createDocument(`<?xml-stylesheet type="text/xsl" href="form.xslt" target="@#shell main"?><?xml-stylesheet type="text/xsl" href="title.xslt" target="@#shell nav header h1"?><?xml-stylesheet type="text/xsl" href="shell_buttons.xslt" target="@#shell #shell_buttons" action="replace"?><${name} schema="${schema}"/>`)
+    return xo.sources.defaults["#" + name] || xo.xml.createDocument(`<?xml-stylesheet type="text/xsl" href="form.xslt" target="@#shell main"?><?xml-stylesheet type="text/xsl" href="shell_buttons.xslt" target="@#shell #shell_buttons" action="replace"?><${name} schema="${schema}"/>`)
 }
 
 px = {}
@@ -184,12 +186,9 @@ px.request = async function (request_or_entity_name, mode, filters, ref) {
         })
         Request.requester = ref;
         if (!(Response instanceof xover.Section) && Response && Response.documentElement) {
-            Response.$$('//px:Entity').set("@meta:type","entity")
+            Response.$$('//px:Entity').set("@meta:type", "entity")
             let control_type = Response.$('//px:Entity').get("xsi:type").replace(':control', '.xslt')
             Response.addStylesheet({ href: control_type, target: "@#shell main" });
-            Response.addStylesheet({ href: "title.xslt", target: "@#shell nav header h1" });
-            Response.addStylesheet({ href: "page_controls.xslt", target: "@#shell #page_controls" });
-            Response.addStylesheet({ href: "shell_buttons.xslt", target: "@#shell #shell_buttons", action: "replace" });
             Response.documentElement.setAttributeNS(xover.spaces["xmlns"], "xmlns:data", "http://panax.io/source");
             association_ref && Response.documentElement.$$(`*[local-name()="layout"]/association:*[@name="${association_ref.get("AssociationName")}"]`).remove()
             px.loadData(Response.$('px:Entity'), mode == 'add' && { identity: null, primary: [null] } || { identity, primary })
@@ -251,11 +250,13 @@ px.loadData = function (entity, keys) {
 
     let text = entity.$$(`@displayText|self::*[not(@displayText)]/@combobox:text|px:Record/px:Field[not(@IsIdentity="1")][1]/@Name|px:Record[not(*[2])]/px:Field/@Name`).shift();
     fields["meta:text"] = `RTRIM(#panax.prepareString(${text.value}))`; // No se ponen brackets para los nombres de las funciones
-    if (id.length) {
-        fields["meta:id"] = id.map(el => `#panax.prepareValue([${el[0]}])`).join("+'/'+");
-    } else {
-        fields["meta:value"] = pks.map(el => `RTRIM(#panax.prepareString([${el[0]}]))`).join("+'/'+");
-    }
+    //if (id.length) {
+    fields["meta:id"] = id.map(el => `#panax.prepareValue([${el[0]}])`).join("+'/'+");
+    //} else {
+    //let mappings = entity.$$("ancestor::px:Association[1][@Type='belongsTo']/px:Mappings/px:Mapping/@Referencee")
+    fields["meta:value"] = pks.map(el => `RTRIM(#panax.prepareString([${el[0]}]))`).join("+'/'+");
+    //}
+    fields["meta:orderBy"] = entity.get("custom:sortBy")
 
     let formatValue = (value => (isNumber(value) || value === null) && String(value) || value !== undefined && `'${value}'` || '');
     let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => `[${key}] IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})`).join('AND')
@@ -309,6 +310,7 @@ px.getData = async function (...args) {
             , "x-data-text": encodeURIComponent(node.getAttribute('source_text:' + attribute_base_name) || node.getAttribute('dataText') || "")
             , "x-data-value": encodeURIComponent(node.getAttribute('source_value:' + attribute_base_name) || node.getAttribute('dataValue') || "")
             , "x-data-fields": encodeURIComponent(node.getAttribute('source_fields:' + attribute_base_name) || fields || "")
+            , "x-order-by": node.parentNode && node.parentNode.get("custom:sortBy")
         }))
         settings["headers"] = headers;
         parameters = request && { command: request, predicate: parameters } || undefined;
@@ -320,7 +322,7 @@ px.getData = async function (...args) {
         let entity = node.parentElement.$('self::px:Entity[@mode="add"][not(parent::px:Association)]')
         //let entity = node.$('parent::px:Entity[//px:Entity[@mode="add"]]')
         if (entity && !(response.documentElement.firstElementChild)) {
-            let fields = [...new Set(entity.$$('px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name').map(field => ((field.parentNode.nodeName == 'px:Association'? 'meta:' :'')+field.value) + '=""'))].join(' ')
+            let fields = [...new Set(entity.$$('px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name').map(field => ((field.parentNode.nodeName == 'px:Association' ? 'meta:' : '') + field.value) + '=""'))].join(' ')
             response.documentElement.append(xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" ${fields}/>`))
         }
         return response
@@ -330,7 +332,7 @@ px.getData = async function (...args) {
 }
 
 function saveConfiguration() {
-    xo.sections.active.documentElement.$$('//px:Record/*/@initial:*').map(attr => [`[${attr.parentNode.$('ancestor::px:Entity[1]').get('Schema')}].[${attr.parentNode.$('ancestor::px:Entity[1]').get('Name')}]`, (attr.parentNode.get("AssociationName") || attr.parentNode.get("Name")), `@${attr.localName}`, attr.parentNode.get(attr.localName)]).map(el => el.map(item => `'${item}'`)).forEach(config => xo.server.request({ command: "[#entity].[config]", parameters: config }, {}))
+    xo.sections.active.documentElement.$$('//px:Record/*/@prev:*').map(attr => [`[${attr.parentNode.$('ancestor::px:Entity[1]').get('Schema')}].[${attr.parentNode.$('ancestor::px:Entity[1]').get('Name')}]`, (attr.parentNode.get("AssociationName") || attr.parentNode.get("Name")), `@${attr.localName}`, attr.parentNode.get(attr.localName)]).map(el => el.map(item => `'${item}'`)).forEach(config => xo.server.request({ command: "[#entity].[config]", parameters: config }, {}).then(response => response.render && response.render()))
 }
 
 function submit(data_rows) {

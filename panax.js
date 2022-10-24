@@ -31,7 +31,7 @@ Object.defineProperty(xo.session, 'logout', {
 })
 
 xo.listener.on(['beforeRender::#shell', 'beforeAppendToHTMLElement::MAIN', 'beforeAppendToHTMLElement::BODY'], ({ target }) => {
-    if (!(event.detail.args || []).filter(el => !(el instanceof HTMLStyleElement || el instanceof HTMLScriptElement)).length) return;
+    if (!(event.detail.args || []).filter(el => !(el instanceof HTMLStyleElement || el instanceof HTMLScriptElement || el.matches("[role=alertdialog],[role=alert],[role=dialog]"))).length) return;
     [...target.childNodes].filter(el => el.matches && !el.matches(`script,[role=alertdialog],[role=alert],[role=dialog]`)).removeAll()
 })
 
@@ -81,6 +81,7 @@ xo.listener.on('beforeChange::@headerText', function ({ element, attribute, valu
     if (!element.has(`initial:${attribute.localName}`)) {
         element.set(`initial:${attribute.localName}`, old)
     }
+    element.set(`prev:${attribute.localName}`, old)
     event.detail.value = event.detail.value.replace(/:/g, '').trim()
 })
 
@@ -330,7 +331,7 @@ px.getData = async function (...args) {
 }
 
 function saveConfiguration() {
-    xo.sections.active.documentElement.$$('//px:Record/*/@initial:*').map(attr => [`[${attr.parentNode.$('ancestor::px:Entity[1]').get('Schema')}].[${attr.parentNode.$('ancestor::px:Entity[1]').get('Name')}]`, (attr.parentNode.get("AssociationName") || attr.parentNode.get("Name")), `@${attr.localName}`, attr.parentNode.get(attr.localName)]).map(el => el.map(item => `'${item}'`)).forEach(config => xo.server.request({ command: "[#entity].[config]", parameters: config }, {}))
+    xo.sections.active.documentElement.$$('//px:Record/*/@prev:*').map(attr => [`[${attr.parentNode.$('ancestor::px:Entity[1]').get('Schema')}].[${attr.parentNode.$('ancestor::px:Entity[1]').get('Name')}]`, (attr.parentNode.get("AssociationName") || attr.parentNode.get("Name")), `@${attr.localName}`, attr.parentNode.get(attr.localName)]).map(el => el.map(item => `'${item}'`)).forEach(config => xo.server.request({ command: "[#entity].[config]", parameters: config }, {}).then(response => response.render && response.render()))
 }
 
 function submit(data_rows) {

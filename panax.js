@@ -70,7 +70,7 @@ xo.listener.on('appendTo::data:rows', function ({ node }) {
     //        empty_node.replace(xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" ${fields}/>`))
     //    }
     //}
-    node.parentNode.$$(`px:Record/px:Association`).forEach(association => {
+    node.parentNode.filter("ancestor-or-self::*[@mode='add' or @mode='edit']").$$(`px:Record/px:Association`).forEach(association => {
         //let identity, primary
         //association.$$('px:Mappings/px:Mapping').map(mapping => association.get("DataType") == 'belongsTo' && [mapping.get("Referencer"), node.get(mapping.get("Referencer"))] || mapping.get())
         entity = association.$(`px:Entity`);

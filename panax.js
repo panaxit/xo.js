@@ -100,6 +100,26 @@ app.request = async function (object_name, mode) {
 }
 
 px = {}
+
+px.editSelectedOption = function (src_element) {
+    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r").filter(el => el instanceof Element);
+    if (!selected_record) {
+        return Promise.reject("No hay registro asociado")
+    }
+    let entity = selected_record.$(`ancestor::px:Entity[1]`)
+    id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => selected_record.get(key.value));
+    pks = entity.$$(`px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map(key => selected_record.get(key.value));
+    let href
+    if (id.length) {
+        href = `#${entity.get("Schema")}/${entity.get("Name")}~edit:${id.join("/")}`
+    } else if (pks.length) {
+        href = `#${entity.get("Schema")}/${entity.get("Name")}~edit/${pks.join("/")}`
+    } else {
+        return Promise.reject("No se puede editar el registro")
+    }
+    xo.site.seed = href
+}
+
 px.getEntityInfo = function (input_document) {
     var current_document = (input_document || ((event || {}).target || {}).store || xover.stores[(window.location.hash || "#")]);
     if (!current_document) return undefined;
@@ -263,7 +283,7 @@ px.loadData = function (entity, keys) {
     let parent_entity = entity.$('ancestor::px:Entity[1]');
     if (parent_entity && parent_entity.$('data:rows/*')) {
         let parent_relationship = entity.$('parent::px:Association[not(@Type="belongsTo")]/px:Mappings')
-        let mappings = parent_relationship && parent_relationship.$$('px:Mapping').map(map => `[${entity.get("Name")}].[${map.get("Referencer")}] IN (${parent_entity.$$('data:rows/*').map(row => (row.get(map.get("Referencee")) || 'NULL')).join(',')})`) || [];
+        let mappings = parent_relationship && parent_relationship.$$('px:Mapping').map(map => `[${entity.get("Name")}].[${map.get("Referencer")}] IN ('${parent_entity.$$('data:rows/*').map(row => (row.get(map.get("Referencee")) || 'NULL')).join(',')}')`) || [];
         predicate && mappings.unshift(predicate);
         predicate = mappings.join(' AND ')
     }

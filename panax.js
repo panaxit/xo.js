@@ -61,6 +61,18 @@ xo.listener.on(`change::px:Entity/data:rows/xo:r/@*[not(contains(namespace-uri()
     }
 })
 
+xo.listener.on('change::@data:rows', function ({ old: prev }) {
+
+    let current = this.parentNode.$(`data:rows[@command="${prev}"]`)
+    current && current.remove();
+    if (!this.parentNode.$('data:rows')) {
+        let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
+        data_rows.reseed();
+        data_rows.set("command", this.value);
+        this.parentNode.append(data_rows);
+    }
+})
+
 xo.listener.on('appendTo::data:rows', function () {
     //let empty_node = node.$('xo:empty')
     //if (empty_node) {
@@ -74,7 +86,7 @@ xo.listener.on('appendTo::data:rows', function () {
         //let identity, primary
         //association.$$('px:Mappings/px:Mapping').map(mapping => association.get("DataType") == 'belongsTo' && [mapping.get("Referencer"), node.get(mapping.get("Referencer"))] || mapping.get())
         entity = association.$(`px:Entity`);
-        px.loadData(entity);
+        //px.loadData(entity);
     });
     let section = this.ownerDocument.section;
     if (section && !this.selectFirst("px:Association")) {
@@ -144,15 +156,38 @@ px.getEntityInfo = function (input_document) {
     return entity;
 }
 
-px.request = async function (request_or_entity_name, mode, filters, ref) {
+px.getEntityFields = function (source) {
+    let fields, schema, name, mode, identity, primary, predicate, page_index, page_size;
+    if (typeof (source) == 'string') {
+        let url = xover.URL(source);
+        [fields, predicate = ''] = (url.hash || url.search).split('?');
+        fields = fields.replace(/^#/, '');
+        ({ searchParams: predicate, hash: settings = '' } = xover.URL('?' + predicate));
+        [schema, name, mode = ''] = url.pathname.replace(/^\//, '').split(/[\/~]/);
+        [mode, identity] = mode.split(':');
+        [mode, ...primary] = mode.split('/');
+        [page_index, page_size] = settings.replace(/^#:=/, '').split('/');
+        page_index = page_index || undefined;
+        predicate = Object.fromEntries(predicate.entries())
+    }
+    return { fields, schema, name, mode, identity, primary, predicate, page_index, page_size }
+}
+
+px.request = async function (...args) {
+    let request = {};
+    let fields, schema, name, mode, identity, primary, filters, page_index, page_size;
+    if (args.length && args[args.length - 1].constructor === {}.constructor) {
+        request = Object.assign(request, args.pop());
+        ({ schema, name: entity_name } = request);
+    }
+    let request_or_entity_name = args.pop();
+
     if (!request_or_entity_name) {
         return null;
     }
     if (!(xover.manifest.server["request"])) {
         throw ("Endpoint for request is not defined in the manifest");
     }
-    var schema, entity_name;
-    var page_index, page_size;
     var on_success = function (xml_document) { xover.sections.active = xml_document; };
     let rebuild;
     let reference = xo.site.reference || {};
@@ -163,46 +198,36 @@ px.request = async function (request_or_entity_name, mode, filters, ref) {
     }
     association_ref = ref_node && ref_node.$("ancestor::px:Entity[1]/parent::px:Association")
     if (typeof (request_or_entity_name) == 'string') {
-        let parts = request_or_entity_name.split('/') || [];
-        entity_name = parts.pop();
-        schema = parts.pop();
-        mode = (mode || "view");
+        ({ fields, schema, name: entity_name, mode, identity, primary, predicate: filters, page_index, page_size } = px.getEntityFields(request_or_entity_name));
+        //request["filters"] = Object.fromEntries(url.searchParams.entries());
+        //[schema, entity_name, mode = args[1]] = url.pathname.substring(1).split(/[\/~]/);
     }
-    if (request_or_entity_name.constructor === {}.constructor) {
-        ({ schema, name: entity_name } = request_or_entity_name);
-        //schema = request_or_entity_name["schema"]
-        //entity_name = (schema ? "[" + schema + "]." : "") + request_or_entity_name["name"];
-        if (!schema) {
-            let full_name = entity_name;
-            [, schema, entity_name] = String(full_name).match(/^\s*\[([^\]]+)\]\.\[(.+)\]\s*$/i);
-        }
-        mode = (mode || request_or_entity_name["mode"] || "view");
-        page_index = request_or_entity_name["pageIndex"];
-        page_size = request_or_entity_name["pageSize"];
-        filters = (request_or_entity_name["filters"] || filters);
-        on_success = (request_or_entity_name["on_success"] || on_success);
-        rebuild = request_or_entity_name["rebuild"]
-    }
-    let identity, primary;
-    [mode, identity] = mode.split(':');
-    [mode, ...primary] = mode.split('/');
-    //primary = primary.filter((item, ix) => ix % 2 != 0) 
-    page_size = (page_size || xover.manifest.getSettings(`#${schema}/${mode}:${entity_name}`, "pageSize").pop());
-    page_index = (page_index || xover.manifest.getSettings(`#${schema}/${mode}:${entity_name}`, "pageIndex").pop());
-    let mock_section = xo.Section(xo.xml.createDocument(`<entity ${xover.json.toAttributes({ filters, mode, page_size, page_index, Name: entity_name, Schema: schema })}/>`), { tag: `${schema}/${mode}:${entity_name}`.toLowerCase() });
-    let other_filters = xo.manifest.getSettings(mock_section, 'filters').pop();
-    if (other_filters && other_filters[0] === '`') {
-        let entity = { schema: schema, name: entity_name };
-        other_filters = eval(other_filters.replace(/\\/g, '\\\\')).replace(/\\b/g, '\\b');
-    }
-    filters = [filters, other_filters].filter(f => f).join(' AND ').replace(/'/g, "''");
+    mode = (mode || request["mode"] || "view");
+    page_index = request["page_index"] || page_index;
+    page_size = request["page_size"] || page_size;
+    filters = (request["filters"] || filters);
+    on_success = (request["on_success"] || on_success);
+    rebuild = request["rebuild"]
 
-    //var current_location = window.location.hash.match(/#(\w+):(\w+)/);
+    //primary = primary.filter((item, ix) => ix % 2 != 0) 
+    page_size = (page_size || xover.manifest.getSettings(`#${schema}/${entity_name}~${mode}`, "pageSize").pop());
+    page_index = (page_index || xover.manifest.getSettings(`#${schema}/${entity_name}~${mode}`, "pageIndex").pop());
+    let mock_section = xo.Section(xo.xml.createDocument(`<entity ${xover.json.toAttributes({ filters, mode, page_size, page_index, Name: entity_name, Schema: schema })}/>`), { tag: `${schema}/${entity_name}~${mode}`.toLowerCase() });
+    let other_filters = Object.fromEntries(xo.manifest.getSettings(mock_section, 'filters'));
+    filters = Object.assign(filters, other_filters);
+    ////if (other_filters && other_filters[0] === '`') {
+    ////    let entity = { schema: schema, name: entity_name };
+    ////    other_filters = eval(other_filters.replace(/\\/g, '\\\\')).replace(/\\b/g, '\\b');
+    ////}
+    //filters = [...Object.entries(filters), ...Object.entries(other_filters)].map(([key, value]) => `[${key}]='${value.replace(/'/g,"''")}'`).join(' AND ')+'&';
+    ////filters = [filters, other_filters].filter(f => f).join(' AND ').replace(/'/g, "''");
+
+    ////var current_location = window.location.hash.match(/#(\w+):(\w+)/);
     rebuild = ((xover.listener.keypress.altKey || xover.session.autoRebuild) ? '1' : [rebuild, 'DEFAULT'].coalesce());
     let current_section = xover.sections.active;
     current_section.state.busy = true;
     try {
-        let Response = await xover.server.request(`command=[#entity].request @@user_id=NULL, @full_entity_name='[${schema}].[${entity_name}]', @mode=${(!mode ? 'DEFAULT' : `'${mode}'`)}, @page_index=${(page_index || 'DEFAULT')}, @page_size=${(page_size || 'DEFAULT')}, @max_records=DEFAULT, @control_type=DEFAULT, @Filters=${(!filters ? 'DEFAULT' : `'${encodeURIComponent(filters)}'`)}, @lang=es, @rebuild=${rebuild}, @column_list=DEFAULT, @output=HTML`, {
+        let Response = await xover.server.request(`command=[#entity].request @@user_id=NULL, @full_entity_name='[${schema}].[${entity_name}]', @mode=${(!mode ? 'DEFAULT' : `'${mode}'`)}, @page_index=${(page_index || 'DEFAULT')}, @page_size=${(page_size || 'DEFAULT')}, @max_records=DEFAULT, @control_type=DEFAULT, @Filters=DEFAULTS, @lang=es, @rebuild=${rebuild}, @column_list=DEFAULT, @output=HTML`, {
             headers: {
                 "Content-Type": 'text/xml'
                 , "Accept": 'text/xml'
@@ -211,14 +236,16 @@ px.request = async function (request_or_entity_name, mode, filters, ref) {
                 , "x-Debugging": xover.debug.enabled
             }
         })
-        Request.requester = ref;
+        //Request.requester = ref;
         if (!(Response instanceof xover.Section) && Response && Response.documentElement) {
-            Response.$$('//px:Entity').set("@meta:type", "entity")
+            Response = Response.transform("xover/databind.xslt")
+            Response.$$('//px:Entity').set("meta:type", "entity")
             let control_type = Response.$('//px:Entity').get("xsi:type").replace(':control', '.xslt')
             Response.addStylesheet({ href: control_type, target: "@#shell main" });
             Response.documentElement.setAttributeNS(xover.spaces["xmlns"], "xmlns:data", "http://panax.io/source");
             association_ref && Response.documentElement.$$(`*[local-name()="layout"]/association:*[@name="${association_ref.get("AssociationName")}"]`).remove()
-            px.loadData(Response.$('px:Entity'), mode == 'add' && { identity: null, primary: [null] } || { identity, primary })
+            px.loadData(Response.$('px:Entity'), mode == 'add' && { identity: null, primary: [null] } || { identity, primary, filters });
+            //Response.documentElement.getAttributeNode('data:rows').set(value => value.replace(/\?(.*)#:=/, `?${filters || ''}&#:=`))
             return Response;
             /*
             <?xml-stylesheet type="text/xsl" href="form.xslt" target="@#shell main"?><?xml-stylesheet type="text/xsl" href="title.xslt" target="@#shell nav header h1"?><?xml-stylesheet type="text/xsl" href="shell_buttons.xslt" target="@#shell #shell_buttons" action="replace"?>
@@ -267,10 +294,11 @@ px.setAttributes = function (target, attribute, value) {
 }
 
 px.loadData = function (entity, keys) {
-    keys = Object.assign({ identity: undefined, primary: [] }, keys)
-    pks = []
-    id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => [key, keys.identity])
-    pks = entity.$$(`px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map((key, ix) => [key, keys.primary[ix]])
+    if (entity.$('data:rows')) return;
+    keys = Object.assign({ identity: undefined, primary: [] }, keys);
+    let id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => [key, keys.identity]);
+    let pks = entity.$$(`px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map((key, ix) => [key, keys.primary[ix]]);
+    let filters = Object.entries(keys["filters"] || {});
     constraints = [...id, ...pks]
 
     let fields = Object.fromEntries(constraints.map(([key]) => key).concat(entity.$$('px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name')).map(field => [`${field.parentNode.nodeName == 'px:Association' && 'meta:' || ''}${field.value}`, `#panax.${field.parentNode.$("self::*[@DataType='nvarchar' or @DataType='foreignKey']") ? 'prepareString' : 'prepareValue'}(` + (field.parentNode.$("self::px:Association") && `(SELECT ${field.parentNode.$("px:Entity/@displayText|px:Entity[not(@displayText)]/@combobox:text").value} FROM [${field.parentNode.$("px:Entity/@Schema").value}].[${field.parentNode.$("px:Entity/@Name").value}] #parent WHERE ${field.parentNode.$$('px:Mappings/px:Mapping').map(map => '[' + entity.get("Name") + '].[' + map.get("Referencer") + '] = #parent.[' + map.get("Referencee") + ']').join(' AND ')})` || `[${field.value}]`) + ')']))
@@ -286,7 +314,11 @@ px.loadData = function (entity, keys) {
     fields["meta:orderBy"] = entity.get("custom:sortBy")
 
     let formatValue = (value => (isNumber(value) || value === null) && String(value) || value !== undefined && `'${value}'` || '');
-    let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => `[${key}] IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})`).join('AND')
+    constraints = constraints.concat([...filters]);
+
+    let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => (key instanceof Attr || value) && `[${key}] IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})` || key).join('AND')
+    Object.entries(predicate).map(([key, value]) => value && `[${key}]='${value.replace(/'/g, "''")}'` || key).join(' AND ')
+
     let parent_entity = entity.$('ancestor::px:Entity[1]');
     if (parent_entity && parent_entity.$('data:rows/*')) {
         let parent_relationship = entity.$('parent::px:Association[not(@Type="belongsTo")]/px:Mappings')
@@ -294,11 +326,8 @@ px.loadData = function (entity, keys) {
         predicate && mappings.unshift(predicate);
         predicate = mappings.join(' AND ')
     }
-    entity.setAttribute("data:rows", `${Object.entries(fields).filter(([, value]) => value).map(([key, value]) => `[@${key}]=${value}`).join(',')}~>[${entity.get("Schema")}].[${entity.get("Name")}]=>${predicate || ''}#:=1/${!parent_entity ? '100' : '1000'}`)
-}
-
-px.getEntityFields = async function (entity) {
-
+    entity.setAttribute("data:rows", `${entity.get("Schema")}/${entity.get("Name")}#${Object.entries(fields).filter(([, value]) => value).map(([key, value]) => `[@${key}]=${value}`).join(',')}?${predicate || ''}&#:=1/${!parent_entity ? '100' : '1000'}`)
+    let section = entity.section;
 }
 
 px.getData = async function (...args) {
@@ -308,17 +337,21 @@ px.getData = async function (...args) {
     if (node) {
         let command = parameters;
         let attribute_base_name = node.localName;
-        let fields, request;
+        let fields, request, predicate;
         if (typeof (parameters) === 'string') {
-            //let [request_with_fields, ...predicate] = command.split(/=>|&filters=/);
-            //let [fields, request] = comnd.match('(?:(.*)~>)?(.+)');
-            [rest, page] = parameters.indexOf("#:=") != -1 && parameters.split("#:=") || [parameters, "1/20"];
-            [rest, predicate = ''] = rest.split("=>");
-            [fields, request] = rest.indexOf("~>") != -1 && rest.split("~>") || ["*", rest];
-            //let [, fields, request, predicate = ''] = command.match('(?:(.*)~>|^)?((?:(?<!=>).)+)(?:=>(.+))?$');
+            ({ fields, schema, name, mode, identity, primary, predicate, page_index, page_size } = px.getEntityFields(parameters));
+            request = `[${schema}].[${name}]`
+            ////let [request_with_fields, ...predicate] = command.split(/=>|&filters=/);
+            ////let [fields, request] = comnd.match('(?:(.*)~>)?(.+)');
+            //[rest, page] = parameters.indexOf("#:=") != -1 && parameters.split("#:=") || [parameters, "1/20"];
+            //[rest, predicate = ''] = rest.split("=>");
+            //[fields, request] = rest.indexOf("~>") != -1 && rest.split("~>") || ["*", rest];
+            ////let [, fields, request, predicate = ''] = command.match('(?:(.*)~>|^)?((?:(?<!=>).)+)(?:=>(.+))?$');
 
             /*TODO: Mover esto a un listener o definir */
-            parameters = (node.getAttribute('source_filters:' + attribute_base_name) || predicate || "");
+            //parameters = (node.getAttribute('source_filters:' + attribute_base_name) || predicate || "");
+            predicate = Object.fromEntries(Object.entries(predicate));
+            parameters = Object.entries(predicate).map(([key, value]) => value && `[${key}]='${value.replace(/'/g, "''")}'` || key).join(' AND ')
         }
         let root_node = node.prefix.replace(/^request$/, "source") + ":" + attribute_base_name;
         let headers = new Headers(xover.json.merge(settings["headers"] instanceof Headers && Object.fromEntries(settings["headers"].entries()), {
@@ -330,13 +363,13 @@ px.getData = async function (...args) {
             , "x-original-request": command
             , "x-namespaces": `'${node.resolveNS(node.prefix)}' as ${node.prefix}`
             , "x-Root-Node": root_node
-            , "x-Page-Index": page.split("/")[0]
-            , "x-Page-Size": page.split("/")[1]
+            , "x-Page-Index": page_index
+            , "x-Page-Size": page_size
             , "x-Detect-Missing-Variables": "false"
             , "x-Debugging": xover.debug.enabled
             , "x-data-text": encodeURIComponent(node.getAttribute('source_text:' + attribute_base_name) || node.getAttribute('dataText') || "")
             , "x-data-value": encodeURIComponent(node.getAttribute('source_value:' + attribute_base_name) || node.getAttribute('dataValue') || "")
-            , "x-data-fields": encodeURIComponent(node.getAttribute('source_fields:' + attribute_base_name) || fields || "")
+            , "x-data-fields": fields || ""
             , "x-order-by": node.parentNode && node.parentNode.get("custom:sortBy")
         }))
         settings["headers"] = headers;
@@ -357,6 +390,27 @@ px.getData = async function (...args) {
         return Promise.reject(e)
     }
 }
+
+px.navigateTo = function (hashtag, ref_id) {
+    ref_id = ref_id || (event.srcElement.scope.$("data:rows/@xo:id") || {}).value;
+    hashtag = (hashtag || "").replace(/^([^#])/, '#$1');
+    if ([xo.site.seed, ...(xo.site.activeTags() || [])].includes(hashtag) || xover.sections[hashtag].isRendered) { //TODO: Revisar si isRendered siempre 
+        xo.site.active = hashtag;
+    } else {
+        xo.site.next = hashtag;
+
+        let public_hashtag = hashtag//Array.prototype.coalesce(public_hashtag || hashtag)
+        var prev = (history.state["prev"] || [])
+        prev.unshift({ section: xo.site.seed, ref: ref_id })
+        history.pushState({
+            seed: hashtag
+            //, active: hashtag
+            , prev: prev
+        }, ((event || {}).target || {}).textContent, public_hashtag);
+    }
+    xover.sections.active.render();
+}
+
 
 function saveConfiguration() {
     xo.sections.active.documentElement.$$('//px:Record/*/@prev:*').map(attr => [`[${attr.parentNode.$('ancestor::px:Entity[1]').get('Schema')}].[${attr.parentNode.$('ancestor::px:Entity[1]').get('Name')}]`, (attr.parentNode.get("AssociationName") || attr.parentNode.get("Name")), `@${attr.localName}`, attr.parentNode.get(attr.localName)]).map(el => el.map(item => `'${item}'`)).forEach(config => xo.server.request({ command: "[#entity].[config]", parameters: config }, {}).then(response => response.render && response.render()))
@@ -409,45 +463,22 @@ function submit(data_rows) {
         }
         row.setAttribute("xmlns:session", "http://panax.io/session")
         payload = xover.xml.createDocument(`<x:post xmlns:x="http://panax.io/xover" xmlns:session="http://panax.io/session"><x:source>${row.toString()}</x:source><x:submit>${post.toString()}</x:submit></x:post>`);
-        xover.server.submit(payload, { responseHandler: (return_value, request, response) => [return_value, request, response] })
-            .then(([result, request]) => {
-                if (result.$$('//result').every(r => r.get("status") == 'success')) {
-                    if (entity.get("control:type").indexOf('form') != -1) {
-                        entity.ownerDocument.section.remove();
-                    } else {
-                        entity.$$('//data:rows').remove()
-                    }
-                }
-            }).catch(response => {
-                try {
-                    let message = response.documentElement.$$(`//results/result[@status='error']`).map(r => r.get("statusMessage")).join('<br/>')
-                    xo.dom.alert(message)
-                } catch (e) {
-                    xo.dom.alert(e)
-                }
+        let loading = xo.sources["loading.xslt"].render()
+        xover.server.submit(payload, { detail: entity }, (return_value, request, response) => [return_value, request, response])
+            .finally(() => {
+                loading.then(el => el.flat(Infinity).removeAll());
             })
     }
-    //xo.server.post({
-    //    body: body
-    //})
 }
 
-px.navigateTo = function (hashtag, ref_id) {
-    ref_id = ref_id || (event.srcElement.scope.$("data:rows/@xo:id") || {}).value;
-    hashtag = (hashtag || "").replace(/^([^#])/, '#$1');
-    if ([xo.site.seed, ...(xo.site.activeTags() || [])].includes(hashtag) || xover.sections[hashtag].isRendered) { //TODO: Revisar si isRendered siempre 
-        xo.site.active = hashtag;
-    } else {
-        xo.site.next = hashtag;
-
-        let public_hashtag = hashtag//Array.prototype.coalesce(public_hashtag || hashtag)
-        var prev = (history.state["prev"] || [])
-        prev.unshift({ section: xo.site.seed, ref: ref_id })
-        history.pushState({
-            seed: hashtag
-            //, active: hashtag
-            , prev: prev
-        }, ((event || {}).target || {}).textContent, public_hashtag);
+xo.listener.on('success::server:submit', function () {
+    let [result, request] = this
+    let entity = (request.settings || {})["detail"];
+    if (result.$$('//result').every(r => r.get("status") == 'success')) {
+        if (entity.get("control:type").indexOf('form') != -1) {
+            entity.ownerDocument.section.remove();
+        } else {
+            entity.$$('//data:rows').remove()
+        }
     }
-    xover.sections.active.render();
-}
+})

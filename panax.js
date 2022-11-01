@@ -464,10 +464,13 @@ function submit(data_rows) {
         row.setAttribute("xmlns:session", "http://panax.io/session")
         payload = xover.xml.createDocument(`<x:post xmlns:x="http://panax.io/xover" xmlns:session="http://panax.io/session"><x:source>${row.toString()}</x:source><x:submit>${post.toString()}</x:submit></x:post>`);
         let loading = xo.sources["loading.xslt"].render()
-        xover.server.submit(payload, { detail: entity }, (return_value, request, response) => [return_value, request, response])
-            .finally(() => {
-                loading.then(el => el.flat(Infinity).removeAll());
-            })
+        xover.server.submit(payload, { detail: entity }, (return_value, request, response) => [return_value, request, response]
+        ).catch(result => {
+            let result_document = result.document
+            result_document instanceof Document && result_document.$$('//result[@status="error"]/@statusMessage').forEach(el => el.render())
+        }).finally(() => {
+            loading.then(el => el.flat(Infinity).removeAll());
+        })
     }
 }
 

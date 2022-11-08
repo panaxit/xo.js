@@ -62,10 +62,19 @@ xo.listener.on(`change::px:Entity/data:rows/xo:r/@*[not(contains(namespace-uri()
 })
 
 xo.listener.on('change::@data:rows', function ({ old: prev }) {
-
     let current = this.parentNode.$(`data:rows[@command="${prev}"]`)
     current && current.remove();
     if (!this.parentNode.$('data:rows')) {
+        let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
+        data_rows.reseed();
+        data_rows.set("command", this.value);
+        this.parentNode.append(data_rows);
+    }
+})
+
+xo.listener.on('change::data:rows/@command', function ({ old: prev }) {
+    this.parentNode.select('xo:r').removeAll()
+    if (!this.parentNode.$('xo:r')) {
         let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
         data_rows.reseed();
         data_rows.set("command", this.value);
@@ -97,11 +106,11 @@ xo.listener.on('appendTo::data:rows', function () {
     }
 })
 
-xo.listener.on('beforeChange::@headerText', function ({ element, attribute, value, old }) {
-    if (!element.has(`initial:${attribute.localName}`)) {
-        element.set(`initial:${attribute.localName}`, old)
+xo.listener.on(['beforeChange::@headerText', 'beforeChange::@container:*'], function ({ element, attribute, value, old }) {
+    if (!element.has(`initial:${attribute.prefix && attribute.prefix+ '-' || ''}${attribute.localName}`)) {
+        element.set(`initial:${attribute.prefix && attribute.prefix + '-' || ''}${attribute.localName}`, old)
     }
-    element.set(`prev:${attribute.localName}`, old)
+    element.set(`prev:${attribute.prefix && attribute.prefix + '-' || ''}${attribute.localName}`, old)
     event.detail.value = event.detail.value.replace(/:/g, '').trim()
 })
 
@@ -413,7 +422,7 @@ px.navigateTo = function (hashtag, ref_id) {
 
 
 function saveConfiguration() {
-    xo.sections.active.documentElement.$$('//px:Record/*/@prev:*').map(attr => [`[${attr.parentNode.$('ancestor::px:Entity[1]').get('Schema')}].[${attr.parentNode.$('ancestor::px:Entity[1]').get('Name')}]`, (attr.parentNode.get("AssociationName") || attr.parentNode.get("Name")), `@${attr.localName}`, attr.parentNode.get(attr.localName)]).map(el => el.map(item => `'${item}'`)).forEach(config => xo.server.request({ command: "[#entity].[config]", parameters: config }, {}).then(response => response.render && response.render()))
+    xo.sections.active.documentElement.$$('//px:Record/*/@prev:*').map(attr => [`[${attr.parentNode.$('ancestor::px:Entity[1]').get('Schema')}].[${attr.parentNode.$('ancestor::px:Entity[1]').get('Name')}]`, (attr.parentNode.get("AssociationName") || attr.parentNode.get("Name")), `@${attr.localName.replace('-', ':')}`, attr.parentNode.get(attr.localName.replace('-', ':'))]).map(el => el.map(item => `'${item}'`)).forEach(config => xo.server.request({ command: "[#entity].[config]", parameters: config }, {}).then(response => response.render && response.render()))
 }
 
 function submit(data_rows) {

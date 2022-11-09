@@ -72,7 +72,7 @@ xo.listener.on('change::@data:rows', function ({ old: prev }) {
     }
 })
 
-xo.listener.on('change::data:rows/@command', function ({ old: prev }) {
+xo.listener.on('change::px:Entity/data:rows/@command', function ({ old: prev }) {
     this.parentNode.select('xo:r').removeAll()
     if (!this.parentNode.$('xo:r')) {
         let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);

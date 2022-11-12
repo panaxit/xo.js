@@ -107,7 +107,7 @@ xo.listener.on('appendTo::data:rows', function () {
 })
 
 xo.listener.on(['beforeChange::@headerText', 'beforeChange::@container:*'], function ({ element, attribute, value, old }) {
-    if (!element.has(`initial:${attribute.prefix && attribute.prefix+ '-' || ''}${attribute.localName}`)) {
+    if (!element.has(`initial:${attribute.prefix && attribute.prefix + '-' || ''}${attribute.localName}`)) {
         element.set(`initial:${attribute.prefix && attribute.prefix + '-' || ''}${attribute.localName}`, old)
     }
     element.set(`prev:${attribute.prefix && attribute.prefix + '-' || ''}${attribute.localName}`, old)
@@ -454,8 +454,10 @@ function submit(data_rows) {
             post.append(xo.xml.createNode(`<dataTable xmlns="http://panax.io/persistence" name="[${entity.get("Schema")}].[${entity.get("Name")}]"${id ? ` identityKey="${id.get("Name")}"` : ''}>
     <insertRow>${entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula)]').map((field) => {
                 let field_name = field.get("Name");
-                let isPK = field.$(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey[@Field_Name="${field_name}"]`)
-                return `<field name="${field.get("Name")}"${isPK ? ` isPK="true"` : ''}>${[row.get(field.get("Name"))].map(val => !val && (field.get("defaultValue") || 'null') || `'${val}'`)}</field>`
+                let isPK = field.$(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey[@Field_Name="${field_name}"]`);
+                let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field.get("Name")}"${isPK ? ` isPK="true"` : ''}/>`);
+                field_node.textContent = [row.get(field.get("Name"))].map(val => !val && (field.get("defaultValue") || 'null') || `'${val}'`);
+                return field_node.toString();
             }).join('')
                 }</insertRow></dataTable>`))
 
@@ -464,8 +466,13 @@ function submit(data_rows) {
                 let field_name = field.get("Name");
                 let new_value = row.get(field_name);
                 let isPK = field.$(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey[@Field_Name="${field_name}"]`)
+                let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field.get("Name")}"${isPK ? ` isPK="true"` : ''}/>`);
+                if (isPK) {
+                    field_node.set("currentValue", row.get(`initial:${field.get("Name")}`) || row.get(field.get("Name")));
+                }
+                field_node.textContent = [new_value].map(val => !val && 'null' || `'${val}'`);
 
-                return `<field name="${field.get("Name")}"${isPK ? ` currentValue="'${row.get(`initial:${field.get("Name")}`) || row.get(field.get("Name"))}'" isPK="true"` : ''}>${[new_value].map(val => !val && 'null' || `'${val}'`)}</field>`
+                return field_node.toString()
             }
             ).join('')
                 }</updateRow></dataTable>`))
@@ -484,10 +491,15 @@ function submit(data_rows) {
 }
 
 xo.listener.on('success::server:submit', function () {
+    let prev = (xo.site.prev || [])[0] || {};
+    let ref_section = xo.sections[prev.section || prev];
+    let ref_node = ref_section && prev.ref && ref_section.findById(prev.ref) || null;
     let [result, request] = this
     let entity = (request.settings || {})["detail"];
     if (result.$$('//result').every(r => r.get("status") == 'success')) {
         if (entity.get("control:type").indexOf('form') != -1) {
+            ref_node && ref_node.select("ancestor::px:Entity[1]/data:rows/*").removeAll();
+            ref_section && ref_section.$$(`//px:Entity[@Schema="${entity.get("Schema")}" and @Name="${entity.get("Name")}"]/data:rows/*`).removeAll()
             entity.ownerDocument.section.remove();
         } else {
             entity.$$('//data:rows').remove()

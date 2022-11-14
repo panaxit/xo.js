@@ -250,7 +250,7 @@ px.request = async function (...args) {
             Response = Response.transform("xover/databind.xslt")
             Response.$$('//px:Entity').set("meta:type", "entity")
             let control_type = Response.$('//px:Entity').get("xsi:type").replace(':control', '.xslt')
-            Response.addStylesheet({ href: control_type, target: "@#shell main" });
+            Response.addStylesheet({ href: "px-Entity.xslt", target: "@#shell main" });
             Response.documentElement.setAttributeNS(xover.spaces["xmlns"], "xmlns:data", "http://panax.io/source");
             association_ref && Response.documentElement.$$(`*[local-name()="layout"]/association:*[@name="${association_ref.get("AssociationName")}"]`).remove()
             px.loadData(Response.$('px:Entity'), mode == 'add' && { identity: null, primary: [null] } || { identity, primary, filters });
@@ -483,7 +483,15 @@ function submit(data_rows) {
         xover.server.submit(payload, { detail: entity }, (return_value, request, response) => [return_value, request, response]
         ).catch(result => {
             let result_document = result.document
-            result_document instanceof Document && result_document.$$('//result[@status="error"]/@statusMessage').forEach(el => el.render())
+            if (result_document instanceof Document) {
+                result_document.$$('//result[@status="error"]/@statusMessage').forEach(el => el.render())
+            } else if (result_document && result_document.render) {
+                result_document.render()
+            } else if (result.render) {
+                result.render()
+            } else {
+                throw (result);
+            }
         }).finally(() => {
             loading.then(el => el.flat(Infinity).removeAll());
         })

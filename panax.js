@@ -172,9 +172,10 @@ px.getEntityFields = function (source) {
         [fields, predicate = ''] = (url.hash || url.search).split('?');
         fields = fields.replace(/^#/, '');
         ({ searchParams: predicate, hash: settings = '' } = xover.URL('?' + predicate));
-        [schema, name, mode = ''] = url.pathname.replace(/^\//, '').split(/[\/~]/);
-        [mode, identity] = mode.split(':');
-        [mode, ...primary] = mode.split('/');
+        let href = url.pathname.replace(/^\//, '');
+        [href, mode = ''] = href.split(/~/);
+        [href, identity] = href.split(/:/);
+        [schema, name, ...primary] = href.split(/\//);
         [page_index, page_size] = settings.replace(/^#:=/, '').split('/');
         page_index = page_index || undefined;
         predicate = Object.fromEntries(predicate.entries())

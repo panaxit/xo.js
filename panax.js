@@ -95,7 +95,7 @@ xo.listener.on('appendTo::data:rows', function () {
         //let identity, primary
         //association.$$('px:Mappings/px:Mapping').map(mapping => association.get("DataType") == 'belongsTo' && [mapping.get("Referencer"), node.get(mapping.get("Referencer"))] || mapping.get())
         entity = association.$(`px:Entity`);
-        //px.loadData(entity);
+        px.loadData(entity);
     });
     let section = this.ownerDocument.section;
     if (section && !this.selectFirst("px:Association")) {
@@ -388,7 +388,7 @@ px.getData = async function (...args) {
     args.push(settings);
     try {
         let response = await xo.server.request.apply(this, args);
-        let entity = node.parentElement.$('self::px:Entity[@mode="add"][not(parent::px:Association)]')
+        let entity = node.parentElement.$('self::px:Entity[ancestor-or-self::*[@mode="add"] and not(parent::px:Association[@Type="hasMany"])]')
         //let entity = node.$('parent::px:Entity[//px:Entity[@mode="add"]]')
         if (entity && !(response.documentElement.firstElementChild)) {
             let fields = [...new Set(entity.$$('px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name').map(field => ((field.parentNode.nodeName == 'px:Association' ? 'meta:' : '') + field.value) + '=""'))].join(' ')

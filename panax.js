@@ -55,6 +55,7 @@ xo.listener.on(`beforeChange::xo:r/@meta:*`, function ({ node, element, attribut
     event.detail.value = option.value && option.text || "";
 })
 
+const CONVERT = function (type, ...args) { return args }
 xo.listener.on(`change::px:Entity/data:rows/xo:r/@*[not(contains(namespace-uri(),'http://panax.io/'))]`, function ({ element: row, attribute, old, value }) {
     if (old != value) {
         row.$$(`ancestor::px:Entity[1]/px:Record/px:Field/@formula`).map(attr => [attr.parentNode.get("Name"), attr.value.replace(/\[([^\]]+)\]/g, (field) => row.get(field.substring(1, field.length - 1)) || 0)]).forEach(([key, formula]) => row.set(key, eval(formula)))
@@ -139,9 +140,9 @@ px.editSelectedOption = function (src_element) {
     pks = entity.$$(`px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map(key => selected_record.get(key.value));
     let href
     if (id.length) {
-        href = `#${entity.get("Schema")}/${entity.get("Name")}~edit:${id.join("/")}`
+        href = `#${entity.get("Schema")}/${entity.get("Name")}:${id.join("/")}~edit`
     } else if (pks.length) {
-        href = `#${entity.get("Schema")}/${entity.get("Name")}~edit/${pks.join("/")}`
+        href = `#${entity.get("Schema")}/${entity.get("Name")}/${pks.join("/")}~edit`
     } else {
         return Promise.reject("No se puede editar el registro")
     }
@@ -172,9 +173,10 @@ px.getEntityFields = function (source) {
         [fields, predicate = ''] = (url.hash || url.search).split('?');
         fields = fields.replace(/^#/, '');
         ({ searchParams: predicate, hash: settings = '' } = xover.URL('?' + predicate));
-        [schema, name, mode = ''] = url.pathname.replace(/^\//, '').split(/[\/~]/);
-        [mode, identity] = mode.split(':');
-        [mode, ...primary] = mode.split('/');
+        let href = url.pathname.replace(/^\//, '');
+        [href, mode] = href.split(/~/);
+        [href, identity] = href.split(/:/);
+        [schema, name, ...primary] = href.split(/\//);
         [page_index, page_size] = settings.replace(/^#:=/, '').split('/');
         page_index = page_index || undefined;
         predicate = Object.fromEntries(predicate.entries())

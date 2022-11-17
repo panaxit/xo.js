@@ -432,11 +432,11 @@ function submit(data_rows) {
     let ref_section = xo.sections[prev.section];
     let ref_node = ref_section && ref_section.findById(prev.ref) || null;
 
-    //if (ref_node) {
-    //    ref_node.append(...data_rows)
-    //    history.go(-1)
-    //    return
-    //}
+    if (ref_node) {
+        ref_node.append(...data_rows)
+        history.go(-1)
+        return
+    }
     for (let row of data_rows) {
         let post = xo.xml.createNode(`<batch xmlns="http://panax.io/persistence" xmlns:state="http://panax.io/state" xmlns:session="http://panax.io/session"/>`)
         let entity = row.$('ancestor::px:Entity[1]');
@@ -499,6 +499,14 @@ function submit(data_rows) {
         })
     }
 }
+
+xo.listener.on('load::px:Entity', function () {
+    let document = this;
+    let prev = (xo.site.prev || [])[0] || {};
+    let ref_section = xo.sections[prev.section];
+    let ref_node = ref_section && ref_section.findById(prev.ref) || null;
+    ref_node && ref_node.$$('ancestor::px:Association[1]').map(el => document.$(`px:Entity/*[local-name()="layout"]/association:ref[@Name="${el.get("AssociationName")}"]`)).forEach(el => el.remove())
+})
 
 xo.listener.on('success::server:submit', function () {
     let prev = (xo.site.prev || [])[0] || {};

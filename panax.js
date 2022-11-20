@@ -107,9 +107,9 @@ xo.listener.on('appendTo::data:rows', function () {
     if (section && !this.selectFirst("px:Association")) {
         section.render()
     }
-    if (this.parentNode instanceof Document) {
-        console.log(this)
-    }
+    //if (this.parentNode instanceof Document) {
+    //    console.log(this)
+    //}
 })
 
 xo.listener.on(['beforeChange::@headerText', 'beforeChange::@container:*'], function ({ element, attribute, value, old }) {
@@ -430,6 +430,7 @@ px.navigateTo = function (hashtag, ref_id) {
             //, active: hashtag
             , prev: prev
         }, ((event || {}).target || {}).textContent, public_hashtag);
+        xo.site.active = hashtag;
     }
     xover.sections.active.render();
 }
@@ -460,8 +461,10 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
             dataRow = xo.xml.createNode(`<deleteRow xmlns="http://panax.io/persistence"${id ? ` identityValue="${row.get(id.get("Name"))}"` : ''}/>`);
             entity.$$('px:Record/px:Field/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {
                 let isPK = field.$(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey[@Field_Name="${field}"]`)
+                let current_value = row.get(`${field}`);
+                current_value = !isNaN(Number(current_value)) ? Number(current_value) : current_value;
                 if (isPK) {
-                    let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}"${isPK ? ` currentValue="'${row.get(`initial:${field}`) || row.get(field.value)}'" isPK="true"` : ''}/>`)
+                    let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}"${isPK ? ` currentValue="'${row.get(`initial:${field}`) || current_value}'" isPK="true"` : ''}/>`)
                     dataRow.append(field_node);
                 }
             })
@@ -478,11 +481,17 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
             entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula)]/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {
                 let isPK = field.$(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey[@Field_Name="${field}"]`)
                 let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}"${isPK ? ` isPK="true"` : ''}/>`);
-                if (isPK) {
+                let current_value = row.get(`${field}`);
+                current_value = !isNaN(Number(current_value)) ? Number(current_value) : current_value;
+                let initial_value = row.getNode(`initial:${field}`);
+                initial_value = initial_value ? initial_value.value : current_value;
+                initial_value = !isNaN(Number(initial_value)) ? Number(initial_value) : initial_value;
+                let changed = initial_value != current_value;
+                if (isPK || changed) {
                     field_node.set("currentValue", row.get(`initial:${field}`) || row.get(field.value));
+                    field_node.textContent = [row.get(field.value)].map(val => !val && (field.$("../@defaultValue") || 'null') || `'${val}'`);
+                    dataRow.append(field_node);
                 }
-                field_node.textContent = [field].map(val => !val && 'null' || `'${val}'`);
-                dataRow.append(field_node);
             })
         }
         mappings.forEach(mapping => dataRow.insertFirst(xo.xml.createNode(`<fkey xmlns="http://panax.io/persistence" name="${mapping}" maps="${mapping.$("../@Referencee")}"/>`)))
@@ -499,7 +508,7 @@ px.submit = function (data_rows) {
     let ref_section = xo.sections[prev.section];
     let ref_node = ref_section && ref_section.findById(prev.ref) || null;
 
-    if (ref_node) {
+    if (ref_node && ref_node.$('ancestor::px:Association')) {
         ref_node.append(...data_rows)
         history.go(-1)
         return

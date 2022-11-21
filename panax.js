@@ -455,6 +455,7 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
     for (let row of data_rows) {
         let entity = row.$('ancestor-or-self::px:Entity[1]');
         let id = entity.$(`px:Record/px:Field[@IsIdentity="1"]/@Name`)
+        let primary_fields = entity.select("px:PrimaryKeys/px:PrimaryKey/@Field_Name");
         let dataTable = target.selectFirst(`*[contains(@name,"[${entity.get("Schema")}].[${entity.get("Name")}]")]`);
         let mappings = row.$$("ancestor::px:Association[1]/px:Mappings/px:Mapping/@Referencer");
         let dataRow;
@@ -470,7 +471,7 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
                 }
             })
         } else {
-            if (row.get(`${id}`)) {
+            if (id ? row.get(`${id}`) : primary_fields.filter(field => row.get(`initial:${field}`) != row.get(`${field}`))) {
                 dataRow = xo.xml.createNode(`<updateRow xmlns="http://panax.io/persistence"${id ? ` identityValue="${row.get(id.value)}"` : ''}/>`);
                 entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula)]/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {
                     let isPK = field.$(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey[@Field_Name="${field}"]`)
@@ -482,7 +483,7 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
                     initial_value = !isNaN(Number(initial_value)) ? Number(initial_value) : initial_value;
                     let changed = initial_value != current_value;
                     if (isPK || changed) {
-                        field_node.set("currentValue", row.get(`initial:${field}`) || row.get(field.value));
+                        field_node.set("currentValue", `'${row.get(`initial:${field}`) || row.get(field.value)}'`);
                         field_node.textContent = [row.get(field.value)].map(val => !val && (field.$("../@defaultValue") || 'null') || `'${val}'`);
                         dataRow.append(field_node);
                     }

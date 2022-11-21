@@ -69,7 +69,7 @@ xo.listener.on(`change::px:Entity/data:rows/xo:r/@*[not(contains(namespace-uri()
 xo.listener.on(['remove::data:rows', 'change::@data:rows'], function ({ old: prev }) {
     let current = this.parentNode.$(`data:rows[@command="${prev}"]`)
     current && current.remove();
-    if (!this.parentNode.$('data:rows')) {
+    if (!['remove::data:rows', 'change::@data:rows'].includes((event.srcEvent || {}).type) && !this.parentNode.$('data:rows')) {
         let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
         data_rows.reseed();
         data_rows.set("command", this.get("command") || this.value);
@@ -182,16 +182,16 @@ px.getEntityFields = function (source) {
     let fields, schema, name, mode, identity, primary, predicate, page_index, page_size;
     if (typeof (source) == 'string') {
         let url = xover.URL(source);
-        [fields, predicate = ''] = (url.hash || url.search).split('?');
+        predicate = url.searchParams;
+        ({ searchParams: settings, hash: fields = '' } = xover.URL(url.hash.replace(/^#/, '')));
         fields = fields.replace(/^#/, '');
-        ({ searchParams: predicate, hash: settings = '' } = xover.URL('?' + predicate));
         let href = url.pathname.replace(/^\//, '');
         [href, mode] = href.split(/~/);
         [href, identity] = href.split(/:/);
         [schema, name, ...primary] = href.split(/\//);
-        [page_index, page_size] = settings.replace(/^#:=/, '').split('/');
-        page_index = page_index || undefined;
-        predicate = Object.fromEntries(predicate.entries())
+        page_size = settings.get("pageSize");
+        page_index = settings.get("pageIndex");
+        predicate = Object.fromEntries(predicate.entries());
     }
     return { fields, schema, name, mode, identity, primary, predicate, page_index, page_size }
 }
@@ -267,7 +267,7 @@ px.request = async function (...args) {
             Response.addStylesheet({ href: "px-Entity.xslt", target: "@#shell main" });
             Response.documentElement.setAttributeNS(xover.spaces["xmlns"], "xmlns:data", "http://panax.io/source");
             association_ref && Response.documentElement.$$(`*[local-name()="layout"]/association:*[@name="${association_ref.get("AssociationName")}"]`).remove()
-            px.loadData(Response.$('px:Entity'), mode == 'add' && { identity: null, primary: [null] } || { identity, primary, filters });
+            px.loadData(Response.$('px:Entity'), mode == 'add' && { identity: null, primary: [null] } || { identity, primary, filters, page_size, page_index });
             //Response.documentElement.getAttributeNode('data:rows').set(value => value.replace(/\?(.*)#:=/, `?${filters || ''}&#:=`))
             return Response;
             /*
@@ -322,6 +322,8 @@ px.loadData = function (entity, keys) {
     let id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => [key, keys.identity]);
     let pks = entity.$$(`px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map((key, ix) => [key, keys.primary[ix]]);
     let filters = Object.entries(keys["filters"] || {});
+    let page_size = keys["page_size"];
+    let page_index = keys["page_index"];
     constraints = [...id, ...pks]
 
     let fields = Object.fromEntries(constraints.map(([key]) => key).concat(entity.$$('@custom:*|px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name')).map(field => field.prefix == 'custom' ? [`${field.nodeName}`, field.value] : [`${field.parentNode.nodeName == 'px:Association' && 'meta:' || ''}${field.value}`, `#panax.${field.parentNode.$("self::*[@DataType='nvarchar' or @DataType='foreignKey']") ? 'prepareString' : (field.parentNode.$("self::*[@DataType='xml']") ? 'prepareXML' : 'prepareValue')}(` + (field.parentNode.$("self::px:Association") && `(SELECT ${field.parentNode.$("px:Entity/@displayText|px:Entity[not(@displayText)]/@combobox:text").value} FROM [${field.parentNode.$("px:Entity/@Schema").value}].[${field.parentNode.$("px:Entity/@Name").value}] #parent WHERE ${field.parentNode.$$('px:Mappings/px:Mapping').map(map => '[' + entity.get("Name") + '].[' + map.get("Referencer") + '] = #parent.[' + map.get("Referencee") + ']').join(' AND ')})` || `[${field.value}]`) + ')']))
@@ -349,7 +351,7 @@ px.loadData = function (entity, keys) {
         predicate && mappings.unshift(predicate);
         predicate = mappings.join(' AND ')
     }
-    entity.setAttribute("data:rows", `${entity.get("Schema")}/${entity.get("Name")}#${Object.entries(fields).filter(([, value]) => value).map(([key, value]) => `[@${key}]=${value}`).join(',')}?${predicate || ''}&#:=1/${!parent_entity ? '100' : '1000'}`)
+    entity.setAttribute("data:rows", `${entity.get("Schema")}/${entity.get("Name")}?${predicate || ''}#?&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_entity ? '100' : '1000')}#${Object.entries(fields).filter(([, value]) => value).map(([key, value]) => `[@${key}]=${value}`).join(',')}`)
     let section = entity.section;
 }
 
@@ -434,7 +436,6 @@ px.navigateTo = function (hashtag, ref_id) {
     }
     xover.sections.active.render();
 }
-
 
 function saveConfiguration() {
     xo.sections.active.documentElement.$$('//px:Record/*/@prev:*').map(attr => [`[${attr.parentNode.$('ancestor::px:Entity[1]').get('Schema')}].[${attr.parentNode.$('ancestor::px:Entity[1]').get('Name')}]`, (attr.parentNode.get("AssociationName") || attr.parentNode.get("Name")), `@${attr.localName.replace('-', ':')}`, attr.parentNode.get(attr.localName.replace('-', ':'))]).map(el => el.map(item => `'${item}'`)).forEach(config => xo.server.request({ command: "[#entity].[config]", parameters: config }, {}).then(response => response.render && response.render()))

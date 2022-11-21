@@ -97,7 +97,7 @@ xo.listener.on('appendTo::data:rows', function () {
     //    }
     //}
     this.select("self::*[xo:r]/xo:empty").remove();
-    this.parentNode.filter("ancestor-or-self::*[@mode='add' or @mode='edit']").$$(`px:Record/px:Association`).forEach(association => {
+    this.parentNode.filter("ancestor-or-self::*[@mode='add' or @mode='edit']").$$(`px:Record/px:Association[not(@Type="belongsTo")]`).forEach(association => {
         //let identity, primary
         //association.$$('px:Mappings/px:Mapping').map(mapping => association.get("DataType") == 'belongsTo' && [mapping.get("Referencer"), node.get(mapping.get("Referencer"))] || mapping.get())
         entity = association.$(`px:Entity`);
@@ -341,7 +341,7 @@ px.loadData = function (entity, keys) {
     let formatValue = (value => (isNumber(value) || value === null) && String(value) || value !== undefined && `'${value}'` || '');
     constraints = constraints.concat([...filters]);
 
-    let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => (key instanceof Attr || value) && `[${key}] IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})` || key).join('AND')
+    let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => (key instanceof Attr || value) && `[${key}] IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})` || key).join(' AND ')
     Object.entries(predicate).map(([key, value]) => value && `[${key}]='${value.replace(/'/g, "''")}'` || key).join(' AND ')
 
     let parent_entity = entity.$('ancestor::px:Entity[1]');

@@ -98,7 +98,7 @@ xo.listener.on('appendTo::data:rows', function () {
     //}
     this.select("self::*[xo:r]/xo:empty").remove();
     this.parentNode.filter("ancestor-or-self::*[@mode='add' or @mode='edit']").$$(`px:Record/px:Association[not(@Type="belongsTo")]`).forEach(association => {
-        //let identity, primary
+        //let identity_value, primary_values
         //association.$$('px:Mappings/px:Mapping').map(mapping => association.get("DataType") == 'belongsTo' && [mapping.get("Referencer"), node.get(mapping.get("Referencer"))] || mapping.get())
         entity = association.$(`px:Entity`);
         px.loadData(entity);
@@ -179,7 +179,7 @@ px.getEntityInfo = function (input_document) {
 }
 
 px.getEntityFields = function (source) {
-    let fields, schema, name, mode, identity, primary, predicate, page_index, page_size;
+    let fields, schema, name, mode, identity_value, primary_values, predicate, settings;
     if (typeof (source) == 'string') {
         let url = xover.URL(source);
         predicate = url.searchParams;
@@ -187,18 +187,17 @@ px.getEntityFields = function (source) {
         fields = fields.replace(/^#/, '');
         let href = url.pathname.replace(/^\//, '');
         [href, mode] = href.split(/~/);
-        [href, identity] = href.split(/:/);
-        [schema, name, ...primary] = href.split(/\//);
-        page_size = settings.get("pageSize");
-        page_index = settings.get("pageIndex");
+        [href, identity_value] = href.split(/:/);
+        [schema, name, ...primary_values] = href.split(/\//);
+        settings = Object.fromEntries(settings.entries());
         predicate = Object.fromEntries(predicate.entries());
     }
-    return { fields, schema, name, mode, identity, primary, predicate, page_index, page_size }
+    return { fields, schema, name, mode, identity_value, primary_values, predicate, settings }
 }
 
 px.request = async function (...args) {
     let request = {};
-    let fields, schema, name, mode, identity, primary, filters, page_index, page_size;
+    let fields, schema, name, mode, identity_value, primary_values, filters, settings, page_index, page_size;
     if (args.length && args[args.length - 1].constructor === {}.constructor) {
         request = Object.assign(request, args.pop());
         ({ schema, name: entity_name } = request);
@@ -221,7 +220,11 @@ px.request = async function (...args) {
     }
     association_ref = ref_node && ref_node.$("ancestor::px:Entity[1]/parent::px:Association")
     if (typeof (request_or_entity_name) == 'string') {
-        ({ fields, schema, name: entity_name, mode, identity, primary, predicate: filters, page_index, page_size } = px.getEntityFields(request_or_entity_name));
+        ({
+            fields, schema, name: entity_name, mode, identity_value, primary_values, predicate: filters, settings: url_settings } = px.getEntityFields(request_or_entity_name));
+        page_size = url_settings["pageSize"];
+        page_index = url_settings["pageIndex"];
+
         //request["filters"] = Object.fromEntries(url.searchParams.entries());
         //[schema, entity_name, mode = args[1]] = url.pathname.substring(1).split(/[\/~]/);
     }
@@ -232,7 +235,7 @@ px.request = async function (...args) {
     on_success = (request["on_success"] || on_success);
     rebuild = request["rebuild"]
 
-    //primary = primary.filter((item, ix) => ix % 2 != 0) 
+    //primary_values = primary_values.filter((item, ix) => ix % 2 != 0)
     page_size = (page_size || xover.manifest.getSettings(`#${schema}/${entity_name}~${mode}`, "pageSize").pop());
     page_index = (page_index || xover.manifest.getSettings(`#${schema}/${entity_name}~${mode}`, "pageIndex").pop());
     let mock_section = xo.Section(xo.xml.createDocument(`<entity ${xover.json.toAttributes({ filters, mode, page_size, page_index, Name: entity_name, Schema: schema })}/>`), { tag: `${schema}/${entity_name}~${mode}`.toLowerCase() });
@@ -267,7 +270,7 @@ px.request = async function (...args) {
             Response.addStylesheet({ href: "px-Entity.xslt", target: "@#shell main" });
             Response.documentElement.setAttributeNS(xover.spaces["xmlns"], "xmlns:data", "http://panax.io/source");
             association_ref && Response.documentElement.$$(`*[local-name()="layout"]/association:*[@name="${association_ref.get("AssociationName")}"]`).remove()
-            px.loadData(Response.$('px:Entity'), mode == 'add' && { identity: null, primary: [null] } || { identity, primary, filters, page_size, page_index });
+            px.loadData(Response.$('px:Entity'), mode == 'add' && { identity_value: null, primary_values: [null] } || { identity_value, primary_values, filters, page_size, page_index });
             //Response.documentElement.getAttributeNode('data:rows').set(value => value.replace(/\?(.*)#:=/, `?${filters || ''}&#:=`))
             return Response;
             /*
@@ -318,9 +321,9 @@ px.setAttributes = function (target, attribute, value) {
 
 px.loadData = function (entity, keys) {
     if (entity.$('data:rows')) return;
-    keys = Object.assign({ identity: undefined, primary: [] }, keys);
-    let id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => [key, keys.identity]);
-    let pks = entity.$$(`px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map((key, ix) => [key, keys.primary[ix]]);
+    keys = Object.assign({ identity_value: undefined, primary_values: [] }, keys);
+    let id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => [key, keys.identity_value]);
+    let pks = entity.$$(`px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map((key, ix) => [key, keys.primary_values[ix]]);
     let filters = Object.entries(keys["filters"] || {});
     let page_size = keys["page_size"];
     let page_index = keys["page_index"];
@@ -338,7 +341,7 @@ px.loadData = function (entity, keys) {
     //}
     fields["meta:orderBy"] = entity.get("custom:sortBy")
 
-    let formatValue = (value => (isNumber(value) || value === null) && String(value) || value !== undefined && `'${value}'` || '');
+    let formatValue = (value => (isNumber(value) || value === null) && String(value) || value !== undefined && value[0]!="'" && `'${value}'` || value || '');
     constraints = constraints.concat([...filters]);
 
     let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => (key instanceof Attr || value) && `[${key}] IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})` || key).join(' AND ')
@@ -362,9 +365,12 @@ px.getData = async function (...args) {
     if (node) {
         let command = parameters;
         let attribute_base_name = node.localName;
-        let fields, request, predicate;
+        let fields, request, predicate, url_settings;
         if (typeof (parameters) === 'string') {
-            ({ fields, schema, name, mode, identity, primary, predicate, page_index, page_size } = px.getEntityFields(parameters));
+            ({
+                fields, schema, name, mode, identity_value, primary_values, predicate, settings: url_settings } = px.getEntityFields(parameters));
+            page_size = url_settings["pageSize"];
+            page_index = url_settings["pageIndex"];
             request = `[${schema}].[${name}]`
             ////let [request_with_fields, ...predicate] = command.split(/=>|&filters=/);
             ////let [fields, request] = comnd.match('(?:(.*)~>)?(.+)');
@@ -454,24 +460,22 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
     });
     for (let row of data_rows) {
         let entity = row.$('ancestor-or-self::px:Entity[1]');
-        let id = entity.$(`px:Record/px:Field[@IsIdentity="1"]/@Name`)
+        let id = entity.getNode('IdentityKey');
         let primary_fields = entity.select("px:PrimaryKeys/px:PrimaryKey/@Field_Name");
         let dataTable = target.selectFirst(`*[contains(@name,"[${entity.get("Schema")}].[${entity.get("Name")}]")]`);
         let mappings = row.$$("ancestor::px:Association[1]/px:Mappings/px:Mapping/@Referencer");
         let dataRow;
         if (row.$('self::*[@state:delete]')) {
             dataRow = xo.xml.createNode(`<deleteRow xmlns="http://panax.io/persistence"${id ? ` identityValue="${row.get(id.value)}"` : ''}/>`);
-            entity.$$('px:Record/px:Field/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {
-                let isPK = field.$(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey[@Field_Name="${field}"]`)
+            !id && entity.$$('px:Record/px:Field/@Name').filter(field => primary_fields.find(el => el.value == field.value))/*.filter(field => !mappings.find(mapping => mapping.value == field.value))*/.forEach(field => {
                 let current_value = row.get(`${field}`);
-                current_value = !isNaN(Number(current_value)) ? Number(current_value) : current_value;
-                if (isPK) {
-                    let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}"${isPK ? ` currentValue="'${row.get(`initial:${field}`) || current_value}'" isPK="true"` : ''}/>`)
-                    dataRow.append(field_node);
-                }
+                let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}" currentValue="'${row.get(`initial:${field}`) || current_value}'" isPK="true"/>`)
+                dataRow.append(field_node);
             })
         } else {
-            if (id ? row.get(`${id}`) : primary_fields.filter(field => row.get(`initial:${field}`) != row.get(`${field}`))) {
+            if (id ? row.get(`${id}`) : primary_fields.filter(field => {
+                let initial = row.get(`initial:${field}`); return initial && initial != row.get(`${field}`) || false
+            }).length) {
                 dataRow = xo.xml.createNode(`<updateRow xmlns="http://panax.io/persistence"${id ? ` identityValue="${row.get(id.value)}"` : ''}/>`);
                 entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula)]/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {
                     let isPK = field.$(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey[@Field_Name="${field}"]`)
@@ -574,6 +578,7 @@ xo.listener.on('response::server:submit', function ({ request, payload }) {
             ref_node && ref_node.select("ancestor::px:Entity[1]/data:rows/*").removeAll();
             ref_section && ref_section.$$(`//px:Entity[@Schema="${entity.get("Schema")}" and @Name="${entity.get("Name")}"]/data:rows/*`).removeAll()
             entity.ownerDocument.section.remove();
+            xo.site.set("dirty", Object.fromEntries([["Schema", entity.get("Schema")], ["Name", entity.get("Name")]]))
         } else {
             entity.$$('//data:rows').remove()
         }
@@ -590,3 +595,9 @@ xo.listener.on('response::server:submit', function ({ request, payload }) {
         }
     })
 })
+
+xover.listener.on('hashchange', function (new_hash, old_hash) {
+    let dirty_entity = xover.site.get("dirty");
+    xo.sections.active.$$(`px:Entity[@Schema="${dirty_entity["Schema"]}" and @Name="${dirty_entity["Name"]}"]/data:rows`).remove()
+
+});

@@ -221,7 +221,8 @@ px.request = async function (...args) {
     association_ref = ref_node && ref_node.$("ancestor::px:Entity[1]/parent::px:Association")
     if (typeof (request_or_entity_name) == 'string') {
         ({
-            fields, schema, name: entity_name, mode, identity_value, primary_values, predicate: filters, settings: url_settings } = px.getEntityFields(request_or_entity_name));
+            fields, schema, name: entity_name, mode, identity_value, primary_values, predicate: filters, settings: url_settings
+        } = px.getEntityFields(request_or_entity_name));
         page_size = url_settings["pageSize"];
         page_index = url_settings["pageIndex"];
 
@@ -341,7 +342,7 @@ px.loadData = function (entity, keys) {
     //}
     fields["meta:orderBy"] = entity.get("custom:sortBy")
 
-    let formatValue = (value => (isNumber(value) || value === null) && String(value) || value !== undefined && value[0]!="'" && `'${value}'` || value || '');
+    let formatValue = (value => (isNumber(value) || value === null) && String(value) || value !== undefined && value[0] != "'" && `'${value}'` || value || '');
     constraints = constraints.concat([...filters]);
 
     let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => (key instanceof Attr || value) && `[${key}] IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})` || key).join(' AND ')
@@ -368,7 +369,8 @@ px.getData = async function (...args) {
         let fields, request, predicate, url_settings;
         if (typeof (parameters) === 'string') {
             ({
-                fields, schema, name, mode, identity_value, primary_values, predicate, settings: url_settings } = px.getEntityFields(parameters));
+                fields, schema, name, mode, identity_value, primary_values, predicate, settings: url_settings
+            } = px.getEntityFields(parameters));
             page_size = url_settings["pageSize"];
             page_index = url_settings["pageIndex"];
             request = `[${schema}].[${name}]`
@@ -413,13 +415,17 @@ px.getData = async function (...args) {
         let entity = node.parentElement.$('self::px:Entity[ancestor-or-self::*[@mode="add"] and not(parent::px:Association[@Type="hasMany"])]')
         //let entity = node.$('parent::px:Entity[//px:Entity[@mode="add"]]')
         if (entity && !(response.documentElement.firstElementChild)) {
-            let fields = [...new Set(entity.$$('px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name').map(field => ((field.parentNode.nodeName == 'px:Association' ? 'meta:' : '') + field.value) + '=""'))].join(' ')
-            response.documentElement.append(xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" ${fields}/>`))
+            response.documentElement.append(px.createEmptyRow(entity))
         }
         return response
     } catch (e) {
         return Promise.reject(e)
     }
+}
+
+px.createEmptyRow = function (entity) {
+    let fields = [...new Set(entity.$$('px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name').map(field => ((field.parentNode.nodeName == 'px:Association' ? 'meta:' : '') + field.value) + '=""'))].join(' ')
+    return xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" ${fields}/>`)
 }
 
 px.navigateTo = function (hashtag, ref_id) {

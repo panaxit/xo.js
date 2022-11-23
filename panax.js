@@ -96,12 +96,23 @@ xo.listener.on('appendTo::data:rows', function () {
     //        empty_node.replace(xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" ${fields}/>`))
     //    }
     //}
+    if (this.$(`self::*[not(xo:r)]/xo:empty`)) {
+        let entity = this.$(`ancestor::px:Entity[parent::px:Association[@Type="hasOne"]]`);
+        if (entity) {
+            this.append(px.createEmptyRow(entity))
+        }
+    }
     this.select("self::*[xo:r]/xo:empty").remove();
     this.parentNode.filter("ancestor-or-self::*[@mode='add' or @mode='edit']").$$(`px:Record/px:Association[not(@Type="belongsTo")]`).forEach(association => {
         //let identity_value, primary_values
         //association.$$('px:Mappings/px:Mapping').map(mapping => association.get("DataType") == 'belongsTo' && [mapping.get("Referencer"), node.get(mapping.get("Referencer"))] || mapping.get())
-        entity = association.$(`px:Entity`);
-        px.loadData(entity);
+        let target_rows = this.select(`xo:r[not(px:Association[@AssociationName="${association.get("AssociationName")}"])]`)
+        target_rows.map(row => row.append(association.cloneNode(true))).forEach(els => {
+            els.forEach(el => {
+                let entity = el.$(`px:Entity`);
+                px.loadData(entity);
+            });
+        });
     });
     let section = this.ownerDocument.section;
     if (section && !this.selectFirst("px:Association")) {
@@ -348,14 +359,14 @@ px.loadData = function (entity, keys) {
     let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => (key instanceof Attr || value) && `[${key}] IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})` || key).join(' AND ')
     Object.entries(predicate).map(([key, value]) => value && `[${key}]='${value.replace(/'/g, "''")}'` || key).join(' AND ')
 
-    let parent_entity = entity.$('ancestor::px:Entity[1]');
-    if (parent_entity && parent_entity.$('data:rows/*')) {
+    let parent_row = entity.$('ancestor::xo:r');
+    if (parent_row) {
         let parent_relationship = entity.$('parent::px:Association[not(@Type="belongsTo")]/px:Mappings')
-        let mappings = parent_relationship && parent_relationship.$$('px:Mapping').map(map => `[${entity.get("Name")}].[${map.get("Referencer")}] IN ('${parent_entity.$$('data:rows/*').map(row => (row.get(map.get("Referencee")) || 'NULL')).join(',')}')`) || [];
+        let mappings = parent_relationship && parent_relationship.$$('px:Mapping').map(map => `[${entity.get("Name")}].[${map.get("Referencer")}] IN ('${parent_row.get(map.get("Referencee")) || 'NULL'}')`) || [];
         predicate && mappings.unshift(predicate);
         predicate = mappings.join(' AND ')
     }
-    entity.setAttribute("data:rows", `${entity.get("Schema")}/${entity.get("Name")}?${predicate || ''}#?&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_entity ? '100' : '1000')}#${Object.entries(fields).filter(([, value]) => value).map(([key, value]) => `[@${key}]=${value}`).join(',')}`)
+    entity.setAttribute("data:rows", `${entity.get("Schema")}/${entity.get("Name")}?${predicate || ''}#?&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '1000')}#${Object.entries(fields).filter(([, value]) => value).map(([key, value]) => `[@${key}]=${value}`).join(',')}`)
     let section = entity.section;
 }
 
@@ -425,7 +436,7 @@ px.getData = async function (...args) {
 
 px.createEmptyRow = function (entity) {
     let fields = [...new Set(entity.$$('px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name').map(field => ((field.parentNode.nodeName == 'px:Association' ? 'meta:' : '') + field.value) + '=""'))].join(' ')
-    return xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" ${fields}/>`)
+    return xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" ${fields}/>`).reseed();
 }
 
 px.navigateTo = function (hashtag, ref_id) {
@@ -510,7 +521,7 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
         }
         mappings.forEach(mapping => dataRow.insertFirst(xo.xml.createNode(`<fkey xmlns="http://panax.io/persistence" name="${mapping}" maps="${mapping.$("../@Referencee")}"/>`)))
         dataTable.append(dataRow);
-        entity.select(`px:Record/px:Association[not(@Type="belongsTo")]/px:Entity`).forEach(foreign_entity => {
+        row.select(`px:Association[not(@Type="belongsTo")]/px:Entity`).forEach(foreign_entity => {
             return buildPost(foreign_entity.$$('data:rows/xo:r'), dataRow)
         })
     }

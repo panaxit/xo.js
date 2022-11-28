@@ -85,22 +85,22 @@ xo.listener.on('set::@data:rows', function ({ value, old: prev }) {
         data_rows.set("command", value);
     }
 })
-xo.listener.on('change::px:Entity/data:rows/@command', function ({ value, old: prev }) {
+xo.listener.on('change::px:Entity/data:rows/@command', async function ({ value, old: prev }) {
     //let current = this.parentNode && this.parentNode.$(`data:rows[@command="${prev}"]`);
     let node = this.parentNode;
     let targetNode = node
     let command = node.get("command");
 
-    let response_handler = (response) => {
-        //var response_is_message = !!response.documentElement.selectSingleNode('self::xo:message');
-        //if (!response_is_message && !response.selectSingleNode(`//${root_node}`)) {
-        //    let new_node = xover.xml.createDocument(`<${root_node} xmlns:source="http://panax.io/source"/>`);
-        //    new_node.documentElement.appendChild(response.documentElement);
-        //    response.appendChild(new_node.documentElement);
-        //}
-        ////response.documentElement.setAttributeNS(null, "request", original_request)
-        ////response = xover.xml.reseed(response);
-        /*!(response instanceof xover.Section) && node.selectNodes(`//source:*[@request="${request}"]`).map((targetNode, index, array) => {*/
+    let headers = new Headers({
+        "Accept": content_type.xml
+    })
+    let response;
+    try {
+        response = await xover.sources[`${node.nodeName}:=${command}`].fetch(xover.json.tryParse(command), {
+            source: node
+            , method: 'GET'
+            , headers: headers
+        })
         if (response instanceof Error) {
             return Promise.reject(response);
         } else if (typeof (response) === 'string') {
@@ -121,39 +121,10 @@ xo.listener.on('change::px:Entity/data:rows/@command', function ({ value, old: p
         new_node.selectNodes("@xo:id").remove()
         //let prev_value = targetNode.parentNode.getAttribute("prev:value");
         targetNode.selectNodes('@*').forEach(attr => new_node.setAttributeNS(attr.namespaceURI, attr.name, attr.value))
-        targetNode.replaceBy(new_node);
-
-        //if (response.documentElement.selectSingleNode(`xo:r[@value="${prev_value}"]`)) {
-        //    targetNode.parentElement.setAttributeNS(null, "value", prev_value)
-        //}
-        /*if (array.length > xover.data.binding["max_subscribers"]) {
-            targetNode.parentElement.appendChild(xover.data.createMessage("Load truncated").documentElement);
-            console.warn("Too many requests may create a big document. Place binding in a common place.")
-        } else */
-        //if (fragment.childNodes.length) {
-        //    targetNode.append(fragment);
-        //    //if (response_is_message) {
-        //    //    targetNode.appendChild(response.documentElement);
-        //    //} else {
-        //    //    let new_node = xover.xml.createDocument(response);
-        //    //    targetNode.selectNodes('@*').map(attr => {
-        //    //        new_node.documentElement.setAttributeNS(null, attr.name, attr.value, false)
-        //    //    });
-        //    //    targetNode.parentElement.replaceChild(new_node.documentElement, targetNode);
-        //    //}
-        //} else {
-        //    targetNode.append(xover.xml.createNode(`<xo:empty xmlns:xo="http://panax.io/xover"/>`).reseed());
-        //}
-
-    };
-    let headers = new Headers({
-        "Accept": content_type.xml
-    })
-    xover.sources[`${node.nodeName}`].fetch(xover.json.tryParse(command), {
-        source: node
-        , method: 'GET'
-        , headers: headers
-    }).then(response_handler).catch(response_handler);
+        targetNode.append(...new_node.childNodes);
+    } catch (e) {
+        Promise.reject(e)
+    }
 })
 
 //xo.listener.on('change::px:Entity/data:rows/@command', function ({ old: prev }) {
@@ -598,7 +569,7 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
                 })
             }
         }
-        mappings.forEach(mapping => dataRow.insertFirst(xo.xml.createNode(`<fkey xmlns="http://panax.io/persistence" name="${mapping}" maps="${mapping.$("../@Referencee")}"/>`)))
+        mappings.forEach(mapping => dataRow.nodeName!='deleteRow' && dataRow.insertFirst(xo.xml.createNode(`<fkey xmlns="http://panax.io/persistence" name="${mapping}" maps="${mapping.$("../@Referencee")}"/>`)))
         dataTable.append(dataRow);
         row.select(`px:Association[not(@Type="belongsTo")]/px:Entity`).forEach(foreign_entity => {
             return buildPost(foreign_entity.$$('data:rows/xo:r'), dataRow)

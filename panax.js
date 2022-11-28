@@ -76,24 +76,22 @@ xo.listener.on('remove::px:Entity/data:rows', function () {
     }
 })
 
-xo.listener.on('change::@data:rows', function ({ value, old: prev }) {
-    let current = this.parentNode && this.parentNode.$(`data:rows[@command="${prev}"]`);
+xo.listener.on('set::@data:rows', function ({ value, old: prev }) {
+    let current = value != prev && this.parentNode && this.parentNode.$(`data:rows[@command="${prev}"]`);
     current && current.remove();
-    if (!this.parentNode.$(`data:rows[@command="${value}"]`)) {
-        let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
-        data_rows.reseed();
+    if (!this.parentNode.$(`data:rows`)) {
+        let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`).reseed();
         this.parentNode.append(data_rows);
-        data_rows.set("command", this.value);
+        data_rows.set("command", value);
     }
 })
-
 xo.listener.on('change::px:Entity/data:rows/@command', function ({ value, old: prev }) {
-    let current = this.parentNode && this.parentNode.$(`data:rows[@command="${prev}"]`);
-    current && current.remove();
+    //let current = this.parentNode && this.parentNode.$(`data:rows[@command="${prev}"]`);
     let node = this.parentNode;
+    let targetNode = node
     let command = node.get("command");
 
-    let response_handler = async (response) => {
+    let response_handler = (response) => {
         //var response_is_message = !!response.documentElement.selectSingleNode('self::xo:message');
         //if (!response_is_message && !response.selectSingleNode(`//${root_node}`)) {
         //    let new_node = xover.xml.createDocument(`<${root_node} xmlns:source="http://panax.io/source"/>`);
@@ -112,41 +110,40 @@ xo.listener.on('change::px:Entity/data:rows/@command', function ({ value, old: p
         } else if (!response.documentElement) {
             return Promise.reject(new Error("Response is empty"))
         }
-        let targetNode = node
         let new_node = response.cloneNode(true).reseed();
-        let fragment = document.createDocumentFragment();
-        if (response.documentElement && (response.documentElement.tagName == targetNode.tagName || response.documentElement.$('self::xo:response') || ["http://www.mozilla.org/TransforMiix"].includes(response.documentElement.namespaceURI))) {
-            if (!new_node.documentElement.firstElementChild) {
-                fragment.append(xover.xml.createNode(`<xo:empty xmlns:xo="http://panax.io/xover"/>`).reseed());
-            } else {
-                fragment.append(...new_node.documentElement.childNodes);
+        new_node = new_node.documentElement;
+        //let fragment = document.createDocumentFragment();
+        if (new_node && (new_node.tagName == targetNode.tagName || new_node.$('self::xo:response') || ["http://www.mozilla.org/TransforMiix"].includes(new_node.namespaceURI))) {
+            if (!new_node.firstElementChild) {
+                new_node.append(xover.xml.createNode(`<xo:empty xmlns:xo="http://panax.io/xover"/>`).reseed());
             }
-        } else {
-            fragment.append(...new_node.childNodes);
         }
-        new_node.documentElement && new_node.documentElement.selectNodes("@xo:id").remove()
-        let prev_value = targetNode.parentNode.getAttribute("prev:value");
-        new_node.documentElement.selectNodes('@*').forEach(attr => targetNode.setAttributeNS(attr.namespaceURI, attr.name, attr.value))
-        if (response.documentElement.selectSingleNode(`xo:r[@value="${prev_value}"]`)) {
-            targetNode.parentElement.setAttributeNS(null, "value", prev_value)
-        }
-                                /*if (array.length > xover.data.binding["max_subscribers"]) {
-                                    targetNode.parentElement.appendChild(xover.data.createMessage("Load truncated").documentElement);
-                                    console.warn("Too many requests may create a big document. Place binding in a common place.")
-                                } else */if (fragment.childNodes.length) {
-            targetNode.append(fragment);
-            //if (response_is_message) {
-            //    targetNode.appendChild(response.documentElement);
-            //} else {
-            //    let new_node = xover.xml.createDocument(response);
-            //    targetNode.selectNodes('@*').map(attr => {
-            //        new_node.documentElement.setAttributeNS(null, attr.name, attr.value, false)
-            //    });
-            //    targetNode.parentElement.replaceChild(new_node.documentElement, targetNode);
-            //}
-        } else {
-            targetNode.append(xover.xml.createNode(`<xo:empty xmlns:xo="http://panax.io/xover"/>`).reseed());
-        }
+        new_node.selectNodes("@xo:id").remove()
+        //let prev_value = targetNode.parentNode.getAttribute("prev:value");
+        targetNode.selectNodes('@*').forEach(attr => new_node.setAttributeNS(attr.namespaceURI, attr.name, attr.value))
+        targetNode.replaceBy(new_node);
+
+        //if (response.documentElement.selectSingleNode(`xo:r[@value="${prev_value}"]`)) {
+        //    targetNode.parentElement.setAttributeNS(null, "value", prev_value)
+        //}
+        /*if (array.length > xover.data.binding["max_subscribers"]) {
+            targetNode.parentElement.appendChild(xover.data.createMessage("Load truncated").documentElement);
+            console.warn("Too many requests may create a big document. Place binding in a common place.")
+        } else */
+        //if (fragment.childNodes.length) {
+        //    targetNode.append(fragment);
+        //    //if (response_is_message) {
+        //    //    targetNode.appendChild(response.documentElement);
+        //    //} else {
+        //    //    let new_node = xover.xml.createDocument(response);
+        //    //    targetNode.selectNodes('@*').map(attr => {
+        //    //        new_node.documentElement.setAttributeNS(null, attr.name, attr.value, false)
+        //    //    });
+        //    //    targetNode.parentElement.replaceChild(new_node.documentElement, targetNode);
+        //    //}
+        //} else {
+        //    targetNode.append(xover.xml.createNode(`<xo:empty xmlns:xo="http://panax.io/xover"/>`).reseed());
+        //}
 
     };
     let headers = new Headers({

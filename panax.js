@@ -637,8 +637,8 @@ xo.listener.on('response::server:submit', function ({ request, payload }) {
     let ref_node = ref_section && prev.ref && ref_section.findById(prev.ref) || null;
     let result = this;
     let scope = ((request.settings || {})["body"] || {})["scope"];
-
-    if (result.$$('//result').every(r => r.get("status") == 'success')) {
+    if (!(result instanceof Node)) return;
+    if (result.$$('//result').length && result.$$('//result').every(r => r.get("status") == 'success')) {
         let entity = scope.$("ancestor-or-self::px:Entity[last()]");
         if (!entity) return;
         if (entity.get("control:type").indexOf('form') != -1) {

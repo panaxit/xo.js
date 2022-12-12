@@ -40,13 +40,11 @@ xo.listener.on(['render::*'], function () {
 })
 
 xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state'))]`, function ({ element, attribute, old, value }) {
-    let initial_value = element.getAttributeNodeNS('http://panax.io/state/initial', attribute.localName);
+    let initial_value = element.getAttributeNodeNS('http://panax.io/state/initial', attribute.nodeName.replace(':', '-'));
     if (value !== null && !initial_value) {
-        element.set(`initial:${attribute.localName}`, old);
-    } else if (initial_value.value === value) {
-        initial_value.remove();
+        element.set(`initial:${attribute.nodeName.replace(':', '-')}`, old);
     }
-    element.set(`prev:${attribute.localName}`, old);
+    element.set(`prev:${attribute.nodeName.replace(':', '-')}`, old);
 })
 
 xo.listener.on(`beforeChange::xo:r/@meta:*`, function ({ node, element, attribute, old, value }) {
@@ -56,7 +54,7 @@ xo.listener.on(`beforeChange::xo:r/@meta:*`, function ({ node, element, attribut
 
     references.forEach(reference => element.set(reference.value, selected_record && selected_record.get(reference.parentNode.get("Referencee")) || ""));
     let option = src_element[src_element.selectedIndex]
-    event.detail.value = option.value && option.text || "";
+    this.value = option.value && option.text || "";
 })
 
 const CONVERT = function (type, ...args) { return args }
@@ -74,6 +72,10 @@ xo.listener.on('remove::px:Entity/data:rows', function () {
         this.parentNode.append(data_rows);
         data_rows.set("command", command);
     }
+})
+
+xo.listener.on('render::px:Entity', function () {
+    this.select(`//*[@data:rows and not(data:rows)]`).forEach(node => node.set("@data:rows", node.get("data:rows")))
 })
 
 xo.listener.on('set::@data:rows', function ({ value, old: prev }) {
@@ -178,7 +180,7 @@ xo.listener.on(['beforeChange::@headerText', 'beforeChange::@container:*'], func
         element.set(`initial:${attribute.prefix && attribute.prefix + '-' || ''}${attribute.localName}`, old)
     }
     element.set(`prev:${attribute.prefix && attribute.prefix + '-' || ''}${attribute.localName}`, old)
-    event.detail.value = event.detail.value.replace(/:/g, '').trim()
+    this.value = value.replace(/:/g, '').trim()
 })
 
 xo.listener.on(['beforeRemove::xo:r'], function ({ element, attribute, value, old }) {
@@ -241,7 +243,7 @@ px.getEntityInfo = function (input_document) {
 
 px.getEntityFields = function (source) {
     let fields, schema, name, mode, identity_value, primary_values, predicate, settings;
-    if (typeof (source) == 'string') {
+    if (source && typeof (source.value || source) == 'string') {
         let url = xover.URL(source);
         predicate = url.searchParams;
         ({ searchParams: settings, hash: fields = '' } = xover.URL(url.hash.replace(/^#/, '')));
@@ -328,7 +330,7 @@ px.request = async function (...args) {
         if (!(Response instanceof xover.Section) && Response && Response.documentElement) {
             Response = Response.transform("xover/databind.xslt")
             Response.$$('//px:Entity').set("meta:type", "entity")
-            let control_type = Response.$('//px:Entity').get("xsi:type").replace(':control', '.xslt')
+            let control_type = Response.$('//px:Entity').getAttribute("xsi:type").replace(':control', '.xslt')
             Response.addStylesheet({ href: "px-Entity.xslt", target: "@#shell main" });
             Response.documentElement.setAttributeNS(xover.spaces["xmlns"], "xmlns:data", "http://panax.io/source");
             association_ref && Response.documentElement.$$(`*[local-name()="layout"]/association:*[@name="${association_ref.get("AssociationName")}"]`).remove()
@@ -428,7 +430,7 @@ px.getData = async function (...args) {
         let command = parameters;
         let attribute_base_name = node.localName;
         let fields, request, predicate, url_settings;
-        if (typeof (parameters) === 'string') {
+        if (parameters && typeof (parameters.value || parameters) === 'string') {
             ({
                 fields, schema, name, mode, identity_value, primary_values, predicate, settings: url_settings
             } = px.getEntityFields(parameters));
@@ -527,7 +529,7 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
     });
     for (let row of data_rows) {
         let entity = row.$('ancestor-or-self::px:Entity[1]');
-        let id = entity.getNode('IdentityKey');
+        let id = entity.get('IdentityKey');
         let primary_fields = entity.select("px:PrimaryKeys/px:PrimaryKey/@Field_Name");
         let dataTable = target.selectFirst(`*[contains(@name,"[${entity.get("Schema")}].[${entity.get("Name")}]")]`);
         let mappings = row.$$("ancestor::px:Association[1]/px:Mappings/px:Mapping/@Referencer");
@@ -536,26 +538,33 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
             dataRow = xo.xml.createNode(`<deleteRow xmlns="http://panax.io/persistence"${id ? ` identityValue="${row.get(id.value)}"` : ''}/>`);
             !id && entity.$$('px:Record/px:Field/@Name').filter(field => primary_fields.find(el => el.value == field.value))/*.filter(field => !mappings.find(mapping => mapping.value == field.value))*/.forEach(field => {
                 let current_value = row.get(`${field}`);
-                let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}" currentValue="'${row.get(`initial:${field}`) || current_value}'" isPK="true"/>`)
+                let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}" currentValue="'${row.get(`initial:${field}`) || current_value}'" isPK="true"/>`);
                 dataRow.append(field_node);
             })
         } else {
-            if (id ? row.get(`${id}`) : primary_fields.filter(field => {
-                let initial = row.get(`initial:${field}`); return initial && initial != row.get(`${field}`) || false
+            let id_node = row.get(`${id}`)
+            if (id_node ? id_node.value : primary_fields.filter(field => {
+                let initial = row.get(`initial:${field}`);
+                return initial && initial != row.get(`${field}`) || false
             }).length) {
                 dataRow = xo.xml.createNode(`<updateRow xmlns="http://panax.io/persistence"${id ? ` identityValue="${row.get(id.value)}"` : ''}/>`);
                 entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula)]/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {
                     let isPK = field.$(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey[@Field_Name="${field}"]`)
                     let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}"${isPK ? ` isPK="true"` : ''}/>`);
-                    let current_value = row.get(`${field}`);
+                    let current_value = (row.get(`${field}`) || {}).value;
                     current_value = !isNaN(Number(current_value)) ? Number(current_value) : current_value;
-                    let initial_value = row.getNode(`initial:${field}`);
+                    let initial_value = row.get(`initial:${field}`);
                     initial_value = initial_value ? initial_value.value : current_value;
                     initial_value = !isNaN(Number(initial_value)) ? Number(initial_value) : initial_value;
                     let changed = initial_value != current_value;
                     if (isPK || changed) {
+                        let confirmation = row.get(`confirmation:${field}`);
+                        if (confirmation && confirmation != current_value) {
+                            field_node.set(`exception:message`,`El valor de ${field} debe ser confirmado`)
+                            row.set(`exception:${field}`, "")
+                        }
                         field_node.set("currentValue", `'${row.get(`initial:${field}`) || row.get(field.value)}'`);
-                        field_node.textContent = [row.get(field.value)].map(val => !val && (field.$("../@defaultValue") || 'null') || `'${val}'`);
+                        field_node.textContent = [row.get(field.value)].map(val => !val.value && (field.$("../@defaultValue") || 'null') || `'${val}'`);
                         dataRow.append(field_node);
                     }
                 })
@@ -564,7 +573,7 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
                 entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula)]/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {
                     let isPK = field.$(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey[@Field_Name="${field}"]`);
                     let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}"${isPK ? ` isPK="true"` : ''}/>`);
-                    field_node.textContent = [row.get(field.value)].map(val => !val && (field.$("../@defaultValue") || 'null') || `'${val}'`);
+                    field_node.textContent = [row.get(field.value)].map(val => !val.value && (field.$("../@defaultValue") || 'null') || `'${val}'`);
                     dataRow.append(field_node);
                 })
             }
@@ -590,6 +599,13 @@ px.submit = function (data_rows) {
     }
     for (let row of data_rows) {
         let post = buildPost([row])
+        let messages = post.select("//@exception:message").map(el => document.createElement('li').set(new Text(el.value)));
+        if (messages.length) {
+            let list = document.createElement("ul");
+            list.append(...messages);
+            xo.dom.alert(list)
+            return;
+        }
         try {
             xover.listener.dispatchEvent(new xover.listener.Event('beforeSubmit', { post: post }), row);
         } catch (e) {
@@ -641,9 +657,9 @@ xo.listener.on('response::server:submit', function ({ request, payload }) {
     if (result.$$('//result').length && result.$$('//result').every(r => r.get("status") == 'success')) {
         let entity = scope.$("ancestor-or-self::px:Entity[last()]");
         if (!entity) return;
-        if (entity.get("control:type").indexOf('form') != -1) {
-            ref_node && ref_node.select("ancestor::px:Entity[1]/data:rows/*").removeAll();
-            ref_section && ref_section.$$(`//px:Entity[@Schema="${entity.get("Schema")}" and @Name="${entity.get("Name")}"]/data:rows/*`).removeAll()
+        if ((entity.getAttribute("control:type") || '').indexOf('form') != -1) {
+            ref_node && ref_node.select("ancestor::px:Entity[1][@data:rows]/data:rows").remove();
+            ref_section && ref_section.$$(`//px:Entity[@Schema="${entity.get("Schema")}" and @Name="${entity.get("Name")}"][@data:rows]/data:rows`).removeAll()
             entity.ownerDocument.section.remove();
             xo.site.set("dirty", Object.fromEntries([["Schema", entity.get("Schema")], ["Name", entity.get("Name")]]))
         } else {

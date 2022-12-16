@@ -87,7 +87,7 @@ xo.listener.on('set::@data:rows', function ({ value, old: prev }) {
         data_rows.set("command", value);
     }
 })
-xo.listener.on('change::px:Entity/data:rows/@command', async function ({ value, old: prev }) {
+xo.listener.on(['change::px:Entity/data:rows/@command','remove::px:Entity/data:rows[not(xo:r)]/@xsi:nil'], async function ({ value, old: prev }) {
     //let current = this.parentNode && this.parentNode.$(`data:rows[@command="${prev}"]`);
     let node = this.parentNode;
     let targetNode = node
@@ -117,7 +117,8 @@ xo.listener.on('change::px:Entity/data:rows/@command', async function ({ value, 
         //let fragment = document.createDocumentFragment();
         if (new_node && (new_node.tagName == targetNode.tagName || new_node.$('self::xo:response') || ["http://www.mozilla.org/TransforMiix"].includes(new_node.namespaceURI))) {
             if (!new_node.firstElementChild) {
-                new_node.append(xover.xml.createNode(`<xo:empty xmlns:xo="http://panax.io/xover"/>`).reseed());
+                targetNode.set("xsi:nil", true);
+                //new_node.append(xover.xml.createNode(`<xo:empty xmlns:xo="http://panax.io/xover"/>`).reseed());
             }
         }
         new_node.selectNodes("@xo:id").remove()
@@ -148,6 +149,9 @@ xo.listener.on('appendTo::data:rows', function () {
     //        empty_node.replace(xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" ${fields}/>`))
     //    }
     //}
+    if (this.select("xo:r").length && this.get("xsi:nil")) {
+        this.set("xsi:nil", null);
+    }
     if (this.$(`self::*[not(xo:r)]/xo:empty`)) {
         let entity = this.$(`ancestor::px:Entity[parent::px:Association[@Type="hasOne"]]`);
         if (entity) {
@@ -184,7 +188,7 @@ xo.listener.on(['beforeChange::@headerText', 'beforeChange::@container:*'], func
 })
 
 xo.listener.on(['beforeRemove::xo:r'], function ({ element, attribute, value, old }) {
-    if (!element.get("state:delete")) {
+    if (px.getPrimaryValue(this).substr(1) && !element.get("state:delete")) {
         element.toggle('state:delete', true)
         event.preventDefault()
     }
@@ -205,19 +209,29 @@ app.request = async function (object_name, mode) {
 
 px = {}
 
+px.getPrimaryValue = function (record) {
+    let entity = record.$(`ancestor::px:Entity[1]`)
+    id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => record.get(key.value));
+    pks = entity.$$(`px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map(key => record.get(key.value));
+    if (id.length) {
+        return ":" + id.join("/")
+    } else if (pks.length) {
+        return "/" + pks.join("/")
+    } else {
+        return ""
+    }
+}
+
 px.editSelectedOption = function (src_element) {
     let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r").filter(el => el instanceof Element);
     if (!selected_record) {
         return Promise.reject("No hay registro asociado")
     }
-    let entity = selected_record.$(`ancestor::px:Entity[1]`)
-    id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => selected_record.get(key.value));
-    pks = entity.$$(`px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map(key => selected_record.get(key.value));
+    let primary_value = px.getPrimaryValue(selected_record);
     let href
-    if (id.length) {
-        href = `#${entity.get("Schema")}/${entity.get("Name")}:${id.join("/")}~edit`
-    } else if (pks.length) {
-        href = `#${entity.get("Schema")}/${entity.get("Name")}/${pks.join("/")}~edit`
+    if (primary_value.substr(1)) {
+        let entity = selected_record.$(`ancestor::px:Entity[1]`)
+        href = `#${entity.get("Schema")}/${entity.get("Name")}${primary_value}~edit`
     } else {
         return Promise.reject("No se puede editar el registro")
     }
@@ -545,7 +559,7 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
             let id_node = row.get(`${id}`)
             if (id_node ? id_node.value : primary_fields.filter(field => {
                 let initial = row.get(`initial:${field}`);
-                return initial && initial != row.get(`${field}`) || false
+                return initial && initial.value && initial.value != row.get(`${field}`) || false
             }).length) {
                 dataRow = xo.xml.createNode(`<updateRow xmlns="http://panax.io/persistence"${id ? ` identityValue="${row.get(id.value)}"` : ''}/>`);
                 entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula)]/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {
@@ -555,7 +569,7 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
                     current_value = !isNaN(Number(current_value)) ? Number(current_value) : current_value;
                     let initial_value = row.get(`initial:${field}`);
                     initial_value = initial_value ? initial_value.value : current_value;
-                    initial_value = !isNaN(Number(initial_value)) ? Number(initial_value) : initial_value;
+                    initial_value = !isNaN(Number(current_value)) ? Number(initial_value) : initial_value;
                     let changed = initial_value != current_value;
                     if (isPK || changed) {
                         let confirmation = row.get(`confirmation:${field}`);
@@ -588,6 +602,7 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
 }
 
 px.submit = function (data_rows) {
+    data_rows = data_rows instanceof Array ? data_rows : [data_rows];
     let prev = (xo.site.prev || [])[0] || {};
     let ref_section = xo.sections[prev.section];
     let ref_node = ref_section && ref_section.findById(prev.ref) || null;
@@ -672,7 +687,7 @@ xo.listener.on('response::server:submit', function ({ request, payload }) {
         if (["error", "exception"].includes(result.get("status"))) {
             scope.set("state:message", result.get("statusMessage"))
         } else {
-            if (!scope.get("state:delete")) {
+            if (scope.get("state:delete")) {
                 scope.remove()
             }
         }
@@ -681,6 +696,8 @@ xo.listener.on('response::server:submit', function ({ request, payload }) {
 
 xover.listener.on('hashchange', function (new_hash, old_hash) {
     let dirty_entity = xover.site.get("dirty");
-    xo.sections.active.$$(`px:Entity[@Schema="${dirty_entity["Schema"]}" and @Name="${dirty_entity["Name"]}"]/data:rows`).remove()
-
+    xo.sections.active.select(`//px:Entity[@Schema="${dirty_entity["Schema"]}" and @Name="${dirty_entity["Name"]}"]/data:rows`).remove()
+    xo.sections.active.select('//px:Entity/data:rows/@xsi:nil|//px:Entity/data:rows[not(*)]').remove();
+    xo.sections.active.select('//px:Entity[@data:rows][not(data:rows)]').set(el => el.set("data:rows", el.get("data:rows")));
+    xover.site.set("dirty", undefined)
 });

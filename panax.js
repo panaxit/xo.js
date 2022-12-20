@@ -7,7 +7,11 @@ Object.defineProperty(xo.session, 'login', {
             xover.session.status = 'authorizing';
             let response = await xover.server.login(new URLSearchParams({ 'connection_id': connection_id }), { headers: { authorization: `Basic ${btoa(_username + ':' + _password)}` } });
             xover.session.status = 'authorized';
-            xover.sections.active.render();
+            if (xover.site.seed === '#login') {
+                xover.site.seed = '#';
+            } else {
+                xover.sections.active.render();
+            }
         } catch (e) {
             xover.session.status = 'unauthorized';
             Promise.reject(e);
@@ -69,7 +73,7 @@ xo.listener.on('remove::px:Entity/data:rows', function () {
     if (!this.previousParentNode.$(`data:rows[@command="${command}"]`)) {
         let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
         data_rows.reseed();
-        this.parentNode.append(data_rows);
+        this.previousParentNode.append(data_rows);
         data_rows.set("command", command);
     }
 })
@@ -87,7 +91,7 @@ xo.listener.on('set::@data:rows', function ({ value, old: prev }) {
         data_rows.set("command", value);
     }
 })
-xo.listener.on(['change::px:Entity/data:rows/@command','remove::px:Entity/data:rows[not(xo:r)]/@xsi:nil'], async function ({ value, old: prev }) {
+xo.listener.on(['change::px:Entity/data:rows/@command', 'remove::px:Entity/data:rows[not(xo:r)]/@xsi:nil'], async function ({ value, old: prev }) {
     //let current = this.parentNode && this.parentNode.$(`data:rows[@command="${prev}"]`);
     let node = this.parentNode;
     let targetNode = node
@@ -149,21 +153,20 @@ xo.listener.on('appendTo::data:rows', function () {
     //        empty_node.replace(xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" ${fields}/>`))
     //    }
     //}
-    if (this.select("xo:r").length && this.get("xsi:nil")) {
-        this.set("xsi:nil", null);
-    }
     if (this.$(`self::*[not(xo:r)]/xo:empty`)) {
         let entity = this.$(`ancestor::px:Entity[parent::px:Association[@Type="hasOne"]]`);
         if (entity) {
             this.append(px.createEmptyRow(entity))
         }
     }
-    this.select("self::*[xo:r]/xo:empty").remove();
     this.parentNode.filter("ancestor-or-self::*[@mode='add' or @mode='edit']").$$(`px:Record/px:Association[not(@Type="belongsTo")]`).forEach(association => {
         //let identity_value, primary_values
         //association.$$('px:Mappings/px:Mapping').map(mapping => association.get("DataType") == 'belongsTo' && [mapping.get("Referencer"), node.get(mapping.get("Referencer"))] || mapping.get())
         let target_rows = this.select(`xo:r[not(px:Association[@AssociationName="${association.get("AssociationName")}"])]`)
-        target_rows.map(row => row.append(association.cloneNode(true))).forEach(els => {
+        let association_copy = association.cloneNode(true);
+        association_copy.select(".//@xo:id").remove();
+        association_copy.reseed();
+        target_rows.map(row => row.append(association_copy)).forEach(els => {
             els.forEach(el => {
                 let entity = el.$(`px:Entity`);
                 px.loadData(entity);
@@ -256,7 +259,7 @@ px.getEntityInfo = function (input_document) {
 }
 
 px.getEntityFields = function (source) {
-    let fields, schema, name, mode, identity_value, primary_values, predicate, settings;
+    let fields, schema, name, mode, identity_value, primary_values, ref_node, predicate, settings;
     if (source && typeof (source.value || source) == 'string') {
         let url = xover.URL(source);
         predicate = url.searchParams;
@@ -265,11 +268,12 @@ px.getEntityFields = function (source) {
         let href = url.pathname.replace(/^\//, '');
         [href, mode] = href.split(/~/);
         [href, identity_value] = href.split(/:/);
+        [href, ref_node] = href.split(/@/);
         [schema, name, ...primary_values] = href.split(/\//);
         settings = Object.fromEntries(settings.entries());
         predicate = Object.fromEntries(predicate.entries());
     }
-    return { fields, schema, name, mode, identity_value, primary_values, predicate, settings }
+    return { fields, schema, name, mode, identity_value, primary_values, ref_node, predicate, settings }
 }
 
 px.request = async function (...args) {
@@ -292,13 +296,13 @@ px.request = async function (...args) {
     let reference = xo.site.reference || {};
     let ref_section = xo.sections[reference.section];
     let ref_node = ref_section && ref_section.findById(reference.id) || null;
-    if (reference.id && !ref_node) {
+    if (reference.id && !ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"]) {
         return Promise.reject("Se perdió la referencia.")
     }
     association_ref = ref_node && ref_node.$("ancestor::px:Entity[1]/parent::px:Association")
     if (typeof (request_or_entity_name) == 'string') {
         ({
-            fields, schema, name: entity_name, mode, identity_value, primary_values, predicate: filters, settings: url_settings
+            fields, schema, name: entity_name, mode, identity_value, primary_values, ref_node, predicate: filters, settings: url_settings
         } = px.getEntityFields(request_or_entity_name));
         page_size = url_settings["pageSize"];
         page_index = url_settings["pageIndex"];
@@ -398,6 +402,16 @@ px.setAttributes = function (target, attribute, value) {
 }
 
 px.loadData = function (entity, keys) {
+    if (entity.matches("/px:Entity")) {
+        let reference = xo.site.reference || {};
+        let ref_section = xo.sections[reference.section];
+        let ref_node = ref_section && ref_section.findById(reference.id) || null;
+        if (ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"] && ref_node.matches("self::xo:r")) {
+            let data_rows = entity.$("data:rows") || entity.createNode(`<data:rows xmlns:data="${ref_node.resolveNS("data")}"/>`)
+            data_rows.append(ref_node.cloneNode(true))
+            return;
+        }
+    }
     if (entity.$('data:rows')) return;
     keys = Object.assign({ identity_value: undefined, primary_values: [] }, keys);
     let id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => [key, keys.identity_value]);
@@ -473,8 +487,8 @@ px.getData = async function (...args) {
             , "x-original-request": command
             , "x-namespaces": `'${node.resolveNS(node.prefix)}' as ${node.prefix}`
             , "x-Root-Node": root_node
-            , "x-Page-Index": page_index
-            , "x-Page-Size": page_size
+            , "x-Page-Index": (page_index || '')
+            , "x-Page-Size": (page_size || '')
             , "x-Detect-Missing-Variables": "false"
             , "x-Debugging": xover.debug.enabled
             , "x-data-text": encodeURIComponent(node.getAttribute('source_text:' + attribute_base_name) || node.getAttribute('dataText') || "")
@@ -508,6 +522,8 @@ px.createEmptyRow = function (entity) {
 px.navigateTo = function (hashtag, ref_id) {
     ref_id = ref_id || (event.srcElement.scope.$("data:rows/@xo:id") || {}).value;
     hashtag = (hashtag || "").replace(/^([^#])/, '#$1');
+    let section = xo.sections[hashtag];
+    section && section.remove();
     if ([xo.site.seed, ...(xo.site.activeTags() || [])].includes(hashtag) || xover.sections[hashtag].isRendered) { //TODO: Revisar si isRendered siempre 
         xo.site.active = hashtag;
     } else {
@@ -518,6 +534,10 @@ px.navigateTo = function (hashtag, ref_id) {
         prev.unshift({ section: xo.site.seed, ref: ref_id })
         history.pushState({
             seed: hashtag
+            , reference: {
+                section: xo.site.seed
+                , id: ref_id
+            }
             //, active: hashtag
             , prev: prev
         }, ((event || {}).target || {}).textContent, public_hashtag);
@@ -574,7 +594,7 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
                     if (isPK || changed) {
                         let confirmation = row.get(`confirmation:${field}`);
                         if (confirmation && confirmation != current_value) {
-                            field_node.set(`exception:message`,`El valor de ${field} debe ser confirmado`)
+                            field_node.set(`exception:message`, `El valor de ${field} debe ser confirmado`)
                             row.set(`exception:${field}`, "")
                         }
                         field_node.set("currentValue", `'${row.get(`initial:${field}`) || row.get(field.value)}'`);
@@ -592,7 +612,7 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
                 })
             }
         }
-        mappings.forEach(mapping => dataRow.nodeName!='deleteRow' && dataRow.insertFirst(xo.xml.createNode(`<fkey xmlns="http://panax.io/persistence" name="${mapping}" maps="${mapping.$("../@Referencee")}"/>`)))
+        mappings.forEach(mapping => dataRow.nodeName != 'deleteRow' && dataRow.insertFirst(xo.xml.createNode(`<fkey xmlns="http://panax.io/persistence" name="${mapping}" maps="${mapping.$("../@Referencee")}"/>`)))
         dataTable.append(dataRow);
         row.select(`px:Association[not(@Type="belongsTo")]/px:Entity`).forEach(foreign_entity => {
             return buildPost(foreign_entity.$$('data:rows/xo:r'), dataRow)
@@ -603,15 +623,25 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
 
 px.submit = function (data_rows) {
     data_rows = data_rows instanceof Array ? data_rows : [data_rows];
-    let prev = (xo.site.prev || [])[0] || {};
-    let ref_section = xo.sections[prev.section];
-    let ref_node = ref_section && ref_section.findById(prev.ref) || null;
-
-    if (ref_node && ref_node.$('ancestor::px:Association')) {
-        ref_node.append(...data_rows)
-        history.go(-1)
-        return
+    let reference = xo.site.reference || {};
+    let ref_section = xo.sections[reference.section];
+    let ref_node = ref_section && ref_section.findById(reference.id) || null;
+    if (ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"]) {
+        if (ref_node.matches("self::xo:r")) {
+            ref_node.replaceWith(data_rows[0])
+        } else if (ref_node.matches("self::data:rows")) {
+            ref_node.selectFirst("ancestor::px:Entity[1]/px:Record").replaceWith(data_rows[0].selectFirst("ancestor::px:Entity[1]/px:Record").cloneNode(true));
+            ref_node.append(...data_rows)
+        }
+        xo.sections.active.remove();
+        return;
     }
+    //if (ref_node && ref_node.$('ancestor::px:Association')) {
+    //    ref_node.selectFirst("ancestor::px:Entity[1]/px:Record").replaceWith(data_rows[0].selectFirst("ancestor::px:Entity[1]/px:Record").cloneNode(true));
+    //    ref_node.append(...data_rows);
+    //    xo.sections.active.remove();
+    //    return
+    //}
     for (let row of data_rows) {
         let post = buildPost([row])
         let messages = post.select("//@exception:message").map(el => document.createElement('li').set(new Text(el.value)));
@@ -663,9 +693,12 @@ xo.listener.on('load::px:Entity', function () {
 })
 
 xo.listener.on('response::server:submit', function ({ request, payload }) {
-    let prev = (xo.site.prev || [])[0] || {};
-    let ref_section = xo.sections[prev.section || prev];
-    let ref_node = ref_section && prev.ref && ref_section.findById(prev.ref) || null;
+    let reference = xo.site.reference || {};
+    let ref_section = xo.sections[reference.section];
+    let ref_node = ref_section && ref_section.findById(reference.id) || null;
+    if (reference.id && !ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"]) {
+        return Promise.reject("Se perdió la referencia.")
+    }
     let result = this;
     let scope = ((request.settings || {})["body"] || {})["scope"];
     if (!(result instanceof Node)) return;
@@ -676,7 +709,7 @@ xo.listener.on('response::server:submit', function ({ request, payload }) {
             ref_node && ref_node.select("ancestor::px:Entity[1][@data:rows]/data:rows").remove();
             ref_section && ref_section.$$(`//px:Entity[@Schema="${entity.get("Schema")}" and @Name="${entity.get("Name")}"][@data:rows]/data:rows`).removeAll()
             entity.ownerDocument.section.remove();
-            xo.site.set("dirty", Object.fromEntries([["Schema", entity.get("Schema")], ["Name", entity.get("Name")]]))
+            xo.site.set("dirty", Object.fromEntries([["Schema", entity.getAttribute("Schema")], ["Name", entity.getAttribute("Name")]]))
         } else {
             entity.$$('//data:rows').remove()
         }
@@ -696,8 +729,7 @@ xo.listener.on('response::server:submit', function ({ request, payload }) {
 
 xover.listener.on('hashchange', function (new_hash, old_hash) {
     let dirty_entity = xover.site.get("dirty");
-    xo.sections.active.select(`//px:Entity[@Schema="${dirty_entity["Schema"]}" and @Name="${dirty_entity["Name"]}"]/data:rows`).remove()
-    xo.sections.active.select('//px:Entity/data:rows/@xsi:nil|//px:Entity/data:rows[not(*)]').remove();
-    xo.sections.active.select('//px:Entity[@data:rows][not(data:rows)]').set(el => el.set("data:rows", el.get("data:rows")));
+    xo.sections.active.select(`//px:Entity/data:rows/@xsi:nil|//px:Entity/data:rows[not(*)]|//px:Entity[@Schema="${dirty_entity["Schema"]}" and @Name="${dirty_entity["Name"]}"]/data:rows`).remove();
+    xo.sections.active.select('//px:Entity[@data:rows][not(data:rows)]').set("data:rows", ({ el }) => el.get("data:rows"));
     xover.site.set("dirty", undefined)
 });

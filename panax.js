@@ -159,19 +159,21 @@ xo.listener.on('appendTo::data:rows', function () {
             this.append(px.createEmptyRow(entity))
         }
     }
-    this.parentNode.filter("ancestor-or-self::*[@mode='add' or @mode='edit']").$$(`px:Record/px:Association[not(@Type="belongsTo")]`).forEach(association => {
+    this.parentNode.$$(`*[local-name()="layout"]//association:ref`).map(node => node.$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${node.get("Name")}"][not(@Type="belongsTo")]`)).filter(el => el).forEach(association => {
         //let identity_value, primary_values
         //association.$$('px:Mappings/px:Mapping').map(mapping => association.get("DataType") == 'belongsTo' && [mapping.get("Referencer"), node.get(mapping.get("Referencer"))] || mapping.get())
         let target_rows = this.select(`xo:r[not(px:Association[@AssociationName="${association.get("AssociationName")}"])]`)
-        let association_copy = association.cloneNode(true);
-        association_copy.select(".//@xo:id").remove();
-        association_copy.reseed();
-        target_rows.map(row => row.append(association_copy)).forEach(els => {
-            els.forEach(el => {
-                let entity = el.$(`px:Entity`);
-                px.loadData(entity);
+        if (target_rows.length) {
+            let association_copy = association.cloneNode(true);
+            association_copy.select(".//@xo:id").remove();
+            association_copy.reseed();
+            target_rows.map(row => row.append(association_copy)).forEach(els => {
+                els.forEach(el => {
+                    let entity = el.$(`px:Entity`);
+                    px.loadData(entity);
+                });
             });
-        });
+        }
     });
     let section = this.ownerDocument.section;
     if (section && !this.selectFirst("px:Association")) {

@@ -480,8 +480,10 @@ px.getData = async function (...args) {
             parameters = Object.entries(predicate).map(([key, value]) => value && `[${key}]='${value.replace(/'/g, "''")}'` || key).join(' AND ')
         }
         let root_node = node.prefix.replace(/^request$/, "source") + ":" + attribute_base_name;
+        //
+
         let headers = new Headers(xover.json.merge(settings["headers"] instanceof Headers && Object.fromEntries(settings["headers"].entries()), {
-            "Cache-Response": (Array.prototype.coalesce(eval(node.getAttribute("cache" + ":" + (attribute_base_name))), eval(node.parentElement.getAttribute("cache" + ":" + (attribute_base_name))), false))
+            "Cache-Response": (node.parentNode && Array.prototype.coalesce(eval(node.getAttribute("cache" + ":" + (attribute_base_name))), eval(node.parentNode && node.parentNode.getAttribute("cache" + ":" + (attribute_base_name))), false))
             , "Accept": content_type.xml
             , "cache-control": 'force-cache'
             , "pragram": 'force-cache'
@@ -505,6 +507,7 @@ px.getData = async function (...args) {
     args.push(settings);
     try {
         let response = await xo.server.request.apply(this, args);
+        if (!(node && node.parentElement)) return;
         let entity = node.parentElement.$('self::px:Entity[ancestor-or-self::*[@mode="add"] and not(parent::px:Association[@Type="hasMany"])]')
         //let entity = node.$('parent::px:Entity[//px:Entity[@mode="add"]]')
         if (entity && !(response.documentElement.firstElementChild)) {
@@ -708,8 +711,8 @@ xo.listener.on('response::server:submit', function ({ request, payload }) {
         let entity = scope.$("ancestor-or-self::px:Entity[last()]");
         if (!entity) return;
         if ((entity.getAttribute("control:type") || '').indexOf('form') != -1) {
-            ref_node && ref_node.select("ancestor::px:Entity[1][@data:rows]/data:rows").remove();
-            ref_section && ref_section.$$(`//px:Entity[@Schema="${entity.get("Schema")}" and @Name="${entity.get("Name")}"][@data:rows]/data:rows`).removeAll()
+            ref_node && ref_node.select("(ancestor::px:Entity[1][@data:rows]/data:rows|ancestor-or-self::data:rows[1])[last()]").remove();
+            //ref_section && ref_section.$$(`//px:Entity[@Schema="${entity.get("Schema")}" and @Name="${entity.get("Name")}"][@data:rows]/data:rows`).removeAll()
             entity.ownerDocument.section.remove();
             xo.site.set("dirty", Object.fromEntries([["Schema", entity.getAttribute("Schema")], ["Name", entity.getAttribute("Name")]]))
         } else {
@@ -731,7 +734,8 @@ xo.listener.on('response::server:submit', function ({ request, payload }) {
 
 xover.listener.on('hashchange', function (new_hash, old_hash) {
     let dirty_entity = xover.site.get("dirty");
-    xo.sections.active.select(`//px:Entity/data:rows/@xsi:nil|//px:Entity/data:rows[not(*)]|//px:Entity[@Schema="${dirty_entity["Schema"]}" and @Name="${dirty_entity["Name"]}"]/data:rows`).remove();
+    //xo.sections.active.select(`//px:Entity/data:rows/@xsi:nil|//px:Entity/data:rows[not(*)]|//px:Entity[@Schema="${dirty_entity["Schema"]}" and @Name="${dirty_entity["Name"]}"]/data:rows`).remove();
+    xo.sections.active.select(`//px:Entity/data:rows/@xsi:nil`).remove();
     xo.sections.active.select('//px:Entity[@data:rows][not(data:rows)]').set("data:rows", ({ el }) => el.get("data:rows"));
     xover.site.set("dirty", undefined)
 });

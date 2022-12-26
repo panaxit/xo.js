@@ -1,3 +1,5 @@
+xover.qrl = xover.QRL;
+xo.spaces["data"] = "http://panax.io/source";
 Object.defineProperty(xo.session, 'login', {
     value: async function (username, password, connection_id = window.location.hostname) {
         try {
@@ -62,15 +64,16 @@ xo.listener.on(`beforeChange::xo:r/@meta:*`, function ({ node, element, attribut
 })
 
 const CONVERT = function (type, ...args) { return args }
-xo.listener.on(`change::px:Entity/data:rows/xo:r/@*[not(contains(namespace-uri(),'http://panax.io/'))]`, function ({ element: row, attribute, old, value }) {
+xo.listener.on(`change::px:Entity//data:rows/xo:r/@*[not(contains(namespace-uri(),'http://panax.io/'))]`, function ({ element: row, attribute, old, value }) {
     if (old != value) {
         row.$$(`ancestor::px:Entity[1]/px:Record/px:Field/@formula`).map(attr => [attr.parentNode.get("Name"), attr.value.replace(/\[([^\]]+)\]/g, (field) => row.get(field.substring(1, field.length - 1)) || 0)]).forEach(([key, formula]) => row.set(key, eval(formula)))
     }
 })
 
-xo.listener.on('remove::px:Entity/data:rows', function () {
+xo.listener.on('remove::px:Entity//data:rows', function () {
     let command = this.get("command")
-    if (!this.previousParentNode.$(`data:rows[@command="${command}"]`)) {
+    let previous_parent = this.previousParentNode;
+    if (!this.previousParentNode.$(`data:rows[@command="${command}"]`) && previous_parent.getAttribute(`@data:rows`) == command) {
         let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
         data_rows.reseed();
         this.previousParentNode.append(data_rows);
@@ -83,7 +86,7 @@ xo.listener.on('render::px:Entity', function () {
 })
 
 xo.listener.on('set::@data:rows', function ({ value, old: prev }) {
-    let current = value != prev && this.parentNode && this.parentNode.$(`data:rows[@command="${prev}"]`);
+    let current = value != prev && this.parentNode && this.parentNode.$(`data:rows`);
     current && current.remove();
     if (!this.parentNode.$(`data:rows`)) {
         let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`).reseed();
@@ -91,7 +94,7 @@ xo.listener.on('set::@data:rows', function ({ value, old: prev }) {
         data_rows.set("command", value);
     }
 })
-xo.listener.on(['change::px:Entity/data:rows/@command', 'remove::px:Entity/data:rows[not(xo:r)]/@xsi:nil'], async function ({ value, old: prev }) {
+xo.listener.on(['change::px:Entity//data:rows/@command', 'remove::data:rows[not(xo:r)]/@xsi:nil'], async function ({ value, old: prev }) {
     //let current = this.parentNode && this.parentNode.$(`data:rows[@command="${prev}"]`);
     let node = this.parentNode;
     let targetNode = node
@@ -159,20 +162,25 @@ xo.listener.on('appendTo::data:rows', function () {
             this.append(px.createEmptyRow(entity))
         }
     }
-    this.parentNode.$$(`*[local-name()="layout"]//association:ref`).map(node => node.$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${node.get("Name")}"][not(@Type="belongsTo")]`)).filter(el => el).forEach(association => {
+    this.parentNode.$$(`*[local-name()="layout"]//association:ref`).map(node => node.$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${node.get("Name")}"][not(@Type="belongsTo!!")]`)).filter(el => el).forEach(association => {
         //let identity_value, primary_values
         //association.$$('px:Mappings/px:Mapping').map(mapping => association.get("DataType") == 'belongsTo' && [mapping.get("Referencer"), node.get(mapping.get("Referencer"))] || mapping.get())
-        let target_rows = this.select(`xo:r[not(px:Association[@AssociationName="${association.get("AssociationName")}"])]`)
-        if (target_rows.length) {
-            let association_copy = association.cloneNode(true);
-            association_copy.select(".//@xo:id").remove();
-            association_copy.reseed();
-            target_rows.map(row => row.append(association_copy)).forEach(els => {
-                els.forEach(el => {
-                    let entity = el.$(`px:Entity`);
-                    px.loadData(entity);
+        if (!["belongsTo"].includes(association.getAttribute("Type"))) {
+            let target_rows = this.select(`xo:r[not(px:Association[@AssociationName="${association.get("AssociationName")}"])]`)
+            if (target_rows.length) {
+                let association_copy = association.cloneNode(true);
+                association_copy.select(".//@xo:id").remove();
+                association_copy.reseed();
+                target_rows.map(row => row.append(association_copy)).forEach(els => {
+                    els.forEach(el => {
+                        let entity = el.$(`px:Entity`);
+                        px.loadData(entity);
+                    });
                 });
-            });
+            }
+        } else {
+            let entity = association.$(`px:Entity`);
+            px.loadData(entity);
         }
     });
     let section = this.ownerDocument.section;
@@ -261,12 +269,15 @@ px.getEntityInfo = function (input_document) {
 }
 
 px.getEntityFields = function (source) {
-    let fields, schema, name, mode, identity_value, primary_values, ref_node, predicate, settings;
+    let fields, schema, name, mode, identity_value, primary_values, ref_node, predicate, settings = new URLSearchParams();
     if (source && typeof (source.value || source) == 'string') {
         let url = xover.URL(source);
         predicate = url.searchParams;
-        ({ searchParams: settings, hash: fields = '' } = xover.URL(url.hash.replace(/^#/, '')));
-        fields = fields.replace(/^#/, '');
+        fields = url.hash.replace(/^#/, '');
+        if (fields.indexOf("?") != -1 && fields.indexOf("?") < fields.indexOf("#")) {
+            ({ searchParams: settings, hash: fields = '' } = xover.URL(url.hash.replace(/^#/, '')));
+            fields = fields.replace(/^#/, '');
+        }
         let href = url.pathname.replace(/^\//, '');
         [href, mode] = href.split(/~/);
         [href, identity_value] = href.split(/:/);
@@ -425,8 +436,8 @@ px.loadData = function (entity, keys) {
 
     let fields = Object.fromEntries(constraints.map(([key]) => key).concat(entity.$$('@custom:*|px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name')).map(field => field.prefix == 'custom' ? [`${field.nodeName}`, field.value] : [`${field.parentNode.nodeName == 'px:Association' && 'meta:' || ''}${field.value}`, `#panax.${field.parentNode.$("self::*[@DataType='nvarchar' or @DataType='foreignKey']") ? 'prepareString' : (field.parentNode.$("self::*[@DataType='xml']") ? 'prepareXML' : 'prepareValue')}(` + (field.parentNode.$("self::px:Association") && `(SELECT ${field.parentNode.$("px:Entity/@displayText|px:Entity[not(@displayText)]/@combobox:text").value} FROM [${field.parentNode.$("px:Entity/@Schema").value}].[${field.parentNode.$("px:Entity/@Name").value}] #parent WHERE ${field.parentNode.$$('px:Mappings/px:Mapping').map(map => '[' + entity.get("Name") + '].[' + map.get("Referencer") + '] = #parent.[' + map.get("Referencee") + ']').join(' AND ')})` || `[${field.value}]`) + ')']))
 
-    let text = entity.$$(`@displayText|self::*[not(@displayText)]/@combobox:text|px:Record/px:Field[not(@IsIdentity="1")][1]/@Name|px:Record[not(*[2])]/px:Field/@Name`).shift();
-    fields["meta:text"] = `RTRIM(#panax.prepareString(${text.value}))`; // No se ponen brackets para los nombres de las funciones
+    let text = entity.$$(`@displayText|self::*[not(@displayText)]/@combobox:text|px:Record/px:Field[not(@IsIdentity="1" or @DataType="xml")][1]/@Name|px:Record[not(*[2])]/px:Field/@Name`).shift();
+    fields["meta:text"] = `RTRIM(#panax.${text.parentNode.getAttribute("DataType") == 'xml' && 'prepareXML' || 'prepareString'}(${text.value}))`; // No se ponen brackets para los nombres de las funciones
     //if (id.length) {
     fields["meta:id"] = id.map(el => `#panax.prepareValue([${el[0]}])`).join("+'/'+");
     //} else {
@@ -448,7 +459,7 @@ px.loadData = function (entity, keys) {
         predicate && mappings.unshift(predicate);
         predicate = mappings.join(' AND ')
     }
-    entity.setAttribute("data:rows", `${entity.get("Schema")}/${entity.get("Name")}?${predicate || ''}#?&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '1000')}#${Object.entries(fields).filter(([, value]) => value).map(([key, value]) => `[@${key}]=${value}`).join(',')}`)
+    entity.setAttribute("data:rows", `${entity.get("Schema")}/${entity.get("Name")}?${predicate || ''}#?&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '1000')}#${Object.entries(fields).filter(([, value]) => value).sort((first, second) => first[1].indexOf("XML") - second[1].indexOf("XML")).map(([key, value]) => `[${value.indexOf("prepareXML") == -1 ? '@' + key : "x:f/@Name]='" + key + "', [x:f"}]=${value.replace(/#panax\.prepareXML/, '')}`).join(',')}`)
     let section = entity.section;
 }
 
@@ -459,7 +470,7 @@ px.getData = async function (...args) {
     if (node) {
         let command = parameters;
         let attribute_base_name = node.localName;
-        let fields, request, predicate, url_settings;
+        let fields, request, predicate = {}, url_settings;
         if (parameters && typeof (parameters.value || parameters) === 'string') {
             ({
                 fields, schema, name, mode, identity_value, primary_values, predicate, settings: url_settings
@@ -477,17 +488,16 @@ px.getData = async function (...args) {
             /*TODO: Mover esto a un listener o definir */
             //parameters = (node.getAttribute('source_filters:' + attribute_base_name) || predicate || "");
             predicate = Object.fromEntries(Object.entries(predicate));
-            parameters = Object.entries(predicate).map(([key, value]) => value && `[${key}]='${value.replace(/'/g, "''")}'` || key).join(' AND ')
+            parameters = Object.entries(predicate).filter(([key, value]) => key[0] != '@').map(([key, value]) => value && `[${key}]='${value.replace(/'/g, "''")}'` || key).join(' AND ')
         }
         let root_node = node.prefix.replace(/^request$/, "source") + ":" + attribute_base_name;
         //
 
         let headers = new Headers(xover.json.merge(settings["headers"] instanceof Headers && Object.fromEntries(settings["headers"].entries()), {
-            "Cache-Response": (node.parentNode && Array.prototype.coalesce(eval(node.getAttribute("cache" + ":" + (attribute_base_name))), eval(node.parentNode && node.parentNode.getAttribute("cache" + ":" + (attribute_base_name))), false))
+            "Cache-Response": (node.parentNode && Array.prototype.coalesce(eval(node.getAttribute("cache" + ":" + (attribute_base_name))), eval(node.parentNode && node.parentNode instanceof Element && node.parentNode.getAttribute("cache" + ":" + (attribute_base_name))), false))
             , "Accept": content_type.xml
             , "cache-control": 'force-cache'
             , "pragram": 'force-cache'
-            , "x-source-tag": node.section.tag
             , "x-original-request": command
             , "x-namespaces": `'${node.resolveNS(node.prefix)}' as ${node.prefix}`
             , "x-Root-Node": root_node
@@ -498,10 +508,11 @@ px.getData = async function (...args) {
             , "x-data-text": encodeURIComponent(node.getAttribute('source_text:' + attribute_base_name) || node.getAttribute('dataText') || "")
             , "x-data-value": encodeURIComponent(node.getAttribute('source_value:' + attribute_base_name) || node.getAttribute('dataValue') || "")
             , "x-data-fields": fields || ""
-            , "x-order-by": node.parentNode && node.parentNode.get("custom:sortBy")
+            , "x-order-by": node.parentNode instanceof Element && node.parentNode.get("custom:sortBy") || ""
         }))
         settings["headers"] = headers;
-        parameters = request && { command: request, predicate: parameters } || undefined;
+        parameters = request && { command: request, predicate: parameters } || {};
+        Object.assign(parameters, Object.fromEntries(Object.entries(predicate).filter(([key, value]) => key[0] == '@')));
     }
     args.push(parameters);
     args.push(settings);
@@ -517,6 +528,14 @@ px.getData = async function (...args) {
     } catch (e) {
         return Promise.reject(e)
     }
+}
+
+px.applyFilters = function (attribute_node) {
+    let command = xo.QRL(attribute_node);
+    attribute_node.select("ancestor::px:Entity/px:Parameters//px:Parameter").forEach(param => {
+        command.predicate[param.getAttribute("parameterName")] = (param.getAttribute("value") || "null")
+    })
+    attribute_node.set(command.toString());
 }
 
 px.createEmptyRow = function (entity) {

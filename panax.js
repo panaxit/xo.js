@@ -36,9 +36,17 @@ Object.defineProperty(xo.session, 'logout', {
     }, writable: true, configurable: true
 })
 
-xo.listener.on(['beforeRender::#shell', 'beforeAppendToHTMLElement::MAIN', 'beforeAppendToHTMLElement::BODY'], ({ target }) => {
+xo.listener.on(['beforeRender::#shell', 'beforeAppendToHTMLElement::MAIN', 'beforeAppendToHTMLElement::BODY'], function({ target }) {
     if (!(event.detail.args || []).filter(el => !(el instanceof HTMLStyleElement || el instanceof HTMLScriptElement || el.matches("dialog,[role=alertdialog],[role=alert],[role=dialog]"))).length) return;
     [...target.childNodes].filter(el => el.matches && !el.matches(`script,dialog,[role=alertdialog],[role=alert],[role=dialog]`)).removeAll()
+})
+
+xo.listener.on([`remove::html:div[@role='alertdialog'][contains(*/@class,'modal')]`], function () {
+    let removed_from = this;
+    let section = removed_from.getAttribute("xo-section");
+    if (section && section in xover.sections) {
+        delete xover.sections[section];
+    }
 })
 
 xo.listener.on(['render::*'], function () {
@@ -94,6 +102,7 @@ xo.listener.on('set::@data:rows', function ({ value, old: prev }) {
         data_rows.set("command", value);
     }
 })
+
 xo.listener.on(['change::px:Entity//data:rows/@command', 'remove::data:rows[not(xo:r)]/@xsi:nil'], async function ({ value, old: prev }) {
     //let current = this.parentNode && this.parentNode.$(`data:rows[@command="${prev}"]`);
     let node = this.parentNode;
@@ -162,7 +171,7 @@ xo.listener.on('appendTo::data:rows', function () {
             this.append(px.createEmptyRow(entity))
         }
     }
-    this.parentNode.$$(`*[local-name()="layout"]//association:ref`).map(node => node.$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${node.get("Name")}"][not(@Type="belongsTo!!")]`)).filter(el => el).forEach(association => {
+    this.parentNode.$$(`*[local-name()="layout"]//association:ref`).map(node => node.$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${node.get("Name")}"][not(@Type="belongsTo")]`)).filter(el => el).forEach(association => {
         //let identity_value, primary_values
         //association.$$('px:Mappings/px:Mapping').map(mapping => association.get("DataType") == 'belongsTo' && [mapping.get("Referencer"), node.get(mapping.get("Referencer"))] || mapping.get())
         if (!["belongsTo"].includes(association.getAttribute("Type"))) {
@@ -333,8 +342,9 @@ px.request = async function (...args) {
     //primary_values = primary_values.filter((item, ix) => ix % 2 != 0)
     page_size = (page_size || xover.manifest.getSettings(`#${schema}/${entity_name}~${mode}`, "pageSize").pop());
     page_index = (page_index || xover.manifest.getSettings(`#${schema}/${entity_name}~${mode}`, "pageIndex").pop());
-    let mock_section = xo.Section(xo.xml.createDocument(`<entity ${xover.json.toAttributes({ filters, mode, page_size, page_index, Name: entity_name, Schema: schema })}/>`), { tag: `${schema}/${entity_name}~${mode}`.toLowerCase() });
+    let mock_section = xo.Section(xo.xml.createDocument(`<entity ${xover.json.toAttributes({ filters, mode, page_size, page_index, Name: entity_name, Schema: schema })}/>`), { tag: `#${schema}/${entity_name}~${mode}`.toLowerCase() });
     let other_filters = Object.fromEntries(xo.manifest.getSettings(mock_section, 'filters'));
+    mock_section.remove();
     filters = Object.assign(filters, other_filters);
     ////if (other_filters && other_filters[0] === '`') {
     ////    let entity = { schema: schema, name: entity_name };
@@ -714,6 +724,11 @@ xo.listener.on('load::px:Entity', function () {
     ref_node && ref_node.$$('ancestor::px:Association[1]').map(el => entity.$(`px:Entity/*[local-name()="layout"]/association:ref[@Name="${el.get("AssociationName")}"]`)).forEach(el => el && el.remove())
 
     entity.$$('px:Entity/px:Record/px:Field[@mode="hidden"]').map(el => entity.$(`px:Entity/*[local-name()="layout"]/field:ref[@Name="${el.get("Name")}"]`)).forEach(el => el && el.remove())
+})
+
+xo.listener.on(['response::xo:prompt'], function ({ response_value }) {
+    let response = this;
+    new xo.Section(response.document, { tag: "#prompt" });
 })
 
 xo.listener.on('response::server:submit', function ({ request, payload }) {

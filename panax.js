@@ -139,7 +139,7 @@ xo.listener.on(['change::px:Entity//data:rows/@command', 'remove::data:rows[not(
         }
         new_node.selectNodes("@xo:id").remove()
         //let prev_value = targetNode.parentNode.getAttribute("prev:value");
-        targetNode.selectNodes('@*').forEach(attr => new_node.setAttributeNS(attr.namespaceURI, attr.name, attr.value))
+        new_node.selectNodes('@*').forEach(attr => targetNode.setAttributeNS(attr.namespaceURI, attr.name, attr.value))
         targetNode.append(...new_node.childNodes);
     } catch (e) {
         Promise.reject(e)
@@ -325,7 +325,7 @@ px.request = async function (...args) {
     if (typeof (request_or_entity_name) == 'string') {
         ({
             fields, schema, name: entity_name, mode, identity_value, primary_values, ref_node, predicate: filters, settings: url_settings
-        } = px.getEntityFields(request_or_entity_name));
+        } = xo.QRL(request_or_entity_name));
         page_size = url_settings["pageSize"];
         page_index = url_settings["pageIndex"];
 
@@ -371,7 +371,7 @@ px.request = async function (...args) {
         if (!(Response instanceof xover.Section) && Response && Response.documentElement) {
             Response = Response.transform("xover/databind.xslt")
             Response.$$('//px:Entity').set("meta:type", "entity")
-            let control_type = Response.$('//px:Entity').getAttribute("xsi:type").replace(':control', '.xslt')
+            let control_type = (Response.$('//px:Entity').getAttribute("xsi:type") || '').replace(':control', '.xslt')
             Response.addStylesheet({ href: "px-Entity.xslt", target: "@#shell main" });
             Response.documentElement.setAttributeNS(xover.spaces["xmlns"], "xmlns:data", "http://panax.io/source");
             association_ref && Response.documentElement.$$(`*[local-name()="layout"]/association:*[@name="${association_ref.get("AssociationName")}"]`).remove()
@@ -484,7 +484,7 @@ px.getData = async function (...args) {
         if (parameters && typeof (parameters.value || parameters) === 'string') {
             ({
                 fields, schema, name, mode, identity_value, primary_values, predicate, settings: url_settings
-            } = px.getEntityFields(parameters));
+            } = xo.QRL(parameters));
             page_size = url_settings["pageSize"];
             page_index = url_settings["pageIndex"];
             request = `[${schema}].[${name}]`
@@ -667,7 +667,9 @@ px.submit = function (data_rows) {
             ref_node.selectFirst("ancestor::px:Entity[1]/px:Record").replaceWith(data_rows[0].selectFirst("ancestor::px:Entity[1]/px:Record").cloneNode(true));
             ref_node.append(...data_rows)
         }
-        xo.sections.active.remove();
+        let srcElement = event.srcElement;
+        let interface = srcElement && srcElement.closest("[role='alertdialog']") || xo.sections.active;
+        interface.remove();
         return;
     }
     //if (ref_node && ref_node.$('ancestor::px:Association')) {
@@ -738,7 +740,7 @@ xo.listener.on('response::server:submit', function ({ request, payload }) {
     if (reference.id && !ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"]) {
         return Promise.reject("Se perdió la referencia.")
     }
-    let result = this;
+    let result = this.document;
     let scope = ((request.settings || {})["body"] || {})["scope"];
     if (!(result instanceof Node)) return;
     if (result.$$('//result').length && result.$$('//result').every(r => r.get("status") == 'success')) {

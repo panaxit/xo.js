@@ -454,7 +454,7 @@ px.loadData = function (entity, keys) {
     //let mappings = entity.$$("ancestor::px:Association[1][@Type='belongsTo']/px:Mappings/px:Mapping/@Referencee")
     fields["meta:value"] = pks.map(el => `RTRIM(#panax.prepareString([${el[0]}]))`).join("+'/'+");
     //}
-    fields["meta:orderBy"] = entity.get("custom:sortBy")
+    fields["meta:orderBy"] = entity.getAttribute("custom:sortBy")
 
     let formatValue = (value => (isNumber(value) || value === null) && String(value) || value !== undefined && value[0] != "'" && `'${value}'` || value || '');
     constraints = constraints.concat([...filters]);

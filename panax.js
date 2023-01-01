@@ -25,11 +25,11 @@ Object.defineProperty(xo.session, 'logout', {
     value: async function () {
         try {
             let response = await xover.server.logout();
+            history.go(-xo.site.position + 1);
             for (section in xo.sections) {
                 xo.sections[section].remove()
             }
             xover.session.status = 'unauthorized';
-            history.go(-xo.site.position + 1);
         } catch (e) {
             Promise.reject(e);
         }
@@ -429,7 +429,7 @@ px.loadData = function (entity, keys) {
         let reference = xo.site.reference || {};
         let ref_section = xo.sections[reference.section];
         let ref_node = ref_section && ref_section.findById(reference.id) || null;
-        if (ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"] && ref_node.matches("self::xo:r")) {
+        if (ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"] && ref_node.matches("xo:r")) {
             let data_rows = entity.$("data:rows") || entity.createNode(`<data:rows xmlns:data="${ref_node.resolveNS("data")}"/>`)
             data_rows.append(ref_node.cloneNode(true))
             return;
@@ -661,9 +661,9 @@ px.submit = function (data_rows) {
     let ref_section = xo.sections[reference.section];
     let ref_node = ref_section && ref_section.findById(reference.id) || null;
     if (ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"]) {
-        if (ref_node.matches("self::xo:r")) {
+        if (ref_node.matches("xo:r")) {
             ref_node.replaceWith(data_rows[0])
-        } else if (ref_node.matches("self::data:rows")) {
+        } else if (ref_node.matches("data:rows")) {
             ref_node.selectFirst("ancestor::px:Entity[1]/px:Record").replaceWith(data_rows[0].selectFirst("ancestor::px:Entity[1]/px:Record").cloneNode(true));
             ref_node.append(...data_rows)
         }

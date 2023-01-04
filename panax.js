@@ -613,7 +613,7 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
             let id_node = row.get(`${id}`)
             if (id_node ? id_node.value : primary_fields.filter(field => {
                 let initial = row.get(`initial:${field}`);
-                return initial && initial.value && initial.value != row.get(`${field}`) || false
+                return initial == undefined || initial && initial.value && initial.value != row.get(`${field}`) || false
             }).length) {
                 dataRow = xo.xml.createNode(`<updateRow xmlns="http://panax.io/persistence"${id ? ` identityValue="${row.get(id.value)}"` : ''}/>`);
                 entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula)]/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {

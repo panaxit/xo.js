@@ -456,7 +456,7 @@ px.loadData = function (entity, keys) {
     //}
     fields["meta:orderBy"] = entity.getAttribute("custom:sortBy")
 
-    let formatValue = (value => (isNumber(value) || value === null) && String(value) || value !== undefined && value[0] != "'" && `'${value}'` || value || '');
+    let formatValue = (value => (value === null) && String(value) || value !== undefined && value[0] != "'" && `'${value}'` || value || '');
     constraints = constraints.concat([...filters]);
 
     let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => (key instanceof Attr || value) && `[${key}] IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})` || key).join(' AND ')

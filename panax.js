@@ -36,7 +36,7 @@ Object.defineProperty(xo.session, 'logout', {
     }, writable: true, configurable: true
 })
 
-xo.listener.on(['beforeRender::#shell', 'beforeAppendToHTMLElement::MAIN', 'beforeAppendToHTMLElement::BODY'], function({ target }) {
+xo.listener.on(['beforeRender::#shell', 'beforeAppendToHTMLElement::MAIN', 'beforeAppendToHTMLElement::BODY'], function ({ target }) {
     if (!(event.detail.args || []).filter(el => !(el instanceof HTMLStyleElement || el instanceof HTMLScriptElement || el.matches("dialog,[role=alertdialog],[role=alert],[role=dialog]"))).length) return;
     [...target.childNodes].filter(el => el.matches && !el.matches(`script,dialog,[role=alertdialog],[role=alert],[role=dialog]`)).removeAll()
 })
@@ -64,11 +64,16 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
 xo.listener.on(`beforeChange::xo:r/@meta:*`, function ({ node, element, attribute, old, value }) {
     let references = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${node.localName}"]/px:Mappings/px:Mapping/@Referencer`);
     let src_element = event.srcEvent.srcElement;
-    let selected_record = src_element[src_element.selectedIndex].scope.filter("self::xo:r")
+    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r") || src_element instanceof HTMLLIElement && src_element.scope.filter("self::xo:r") || undefined
 
     references.forEach(reference => element.set(reference.value, selected_record && selected_record.get(reference.parentNode.get("Referencee")) || ""));
-    let option = src_element[src_element.selectedIndex]
-    this.value = option.value && option.text || "";
+    if (src_element instanceof HTMLSelectElement) {
+        let option = src_element[src_element.selectedIndex]
+        this.value = option.value && option.text || "";
+    } else if (src_element instanceof HTMLLIElement) {
+        let option = src_element;
+        this.value = option.textContent;
+    }
 })
 
 const CONVERT = function (type, ...args) { return args }

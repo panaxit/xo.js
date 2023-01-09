@@ -41,12 +41,14 @@ xo.listener.on(['beforeRender::#shell', 'beforeAppendToHTMLElement::MAIN', 'befo
     [...target.childNodes].filter(el => el.matches && !el.matches(`script,dialog,[role=alertdialog],[role=alert],[role=dialog]`)).removeAll()
 })
 
-xo.listener.on([`remove::html:div[@role='alertdialog'][contains(*/@class,'modal')]`], function () {
+xo.listener.on([`beforeRemove::html:div[@role='alertdialog'][contains(*/@class,'modal')]`], function () {
     let removed_from = this;
     let section = removed_from.getAttribute("xo-section");
     if (section && section in xover.sections) {
         delete xover.sections[section];
     }
+    let scope = this.scope;
+    scope instanceof Attr && scope.remove()
 })
 
 xo.listener.on(['render::*'], function () {

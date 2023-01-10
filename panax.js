@@ -101,7 +101,7 @@ xo.listener.on('render::px:Entity', function () {
 })
 
 xo.listener.on('set::@data:rows', function ({ value, old: prev }) {
-    let current = value != prev && this.parentNode && this.parentNode.$(`data:rows`);
+    let current = this.parentNode && this.parentNode.$(`data:rows`);
     current && current.remove();
     if (!this.parentNode.$(`data:rows`)) {
         let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`).reseed();

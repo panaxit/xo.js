@@ -81,7 +81,16 @@ xo.listener.on(`beforeChange::xo:r/@meta:*`, function ({ node, element, attribut
 const CONVERT = function (type, ...args) { return args }
 xo.listener.on(`change::px:Entity//data:rows/xo:r/@*[not(contains(namespace-uri(),'http://panax.io/'))]`, function ({ element: row, attribute, old, value }) {
     if (old != value) {
-        row.$$(`ancestor::px:Entity[1]/px:Record/px:Field/@formula`).map(attr => [attr.parentNode.get("Name"), attr.value.replace(/\[([^\]]+)\]/g, (field) => row.get(field.substring(1, field.length - 1)) || 0)]).forEach(([key, formula]) => row.set(key, eval(formula)))
+        row.$$(`ancestor::px:Entity[1]/px:Record/px:Field/@formula`).map(attr => [attr.parentNode.get("Name"), attr.value.replace(/\[([^\]]+)\]/g, (field) => {
+            let ref = attr.parentNode.parentNode.selectFirst(`px:Field[@Name="${field.substring(1, field.length - 1)}"]`);
+            return row.getAttribute(field.substring(1, field.length - 1)) || (ref ? (['varchar','nvarchar'].includes(ref.getAttribute("DataType"))? '' : 0) : `'${field}'`)
+        })]).forEach(([key, formula]) => {
+            try {
+                row.set(key.value, eval(formula))
+            } catch(e) {
+                row.set(key.value, "")
+            }
+        })
     }
 })
 

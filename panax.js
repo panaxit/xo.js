@@ -463,7 +463,9 @@ px.loadData = function (entity, keys) {
     let fields = Object.fromEntries(constraints.map(([key]) => key).concat(entity.$$('@custom:*|px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name')).map(field => field.prefix == 'custom' ? [`${field.nodeName}`, field.value] : [`${field.parentNode.nodeName == 'px:Association' && 'meta:' || ''}${field.value}`, `#panax.${field.parentNode.$("self::*[@DataType='nvarchar' or @DataType='varchar' or @DataType='foreignKey']") ? 'prepareString' : (field.parentNode.$("self::*[@DataType='xml']") ? 'prepareXML' : 'prepareValue')}(` + (field.parentNode.$("self::px:Association") && `(SELECT ${field.parentNode.$("px:Entity/@displayText|px:Entity[not(@displayText)]/@combobox:text").value} FROM [${field.parentNode.$("px:Entity/@Schema").value}].[${field.parentNode.$("px:Entity/@Name").value}] #parent WHERE ${field.parentNode.$$('px:Mappings/px:Mapping').map(map => '[' + entity.get("Name") + '].[' + map.get("Referencer") + '] = #parent.[' + map.get("Referencee") + ']').join(' AND ')})` || `[${field.value}]`) + ')']))
 
     let text = entity.$$(`@displayText|self::*[not(@displayText)]/@combobox:text|px:Record/px:Field[not(@IsIdentity="1" or @DataType="xml")][1]/@Name|px:Record[not(*[2])]/px:Field/@Name`).shift();
-    fields["meta:text"] = `RTRIM(#panax.${text.parentNode.getAttribute("DataType") == 'xml' && 'prepareXML' || 'prepareString'}(${text.value}))`; // No se ponen brackets para los nombres de las funciones
+    if (text) {
+        fields["meta:text"] = `RTRIM(#panax.${text.parentNode.getAttribute("DataType") == 'xml' && 'prepareXML' || 'prepareString'}(${text.value}))`; // No se ponen brackets para los nombres de las funciones
+    }
     //if (id.length) {
     fields["meta:id"] = id.map(el => `#panax.prepareValue([${el[0]}])`).join("+'/'+");
     //} else {

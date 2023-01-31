@@ -181,8 +181,19 @@ xo.listener.on(['beforeChange::@headerText', 'beforeChange::@container:*'], func
     event.detail.value = event.detail.value.replace(/:/g, '').trim()
 })
 
+px.getPrimaryValue = function (record) {
+    let entity = record.$(`ancestor::px:Entity[1]`)
+    id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => record.get(key.value));
+    pks = entity.$$(`px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map(key => record.get(key.value));
+    if (id.length) {
+        return ":" + id.join("/")
+    } else if (pks.length) {
+        return "/" + pks.join("/")
+    }
+}
+
 xo.listener.on(['beforeRemove::xo:r'], function ({ element, attribute, value, old }) {
-    if (!element.get("state:delete")) {
+    if (!px.getPrimaryValue(this) && !element.get("state:delete")) {
         element.toggle('state:delete', true)
         event.preventDefault()
     }

@@ -475,11 +475,10 @@ px.loadData = function (entity, keys) {
     fields["meta:orderBy"] = entity.getAttribute("custom:sortBy")
 
     let formatValue = (value => (value === null) && String(value) || value !== undefined && value[0] != "'" && `'${value}'` || value || '');
+    let formatKey = ((entity) => (key => key.indexOf("`") != -1 && eval(key.replace(/\\/g, '\\\\')).replace(/\\b/g, '\\b') || `[${key}]`))({ schema: entity.getAttribute("Schema"), name: entity.getAttribute("Name") });
     constraints = constraints.concat([...filters]);
 
-    let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => (key instanceof Attr || value) && `[${key}] IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})` || key).join(' AND ')
-    Object.entries(predicate).map(([key, value]) => value && `[${key}]='${value.replace(/'/g, "''")}'` || key).join(' AND ')
-
+    let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => (key instanceof Attr || value) && `${formatKey(key)} IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})` || key.indexOf("`") != -1 && formatKey(key) || key).join(' AND ');
     let parent_row = entity.$('ancestor::xo:r');
     if (parent_row) {
         let parent_relationship = entity.$('parent::px:Association[not(@Type="belongsTo")]/px:Mappings')
@@ -487,7 +486,7 @@ px.loadData = function (entity, keys) {
         predicate && mappings.unshift(predicate);
         predicate = mappings.join(' AND ')
     }
-    entity.setAttribute("data:rows", `${entity.get("Schema")}/${entity.get("Name")}?${predicate || ''}#?&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '1000')}#${Object.entries(fields).filter(([, value]) => value).sort((first, second) => first[1].indexOf("XML") - second[1].indexOf("XML")).map(([key, value]) => `[${value.indexOf("prepareXML") == -1 ? '@' + key : "x:f/@Name]='" + key + "', [x:f"}]=${value.replace(/#panax\.prepareXML/, '')}`).join(',')}`)
+    entity.setAttribute("data:rows", `${entity.get("Schema")}/${entity.get("Name")}?${encodeURIComponent(predicate) || ''}#?&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '1000')}#${Object.entries(fields).filter(([, value]) => value).sort((first, second) => first[1].indexOf("XML") - second[1].indexOf("XML")).map(([key, value]) => `[${value.indexOf("prepareXML") == -1 ? '@' + key : "x:f/@Name]='" + key + "', [x:f"}]=${value.replace(/#panax\.prepareXML/, '')}`).join(',')}`)
     let section = entity.section;
 }
 

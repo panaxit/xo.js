@@ -475,7 +475,7 @@ px.loadData = function (entity, keys) {
     fields["meta:orderBy"] = entity.getAttribute("custom:sortBy")
 
     let formatValue = (value => (value === null) && String(value) || value !== undefined && value[0] != "'" && `'${value}'` || value || '');
-    let formatKey = ((entity) => (key => key.indexOf("`") != -1 && eval(key.replace(/\\/g, '\\\\')).replace(/\\b/g, '\\b') || `[${key}]`))({ schema: entity.getAttribute("Schema"), name: entity.getAttribute("Name") });
+    let formatKey = ((entity) => (key => key instanceof Attr && key.value || key.indexOf("`") != -1 && eval(key.replace(/\\/g, '\\\\')).replace(/\\b/g, '\\b') || `[${key}]`))({ schema: entity.getAttribute("Schema"), name: entity.getAttribute("Name") });
     constraints = constraints.concat([...filters]);
 
     let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => (key instanceof Attr || value) && `${formatKey(key)} IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})` || key.indexOf("`") != -1 && formatKey(key) || key).join(' AND ');

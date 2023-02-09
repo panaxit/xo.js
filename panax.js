@@ -55,6 +55,24 @@ xo.listener.on(['render::*'], function () {
     this.selectNodes("//button[not(@type)]").forEach(el => el.set("type", "button")) //default behavior
 })
 
+xo.listener.on(['beforeRender::px:Entity'], function ({ section }) {
+    let node = this;
+
+    for (association_ref of node.select(`//px:Entity/px:Record/px:Association[@Type="belongsTo"]`)) {
+        let referencers = association_ref.select('px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Entity[1]/@IdentityKey)]/@Referencer').map(referencer => referencer.value);
+        let row = association_ref.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*`).filter(attr => referencers.includes(attr.name));
+        let data_rows = association_ref.selectFirst(`px:Entity/data:rows`);
+        let rows = data_rows && data_rows.select(`xo:r`).filter(_row => row.filter(attr => _row.get(attr.name) != attr.value).length) || [];
+        if (rows.length) {
+            rows.removeAll({ silent: true });
+            if (!data_rows.select("xo:r").length) {
+                data_rows.setAttribute("xsi:nil", true);
+                row.map(attr => section.find(attr.parentNode).getAttributeNode(`meta:${association_ref.getAttribute("AssociationName")}`)).filter(el => el.value).forEach(attr => attr.set(""));
+            }
+        }
+    }
+})
+
 xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state'))]`, function ({ element, attribute, old, value }) {
     let initial_value = element.getAttributeNodeNS('http://panax.io/state/initial', attribute.nodeName.replace(':', '-'));
     if (value !== null && !initial_value) {
@@ -106,7 +124,7 @@ xo.listener.on('remove::px:Entity//data:rows', function () {
 })
 
 xo.listener.on('render::px:Entity', function () {
-    this.select(`//*[@data:rows and not(data:rows)]`).forEach(node => node.set("@data:rows", node.get("data:rows")))
+    this.select(`//*[@data:rows and not(data:rows)]`).forEach(node => node.set("data:rows", node.get("data:rows")))
 })
 
 xo.listener.on('set::@data:rows', function ({ value, old: prev }) {
@@ -119,7 +137,7 @@ xo.listener.on('set::@data:rows', function ({ value, old: prev }) {
     }
 })
 
-xo.listener.on(['change::px:Entity//data:rows/@command', 'remove::data:rows[not(xo:r)]/@xsi:nil'], async function ({ value, old: prev }) {
+xo.listener.on(['set::px:Entity//data:rows/@command', 'remove::data:rows[not(xo:r)]/@xsi:nil'], async function ({ value, old: prev }) {
     //let current = this.parentNode && this.parentNode.$(`data:rows[@command="${prev}"]`);
     let node = this.parentNode;
     let targetNode = node
@@ -135,6 +153,7 @@ xo.listener.on(['change::px:Entity//data:rows/@command', 'remove::data:rows[not(
             , method: 'GET'
             , headers: headers
         })
+        node.select("*").remove({silent:true});
         if (response instanceof Error) {
             return Promise.reject(response);
         } else if (typeof (response) === 'string') {
@@ -157,6 +176,8 @@ xo.listener.on(['change::px:Entity//data:rows/@command', 'remove::data:rows[not(
         //let prev_value = targetNode.parentNode.getAttribute("prev:value");
         new_node.selectNodes('@*').forEach(attr => targetNode.setAttributeNS(attr.namespaceURI, attr.name, attr.value))
         targetNode.append(...new_node.childNodes);
+        let section = targetNode.section;
+        section && section.render();
     } catch (e) {
         Promise.reject(e)
     }
@@ -462,7 +483,7 @@ px.loadData = function (entity, keys) {
 
     let fields = Object.fromEntries(constraints.map(([key]) => key).concat(entity.$$('@custom:*|px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name')).map(field => field.prefix == 'custom' ? [`${field.nodeName}`, field.value] : [`${field.parentNode.nodeName == 'px:Association' && 'meta:' || ''}${field.value}`, `#panax.${field.parentNode.$("self::*[@DataType='nvarchar' or @DataType='varchar' or @DataType='foreignKey']") ? 'prepareString' : (field.parentNode.$("self::*[@DataType='xml']") ? 'prepareXML' : 'prepareValue')}(` + (field.parentNode.$("self::px:Association") && `(SELECT ${field.parentNode.$("px:Entity/@displayText|px:Entity[not(@displayText)]/@combobox:text").value} FROM [${field.parentNode.$("px:Entity/@Schema").value}].[${field.parentNode.$("px:Entity/@Name").value}] #parent WHERE ${field.parentNode.$$('px:Mappings/px:Mapping').map(map => '[' + entity.get("Name") + '].[' + map.get("Referencer") + '] = #parent.[' + map.get("Referencee") + ']').join(' AND ')})` || `[${field.value}]`) + ')']))
 
-    let text = entity.$$(`@displayText|self::*[not(@displayText)]/@combobox:text|px:Record/px:Field[not(@IsIdentity="1" or @DataType="xml")][1]/@Name|px:Record[not(*[2])]/px:Field/@Name`).shift();
+    let text = entity.$$(`@displayText|self::*[not(@displayText)]/@combobox:text|px:Record/px:Field[not(@IsIdentity="1" or @DataType="xml")][1]/@Name|px:Record[not(*[2])]/px:Field[not(@DataType="xml")]/@Name`).shift();
     if (text) {
         fields["meta:text"] = `RTRIM(#panax.${text.parentNode.getAttribute("DataType") == 'xml' && 'prepareXML' || 'prepareString'}(${text.value}))`; // No se ponen brackets para los nombres de las funciones
     }
@@ -672,7 +693,7 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
     return target;
 }
 
-px.submit = function (data_rows) {
+px.submit = async function (data_rows) {
     data_rows = data_rows instanceof Array ? data_rows : [data_rows];
     let reference = xo.site.reference || {};
     let ref_section = xo.sections[reference.section];
@@ -696,6 +717,10 @@ px.submit = function (data_rows) {
     //    return
     //}
     for (let row of data_rows) {
+        let pending = [];
+        row.select(".//@*[starts-with(.,'blob:')]").filter(node => node && (!node.namespaceURI || node.namespaceURI.indexOf('http://panax.io/state') == -1)).map(node => { pending.push(xover.server.uploadFile(node)) })
+        await Promise.all(pending);
+
         let post = buildPost([row])
         let messages = post.select("//@exception:message").map(el => document.createElement('li').set(new Text(el.value)));
         if (messages.length) {
@@ -766,6 +791,8 @@ xo.listener.on('response::server:submit', function ({ request, payload }) {
         if ((entity.getAttribute("control:type") || '').indexOf('form') != -1) {
             ref_node && ref_node.select("(ancestor::px:Entity[1][@data:rows]/data:rows|ancestor-or-self::data:rows[1])[last()]").remove();
             //ref_section && ref_section.$$(`//px:Entity[@Schema="${entity.get("Schema")}" and @Name="${entity.get("Name")}"][@data:rows]/data:rows`).removeAll()
+            let target = xo.sections[((xo.site.prev || {})[0] || {}).section];
+            target && target.select(`px:Entity//px:Entity[@Schema="${entity.getAttribute("Schema")}" and @Name="${entity.getAttribute("Name")}"]/data:rows/@command`).forEach(attr => attr.set(attr.value));
             entity.ownerDocument.section.remove();
             xo.site.set("dirty", Object.fromEntries([["Schema", entity.getAttribute("Schema")], ["Name", entity.getAttribute("Name")]]))
         } else {
@@ -785,10 +812,11 @@ xo.listener.on('response::server:submit', function ({ request, payload }) {
     })
 })
 
-xover.listener.on('hashchange', function (new_hash, old_hash) {
-    let dirty_entity = xover.site.get("dirty");
-    //xo.sections.active.select(`//px:Entity/data:rows/@xsi:nil|//px:Entity/data:rows[not(*)]|//px:Entity[@Schema="${dirty_entity["Schema"]}" and @Name="${dirty_entity["Name"]}"]/data:rows`).remove();
-    xo.sections.active.select(`//px:Entity/data:rows/@xsi:nil`).remove();
-    xo.sections.active.select('//px:Entity[@data:rows][not(data:rows)]').set("data:rows", ({ el }) => el.get("data:rows"));
-    xover.site.set("dirty", undefined)
-});
+//xover.listener.on('hashchange', function (new_hash, old_hash) {
+//    let dirty_entity = xover.site.get("dirty");
+//    //xo.sections.active.select(`//px:Entity/data:rows/@xsi:nil|//px:Entity/data:rows[not(*)]|//px:Entity[@Schema="${dirty_entity["Schema"]}" and @Name="${dirty_entity["Name"]}"]/data:rows`).remove();
+//    xo.sections.active.select(`//px:Entity[@Schema="${dirty_entity["Schema"]}" and @Name="${dirty_entity["Name"]}"]/data:rows/@command`).forEach(attr => attr.set(attr.value));
+//    ////xo.sections.active.select(`//px:Entity/data:rows/@xsi:nil`).remove();
+//    ////xo.sections.active.select('//px:Entity[@data:rows][not(data:rows)]').set("data:rows", ({ el }) => el.get("data:rows"));
+//    //xover.site.set("dirty", undefined)
+//});

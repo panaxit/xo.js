@@ -55,13 +55,19 @@ xo.listener.on(['render::*'], function () {
     this.selectNodes("//button[not(@type)]").forEach(el => el.set("type", "button")) //default behavior
 })
 
+xo.listener.on(['removeFrom::data:rows'], function ({  }) {
+    if (!this.select("*").length) {
+        this.setAttribute("xsi:nil", true)
+    }
+})
+
 xo.listener.on(['beforeRender::px:Entity'], function ({ section }) {
     let node = this;
 
-    for (association_ref of node.select(`//px:Entity/px:Record/px:Association[@Type="belongsTo"]`)) {
+    for (association_ref of node.select(`//px:Entity/px:Record/px:Association[@Type="belongsTo"][px:Mappings/px:Mapping[2]]`)) {
         let referencers = association_ref.select('px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Entity[1]/@IdentityKey)]/@Referencer').map(referencer => referencer.value);
         let row = association_ref.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*`).filter(attr => referencers.includes(attr.name));
-        let data_rows = association_ref.selectFirst(`px:Entity/data:rows`);
+        let data_rows = association_ref.selectFirst(`px:Entity[@IdentityKey]/data:rows`);
         let rows = data_rows && data_rows.select(`xo:r`).filter(_row => row.filter(attr => _row.get(attr.name) != attr.value).length) || [];
         if (rows.length) {
             rows.removeAll({ silent: true });
@@ -246,12 +252,12 @@ xo.listener.on(['beforeChange::@headerText', 'beforeChange::@container:*'], func
     this.value = value.replace(/:/g, '').trim()
 })
 
-xo.listener.on(['beforeRemove::xo:r'], function ({ element, attribute, value, old }) {
-    if (px.getPrimaryValue(this).substr(1) && !element.get("state:delete")) {
-        element.toggle('state:delete', true)
-        event.preventDefault()
-    }
-})
+//xo.listener.on(['beforeRemove::xo:r'], function ({ element, attribute, value, old }) {
+//    if (px.getPrimaryValue(this).substr(1) && !element.get("state:delete")) {
+//        element.toggle('state:delete', true)
+//        event.preventDefault()
+//    }
+//})
 
 function isnull(value, failover) {
     return value != null && value || failover;
@@ -591,8 +597,17 @@ px.createEmptyRow = function (entity) {
     return xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" ${fields}/>`).reseed();
 }
 
+xover.listener.on('click::a', async function (event) {
+    let href = this.getAttribute("href");
+    if ((href || {}).indexOf("#")!=-1) {
+        px.navigateTo(href, this.scope);
+        event.preventDefault();
+    }
+})
+
 px.navigateTo = function (hashtag, ref_id) {
-    ref_id = ref_id || (event.srcElement.scope.$("data:rows/@xo:id") || {}).value;
+    let scope = event.srcElement.scope;
+    ref_id = ref_id || (scope && scope.$("data:rows/@xo:id") || {}).value;
     hashtag = (hashtag || "").replace(/^([^#])/, '#$1');
     let section = xo.sections[hashtag];
     section && section.remove();
@@ -791,8 +806,7 @@ xo.listener.on('response::server:submit', function ({ request, payload }) {
         if ((entity.getAttribute("control:type") || '').indexOf('form') != -1) {
             ref_node && ref_node.select("(ancestor::px:Entity[1][@data:rows]/data:rows|ancestor-or-self::data:rows[1])[last()]").remove();
             //ref_section && ref_section.$$(`//px:Entity[@Schema="${entity.get("Schema")}" and @Name="${entity.get("Name")}"][@data:rows]/data:rows`).removeAll()
-            let target = xo.sections[((xo.site.prev || {})[0] || {}).section];
-            target && target.select(`px:Entity//px:Entity[@Schema="${entity.getAttribute("Schema")}" and @Name="${entity.getAttribute("Name")}"]/data:rows/@command`).forEach(attr => attr.set(attr.value));
+            ref_section && ref_section.select(`px:Entity//px:Entity[@Schema="${entity.getAttribute("Schema")}" and @Name="${entity.getAttribute("Name")}"]/data:rows/@command`).forEach(attr => attr.set(attr.value));
             entity.ownerDocument.section.remove();
             xo.site.set("dirty", Object.fromEntries([["Schema", entity.getAttribute("Schema")], ["Name", entity.getAttribute("Name")]]))
         } else {

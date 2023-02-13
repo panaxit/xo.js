@@ -598,10 +598,10 @@ px.createEmptyRow = function (entity) {
 }
 
 xover.listener.on('click::a', async function (event) {
-    let href = this.getAttribute("href");
-    if ((href || {}).indexOf("#")!=-1) {
-        px.navigateTo(href, this.scope);
+    let href = this.getAttribute("href") || '';
+    if (href.length > 1 && href.indexOf("#") != -1) {
         event.preventDefault();
+        px.navigateTo(href, this.scope);
     }
 })
 

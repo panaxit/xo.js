@@ -252,12 +252,12 @@ xo.listener.on(['beforeChange::@headerText', 'beforeChange::@container:*'], func
     this.value = value.replace(/:/g, '').trim()
 })
 
-//xo.listener.on(['beforeRemove::xo:r'], function ({ element, attribute, value, old }) {
-//    if (px.getPrimaryValue(this).substr(1) && !element.get("state:delete")) {
-//        element.toggle('state:delete', true)
-//        event.preventDefault()
-//    }
-//})
+xo.listener.on(['beforeRemove::xo:r'], function ({ element, attribute, value, old }) {
+    if (px.getPrimaryValue(this).substr(1) && !element.get("state:delete")) {
+        element.toggle('state:delete', true)
+        event.preventDefault()
+    }
+})
 
 function isnull(value, failover) {
     return value != null && value || failover;
@@ -412,10 +412,7 @@ px.request = async function (...args) {
         })
         //Request.requester = ref;
         if (!(Response instanceof xover.Section) && Response && Response.documentElement) {
-            Response = Response.transform("xover/databind.xslt")
             Response.$$('//px:Entity').set("meta:type", "entity")
-            let control_type = (Response.$('//px:Entity').getAttribute("xsi:type") || '').replace(':control', '.xslt')
-            Response.addStylesheet({ href: "px-Entity.xslt", target: "@#shell main" });
             Response.documentElement.setAttributeNS(xover.spaces["xmlns"], "xmlns:data", "http://panax.io/source");
             association_ref && Response.documentElement.$$(`*[local-name()="layout"]/association:*[@name="${association_ref.get("AssociationName")}"]`).remove()
             px.loadData(Response.$('px:Entity'), mode == 'add' && { identity_value: null, primary_values: [null] } || { identity_value, primary_values, filters, page_size, page_index });
@@ -456,6 +453,12 @@ px.request = async function (...args) {
         }
     }
 }
+
+xo.listener.on('fetch::px:Entity', function () {
+    //this.replaceBy(this.transform("xover/databind.xslt"))
+    //let control_type = (document.$('//px:Entity').getAttribute("xsi:type") || '').replace(':control', '.xslt')
+    this.addStylesheet({ href: "px-Entity.xslt", target: "@#shell main" });
+})
 
 px.setAttributes = function (target, attribute, value) {
     let attributes = attribute.split("/")

@@ -36,7 +36,7 @@ Object.defineProperty(xo.session, 'logout', {
     }, writable: true, configurable: true
 })
 
-xo.listener.on(['beforeRender::#shell', 'beforeAppendToHTMLElement::MAIN', 'beforeAppendToHTMLElement::BODY'], function ({ target }) {
+xo.listener.on(['beforeRender::#shell', 'beforeAppendTo::html:main', 'beforeAppendTo::html:body'], function ({ target }) {
     if (!(event.detail.args || []).filter(el => !(el instanceof HTMLStyleElement || el instanceof HTMLScriptElement || el.matches("dialog,[role=alertdialog],[role=alert],[role=dialog]"))).length) return;
     [...target.childNodes].filter(el => el.matches && !el.matches(`script,dialog,[role=alertdialog],[role=alert],[role=dialog]`)).removeAll()
 })
@@ -55,7 +55,7 @@ xo.listener.on(['render::*'], function () {
     this.selectNodes("//button[not(@type)]").forEach(el => el.set("type", "button")) //default behavior
 })
 
-xo.listener.on(['removeFrom::data:rows'], function ({  }) {
+xo.listener.on(['removeFrom::data:rows'], function ({ }) {
     if (!this.select("*").length) {
         this.setAttribute("xsi:nil", true)
     }
@@ -89,29 +89,37 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
 
 xo.listener.on(`beforeChange::xo:r/@meta:*`, function ({ node, element, attribute, old, value }) {
     let references = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${node.localName}"]/px:Mappings/px:Mapping/@Referencer`);
-    let src_element = event.srcEvent.srcElement;
-    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r") || src_element instanceof HTMLLIElement && src_element.scope.filter("self::xo:r") || undefined
-
-    references.forEach(reference => element.set(reference.value, selected_record && selected_record.get(reference.parentNode.get("Referencee")) || ""));
-    if (src_element instanceof HTMLSelectElement) {
-        let option = src_element[src_element.selectedIndex]
-        this.value = option.value && option.text || "";
-    } else if (src_element instanceof HTMLLIElement) {
-        let option = src_element;
-        this.value = option.textContent;
+    let src_element = event.srcEvent.target;
+    if (!src_element instanceof HTMLElement) return;
+    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r") || src_element instanceof HTMLLIElement && src_element.scope.filter("self::xo:r") || undefined;
+    if (selected_record) {
+        references.forEach(reference => element.set(reference.value, selected_record && selected_record.get(reference.parentNode.get("Referencee")) || ""));
+        if (src_element instanceof HTMLSelectElement) {
+            let option = src_element[src_element.selectedIndex]
+            this.value = option.value && option.text || "";
+        } else if (src_element instanceof HTMLLIElement) {
+            let option = src_element;
+            this.value = option.textContent;
+        }
     }
 })
+
+//xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state'))]`, function ({ node, element, attribute, old, value }) {
+//    let references = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association/px:Mappings/px:Mapping[@Referencer="${node.name}"]`);
+
+
+//})
 
 const CONVERT = function (type, ...args) { return args }
 xo.listener.on(`change::px:Entity//data:rows/xo:r/@*[not(contains(namespace-uri(),'http://panax.io/'))]`, function ({ element: row, attribute, old, value }) {
     if (old != value) {
         row.$$(`ancestor::px:Entity[1]/px:Record/px:Field/@formula`).map(attr => [attr.parentNode.get("Name"), attr.value.replace(/\[([^\]]+)\]/g, (field) => {
             let ref = attr.parentNode.parentNode.selectFirst(`px:Field[@Name="${field.substring(1, field.length - 1)}"]`);
-            return row.getAttribute(field.substring(1, field.length - 1)) || (ref ? (['varchar','nvarchar'].includes(ref.getAttribute("DataType"))? '' : 0) : `'${field}'`)
+            return row.getAttribute(field.substring(1, field.length - 1)) || (ref ? (['varchar', 'nvarchar'].includes(ref.getAttribute("DataType")) ? '' : 0) : `'${field}'`)
         })]).forEach(([key, formula]) => {
             try {
                 row.set(key.value, eval(formula))
-            } catch(e) {
+            } catch (e) {
                 row.set(key.value, "")
             }
         })
@@ -159,7 +167,7 @@ xo.listener.on(['set::px:Entity//data:rows/@command', 'remove::data:rows[not(xo:
             , method: 'GET'
             , headers: headers
         })
-        node.select("*").remove({silent:true});
+        node.select("*").remove({ silent: true });
         if (response instanceof Error) {
             return Promise.reject(response);
         } else if (typeof (response) === 'string') {
@@ -793,7 +801,7 @@ xo.listener.on(['response::xo:prompt'], function ({ response_value }) {
     new xo.Section(response.document, { tag: "#prompt" });
 })
 
-xo.listener.on('response::server:submit', function ({ request, payload }) {
+xo.listener.on('success::#server:submit', function ({ request, payload }) {
     let reference = xo.site.reference || {};
     let ref_section = xo.sections[reference.section];
     let ref_node = ref_section && ref_section.findById(reference.id) || null;

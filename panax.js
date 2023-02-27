@@ -109,16 +109,74 @@ xo.listener.on(`beforeChange::xo:r/@meta:*`, function ({ node, element, attribut
 
 
 //})
+xo.listener.on(`change::px:Entity[px:Record/px:Field/@formula]/data:rows/xo:r/@*[not(contains(namespace-uri(),'http://panax.io/'))]`, function ({ element: row, attribute, old, value }) {
+    const CONVERT = function (type, ...args) {
+        if (args.length != 1) return args;
+        let value = args[0];
+        let [, base_type, precision, scale] = type.match(/^([^\)]+)(?:\((\d+),(\d+)\))?$/);
+        if (type.indexOf('(')!=-1) {
+            if (isNumber(value) && scale) {
+                return value.toFixed(scale)
+            }
+            return value
+        } else {
+            return value
+        }
+    }
 
-const CONVERT = function (type, ...args) { return args }
-xo.listener.on(`change::px:Entity//data:rows/xo:r/@*[not(contains(namespace-uri(),'http://panax.io/'))]`, function ({ element: row, attribute, old, value }) {
+    function datediff(intervalType, first_date, last_date) {
+        // Parse the input dates
+        if (!(first_date && last_date)) return undefined;
+        const first = new Date(first_date);
+        const last = last_date.parseDate();
+
+        // Calculate the difference in milliseconds
+        const diffMs = last - first;
+
+        // Convert milliseconds to the specified interval type
+        let diffInterval;
+        switch (intervalType) {
+            case 'year':
+                diffInterval = diffMs / (1000 * 60 * 60 * 24 * 365.25);
+                break;
+            case 'month':
+                diffInterval = diffMs / (1000 * 60 * 60 * 24 * 30.44);
+                break;
+            case 'day':
+                diffInterval = diffMs / (1000 * 60 * 60 * 24);
+                break;
+            case 'hour':
+                diffInterval = diffMs / (1000 * 60 * 60);
+                break;
+            case 'minute':
+                diffInterval = diffMs / (1000 * 60);
+                break;
+            case 'second':
+                diffInterval = diffMs / 1000;
+                break;
+            default:
+                throw new Error('Invalid interval type');
+        }
+
+        // Return the result rounded to 2 decimal places
+        return Math.floor(Math.round(diffInterval * 100) / 100);
+    }
+    const year = 'year';
+
     if (old != value) {
-        row.$$(`ancestor::px:Entity[1]/px:Record/px:Field/@formula`).map(attr => [attr.parentNode.get("Name"), attr.value.replace(/\[([^\]]+)\]/g, (field) => {
+        row.$$(`ancestor::px:Entity[1]/px:Record/px:Field/@formula`).map(attr => [attr.parentNode.get("Name"), attr.value.replace(/\[([^\]]+)\](\([^\)]+\))?/g, (field) => {
             let ref = attr.parentNode.parentNode.selectFirst(`px:Field[@Name="${field.substring(1, field.length - 1)}"]`);
-            return row.getAttribute(field.substring(1, field.length - 1)) || (ref ? (['varchar', 'nvarchar'].includes(ref.getAttribute("DataType")) ? '' : 0) : `'${field}'`)
+            let formatValue = (value => {
+                value = value.value || value;
+                value = (value === null) && String(value) || value !== undefined && value[0] != "'" && `'${value}'` || value || '';
+                return value;
+            });
+            let value = formatValue(row.getAttribute(field.substring(1, field.length - 1)) || (ref ? (['varchar', 'nvarchar', 'date'].includes(ref.getAttribute("DataType")) ? '' : 0) : `'${field}'`));
+            return value;
         })]).forEach(([key, formula]) => {
             try {
-                row.set(key.value, eval(formula))
+                let value = eval(formula);
+                row.set(key.value, [value, ''].coalesce())
             } catch (e) {
                 row.set(key.value, "")
             }
@@ -151,7 +209,7 @@ xo.listener.on('set::@data:rows', function ({ value, old: prev }) {
     }
 })
 
-xo.listener.on(['set::px:Entity//data:rows/@command', 'remove::data:rows[not(xo:r)]/@xsi:nil'], async function ({ value, old: prev }) {
+xo.listener.on(['set::data:rows/@command', 'remove::data:rows[not(xo:r)]/@xsi:nil'], async function ({ value, old: prev }) {
     //let current = this.parentNode && this.parentNode.$(`data:rows[@command="${prev}"]`);
     let node = this.parentNode;
     let targetNode = node
@@ -261,7 +319,8 @@ xo.listener.on(['beforeChange::@headerText', 'beforeChange::@container:*'], func
 })
 
 xo.listener.on(['beforeRemove::xo:r'], function ({ element, attribute, value, old }) {
-    if (px.getPrimaryValue(this).substr(1) && !element.get("state:delete")) {
+    let primary_value = px.getPrimaryValue(this);
+    if (primary_value.substr(1) && !element.get("state:delete")) {
         element.toggle('state:delete', true)
         event.preventDefault()
     }
@@ -309,6 +368,10 @@ px.editSelectedOption = function (src_element) {
         return Promise.reject("No se puede editar el registro")
     }
     xo.site.seed = href
+}
+
+px.refreshCatalog = function (src_element) {
+    src_element.scope.select(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${src_element.scope.localName}"]/px:Entity/data:rows/@command`).forEach(command => command.set(command => command.value));
 }
 
 px.getEntityInfo = function (input_document) {
@@ -479,6 +542,7 @@ px.setAttributes = function (target, attribute, value) {
 }
 
 px.loadData = function (entity, keys) {
+    if (!(entity instanceof Node)) return;
     if (entity.matches("/px:Entity")) {
         let reference = xo.site.reference || {};
         let ref_section = xo.sections[reference.section];
@@ -584,7 +648,7 @@ px.getData = async function (...args) {
     try {
         let response = await xo.server.request.apply(this, args);
         if (!(node && node.parentElement)) return;
-        let entity = node.parentElement.$('self::px:Entity[ancestor-or-self::*[@mode="add"] and not(parent::px:Association[@Type="hasMany"])]')
+        let entity = node.parentElement.$('self::px:Entity[ancestor-or-self::*[@mode="add"] and not(parent::px:Association[@Type="hasMany"]) or parent::px:Association[@Type="hasOne"]]');
         //let entity = node.$('parent::px:Entity[//px:Entity[@mode="add"]]')
         if (entity && !(response.documentElement.firstElementChild)) {
             response.documentElement.append(px.createEmptyRow(entity))
@@ -677,7 +741,8 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
             let id_node = row.get(`${id}`)
             if (id_node ? id_node.value : primary_fields.filter(field => {
                 let initial = row.get(`initial:${field}`);
-                return initial == undefined || initial && initial.value && initial.value != row.get(`${field}`) || false
+                let value = row.getAttribute(field.value);
+                return value && initial == undefined || initial && initial.value && initial.value != value || false;
             }).length) {
                 dataRow = xo.xml.createNode(`<updateRow xmlns="http://panax.io/persistence"${id ? ` identityValue="${row.get(id.value)}"` : ''}/>`);
                 entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula)]/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {
@@ -747,7 +812,9 @@ px.submit = async function (data_rows) {
         row.select(".//@*[starts-with(.,'blob:')]").filter(node => node && (!node.namespaceURI || node.namespaceURI.indexOf('http://panax.io/state') == -1)).map(node => { pending.push(xover.server.uploadFile(node)) })
         await Promise.all(pending);
 
-        let post = buildPost([row])
+        let post = buildPost([row]);
+        post.select(`//post:dataTable/post:updateRow[not(post:field or post:dataTable)]`).remove();
+        post.select(`//post:dataTable[not(post:*)]`).remove();
         let messages = post.select("//@exception:message").map(el => document.createElement('li').set(new Text(el.value)));
         if (messages.length) {
             let list = document.createElement("ul");
@@ -844,4 +911,11 @@ xo.listener.on('success::#server:submit', function ({ request, payload }) {
 //    ////xo.sections.active.select(`//px:Entity/data:rows/@xsi:nil`).remove();
 //    ////xo.sections.active.select('//px:Entity[@data:rows][not(data:rows)]').set("data:rows", ({ el }) => el.get("data:rows"));
 //    //xover.site.set("dirty", undefined)
+//});
+
+//xover.listener.on("input", function (event) {
+//    if (event.inputType == "insertReplacementText" || event.inputType == null) {
+//        document.getElementById("output").textContent = event.target.value;
+//        event.target.value = "";
+//    }
 //});

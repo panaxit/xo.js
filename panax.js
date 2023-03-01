@@ -1,3 +1,4 @@
+px = {}
 xover.qrl = xover.QRL;
 xo.spaces["data"] = "http://panax.io/source";
 Object.defineProperty(xo.session, 'login', {
@@ -51,6 +52,10 @@ xo.listener.on([`beforeRemove::html:div[@role='alertdialog'][contains(*/@class,'
     scope instanceof Attr && scope.remove()
 })
 
+//xo.listener.on(['focus::input'], function () {
+//    this.select();
+//})
+
 xo.listener.on(['render::*'], function () {
     this.selectNodes("//button[not(@type)]").forEach(el => el.set("type", "button")) //default behavior
 })
@@ -64,7 +69,7 @@ xo.listener.on(['removeFrom::data:rows'], function ({ }) {
 xo.listener.on(['beforeRender::px:Entity'], function ({ section }) {
     let node = this;
 
-    for (association_ref of node.select(`//px:Entity/px:Record/px:Association[@Type="belongsTo"][px:Mappings/px:Mapping[2]]`)) {
+    for (let association_ref of node.select(`//px:Entity/px:Record/px:Association[@Type="belongsTo"][px:Mappings/px:Mapping[2]]`)) {
         let referencers = association_ref.select('px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Entity[1]/@IdentityKey)]/@Referencer').map(referencer => referencer.value);
         let row = association_ref.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*`).filter(attr => referencers.includes(attr.name));
         let data_rows = association_ref.selectFirst(`px:Entity[@IdentityKey]/data:rows`);
@@ -87,34 +92,110 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
     element.set(`prev:${attribute.nodeName.replace(':', '-')}`, old);
 })
 
-xo.listener.on(`beforeChange::xo:r/@meta:*`, function ({ node, element, attribute, old, value }) {
-    let references = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${node.localName}"]/px:Mappings/px:Mapping/@Referencer`);
-    let src_element = event.srcEvent.target;
+//xo.listener.on(`change::xo:r/@meta:*`, function ({ node, element, attribute, old, value }) {
+//    let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${node.localName}"]/px:Mappings/px:Mapping/@Referencer`);
+//    let options = element.select(`ancestor-or-self::px:Entity[1]/px:Record/px:Association[@Type="belongsTo"][@AssociationName="${node.localName}"]/px:Entity/data:rows/xo:r`);
+//    let matches = options.filter(option => referencers.every(referencer => selected_record.getAttribute(referencer.value) == option.getAttribute(referencer.ownerElement.getAttribute("Referencee"))));
+//    console.log("here!")
+//})
+
+//xo.listener.on(`beforeChange::xo:r/@meta:*`, function ({ node, element, attribute, old, value }) {
+//    let src_element = event.srcEvent.target;
+//    if (!src_element instanceof HTMLElement) return;
+
+//    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r") || src_element instanceof HTMLLIElement && src_element.scope.filter("self::xo:r") || undefined;
+//    if (selected_record) {
+//        this.parentNode.set(`selected:${this.localName}`, selected_record.getAttribute("xo:id"));
+//        px.selectRecord(selected_record, node);
+//        if (src_element instanceof HTMLSelectElement) {
+//            let option = src_element[src_element.selectedIndex]
+//            this.value = option.value && option.text || "";
+//        } else if (src_element instanceof HTMLLIElement) {
+//            let option = src_element;
+//            this.value = option.textContent;
+//        }
+//    }
+//})
+
+xo.listener.on(`change::html:select`, function ({ node, element, attribute, old, value }) {
+    let src_element = this;
     if (!src_element instanceof HTMLElement) return;
-    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r") || src_element instanceof HTMLLIElement && src_element.scope.filter("self::xo:r") || undefined;
+    let scope = src_element.scope;
+    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r") || undefined;
     if (selected_record) {
-        references.forEach(reference => element.set(reference.value, selected_record && selected_record.get(reference.parentNode.get("Referencee")) || ""));
-        if (src_element instanceof HTMLSelectElement) {
-            let option = src_element[src_element.selectedIndex]
-            this.value = option.value && option.text || "";
-        } else if (src_element instanceof HTMLLIElement) {
-            let option = src_element;
-            this.value = option.textContent;
+        px.selectRecord(selected_record, scope);
+        let option = src_element[src_element.selectedIndex]
+        scope.set(option.value && option.text || "");
+    }
+})
+
+xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, value }) {
+    let src_element = this;
+    if (!src_element instanceof HTMLElement) return;
+    let scope = src_element.scope;
+
+    let selected_record = src_element instanceof HTMLLIElement && src_element.scope.filter("self::xo:r") || undefined;
+    if (selected_record) {
+        px.selectRecord(selected_record, scope);
+        let option = src_element;
+        scope.set(option.textContent);
+    }
+})
+
+px.selectRecord = function (selected_record, target) {
+    let element = target.ownerElement;
+    let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${target.localName}"]/px:Mappings/px:Mapping/@Referencer`);
+    for (let referencer of referencers) {
+        element.set(referencer.value, selected_record && selected_record.getAttribute(referencer.parentNode.getAttribute("Referencee")) || "");
+    }
+     //let associations = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo']/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`);
+}
+
+xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state')) and not(contains(namespace-uri(),'http://panax.io/metadata'))]`, function ({ node, element, attribute, old, value }) {
+    let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo']/px:Mappings/px:Mapping[following-sibling::px:Mapping]/@Referencer[.="${node.name}"]`);
+    for (let referencer of referencers) {
+        for (let other_referencer of referencer.parentNode.selectNodes('following-sibling::px:Mapping/@Referencer')) {
+            element.setAttribute(other_referencer.value, "");
+        }
+    }
+
+    return;
+    //////////////////////////
+    for (let association_ref of element.select(`ancestor::px:Entity[1]/px:Record/px:Association[@Type="belongsTo"][px:Mappings/px:Mapping[2]]`)) {
+        let referencers = association_ref.select('px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Entity[1]/@IdentityKey)]/@Referencer').map(referencer => referencer.value);
+        let row = association_ref.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*`).filter(attr => referencers.includes(attr.name));
+        let data_rows = association_ref.selectFirst(`px:Entity[@IdentityKey]/data:rows`);
+        let rows = data_rows && data_rows.select(`xo:r`).filter(_row => row.filter(attr => _row.get(attr.name) != attr.value).length) || [];
+        if (rows.length) {
+            rows.removeAll({ silent: true });
+            if (!data_rows.select("xo:r").length) {
+                data_rows.setAttribute("xsi:nil", true);
+                row.map(attr => section.find(attr.parentNode).getAttributeNode(`meta:${association_ref.getAttribute("AssociationName")}`)).filter(el => el.value).forEach(attr => attr.set(""));
+            }
+        }
+    }
+    //////////////////////////
+    return
+    let references = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo']/px:Mappings/px:Mapping[@Referencer="${node.name}"]`);
+
+    let row = association_ref.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*`).filter(attr => referencers.includes(attr.name));
+    let data_rows = association_ref.selectFirst(`px:Entity[@IdentityKey]/data:rows`);
+    let rows = data_rows && data_rows.select(`xo:r`).filter(_row => row.filter(attr => _row.get(attr.name) != attr.value).length) || [];
+    if (rows.length) {
+        rows.removeAll({ silent: true });
+        if (!data_rows.select("xo:r").length) {
+            data_rows.setAttribute("xsi:nil", true);
+            row.map(attr => section.find(attr.parentNode).getAttributeNode(`meta:${association_ref.getAttribute("AssociationName")}`)).filter(el => el.value).forEach(attr => attr.set(""));
         }
     }
 })
 
-//xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state'))]`, function ({ node, element, attribute, old, value }) {
-//    let references = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association/px:Mappings/px:Mapping[@Referencer="${node.name}"]`);
-
-
-//})
 xo.listener.on(`change::px:Entity[px:Record/px:Field/@formula]/data:rows/xo:r/@*[not(contains(namespace-uri(),'http://panax.io/'))]`, function ({ element: row, attribute, old, value }) {
     const CONVERT = function (type, ...args) {
         if (args.length != 1) return args;
         let value = args[0];
         let [, base_type, precision, scale] = type.match(/^([^\)]+)(?:\((\d+),(\d+)\))?$/);
-        if (type.indexOf('(')!=-1) {
+        if (type.indexOf('(') != -1) {
             if (isNumber(value) && scale) {
                 return value.toFixed(scale)
             }
@@ -339,8 +420,6 @@ app.request = async function (object_name, mode) {
     return xo.sources.defaults["#" + name] || xo.xml.createDocument(`<?xml-stylesheet type="text/xsl" href="form.xslt" target="@#shell main"?><?xml-stylesheet type="text/xsl" href="shell_buttons.xslt" target="@#shell #shell_buttons" action="replace"?><${name} schema="${schema}"/>`)
 }
 
-px = {}
-
 px.getPrimaryValue = function (record) {
     let entity = record.$(`ancestor::px:Entity[1]`)
     id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => record.get(key.value));
@@ -429,8 +508,9 @@ px.request = async function (...args) {
     }
     var on_success = function (xml_document) { xover.sections.active = xml_document; };
     let rebuild;
-    let reference = xo.site.reference || {};
-    let ref_section = xo.sections[reference.section];
+    let prev = xo.site.history[0] || {};
+    let reference = prev.reference || {};
+    let ref_section = xo.sections[prev.section];
     let ref_node = ref_section && ref_section.findById(reference.id) || null;
     if (reference.id && !ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"]) {
         return Promise.reject("Se perdió la referencia.")
@@ -544,8 +624,9 @@ px.setAttributes = function (target, attribute, value) {
 px.loadData = function (entity, keys) {
     if (!(entity instanceof Node)) return;
     if (entity.matches("/px:Entity")) {
-        let reference = xo.site.reference || {};
-        let ref_section = xo.sections[reference.section];
+        let prev = xo.site.history[0] || {};
+        let reference = prev.reference || {};
+        let ref_section = xo.sections[prev.section];
         let ref_node = ref_section && ref_section.findById(reference.id) || null;
         if (ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"] && ref_node.matches("xo:r")) {
             let data_rows = entity.$("data:rows") || entity.createNode(`<data:rows xmlns:data="${ref_node.resolveNS("data")}"/>`)
@@ -690,20 +771,7 @@ px.navigateTo = function (hashtag, ref_id) {
         xo.site.active = hashtag;
     } else {
         xo.site.next = hashtag;
-
-        let public_hashtag = hashtag//Array.prototype.coalesce(public_hashtag || hashtag)
-        var prev = (history.state["prev"] || [])
-        prev.unshift({ section: xo.site.seed, ref: ref_id })
-        history.pushState({
-            seed: hashtag
-            , reference: {
-                section: xo.site.seed
-                , id: ref_id
-            }
-            //, active: hashtag
-            , prev: prev
-        }, ((event || {}).target || {}).textContent, public_hashtag);
-        xo.site.active = hashtag;
+        xo.site.seed = hashtag;
     }
     xover.sections.active.render();
 }
@@ -786,8 +854,9 @@ function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://p
 
 px.submit = async function (data_rows) {
     data_rows = data_rows instanceof Array ? data_rows : [data_rows];
-    let reference = xo.site.reference || {};
-    let ref_section = xo.sections[reference.section];
+    let prev = xo.site.history[0] || {};
+    let reference = prev.reference || {};
+    let ref_section = xo.sections[prev.section];
     let ref_node = ref_section && ref_section.findById(reference.id) || null;
     if (ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"]) {
         if (ref_node.matches("xo:r")) {
@@ -855,9 +924,10 @@ px.submit = async function (data_rows) {
 
 xo.listener.on('load::px:Entity', function () {
     let entity = this;
-    let prev = (xo.site.prev || [])[0] || {};
+    let prev = xo.site.history[0] || {};
+    let reference = prev.reference || {};
     let ref_section = xo.sections[prev.section];
-    let ref_node = ref_section && ref_section.findById(prev.ref) || null;
+    let ref_node = ref_section && ref_section.findById(reference.id) || null;
     ref_node && ref_node.$$('ancestor::px:Association[1]').map(el => entity.$(`px:Entity/*[local-name()="layout"]/association:ref[@Name="${el.get("AssociationName")}"]`)).forEach(el => el && el.remove())
 
     entity.$$('px:Entity/px:Record/px:Field[@mode="hidden"]').map(el => entity.$(`px:Entity/*[local-name()="layout"]/field:ref[@Name="${el.get("Name")}"]`)).forEach(el => el && el.remove())
@@ -869,9 +939,11 @@ xo.listener.on(['response::xo:prompt'], function ({ response_value }) {
 })
 
 xo.listener.on('success::#server:submit', function ({ request, payload }) {
-    let reference = xo.site.reference || {};
-    let ref_section = xo.sections[reference.section];
+    let prev = xo.site.history[0] || {};
+    let reference = prev.reference || {};
+    let ref_section = xo.sections[prev.section];
     let ref_node = ref_section && ref_section.findById(reference.id) || null;
+    ref_node = reference.attribute && ref_node.getAttributeNode(reference.attribute) || ref_node;
     if (reference.id && !ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"]) {
         return Promise.reject("Se perdió la referencia.")
     }
@@ -882,11 +954,15 @@ xo.listener.on('success::#server:submit', function ({ request, payload }) {
         let entity = scope.$("ancestor-or-self::px:Entity[last()]");
         if (!entity) return;
         if ((entity.getAttribute("control:type") || '').indexOf('form') != -1) {
-            ref_node && ref_node.select("(ancestor::px:Entity[1][@data:rows]/data:rows|ancestor-or-self::data:rows[1])[last()]").remove();
-            //ref_section && ref_section.$$(`//px:Entity[@Schema="${entity.get("Schema")}" and @Name="${entity.get("Name")}"][@data:rows]/data:rows`).removeAll()
-            ref_section && ref_section.select(`px:Entity//px:Entity[@Schema="${entity.getAttribute("Schema")}" and @Name="${entity.getAttribute("Name")}"]/data:rows/@command`).forEach(attr => attr.set(attr.value));
+            let [entity_schema, entity_name] = [entity.getAttribute("Schema"), entity.getAttribute("Name")];
+            if (ref_node instanceof Attr) {
+                ref_node.parentNode.select(`ancestor-or-self::px:Entity[1]/px:Record/px:Association[@Type="belongsTo"][@AssociationName="${ref_node.localName}"]/px:Entity/data:rows/@command`).set(command => command.value);
+            } else {
+                ref_node && ref_node.parentNode.select("(ancestor-or-self::px:Entity[1]/data:rows/@command|ancestor-or-self::data:rows[1]/@command)[last()]").set(value => value);
+            }
             entity.ownerDocument.section.remove();
-            xo.site.set("dirty", Object.fromEntries([["Schema", entity.getAttribute("Schema")], ["Name", entity.getAttribute("Name")]]))
+            ref_section.select(`//px:Entity[@Schema="${entity_schema}" and @Name="${entity_name}"]/data:rows/@command`).forEach(attr => attr.set(attr.value));
+            xo.site.set("dirty", Object.fromEntries([["Schema", entity_schema], ["Name", entity_name]]))
         } else {
             entity.$$('//data:rows').remove()
         }

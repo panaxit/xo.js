@@ -933,7 +933,8 @@ xo.listener.on('load::px:Entity', function () {
     entity.$$('px:Entity/px:Record/px:Field[@mode="hidden"]').map(el => entity.$(`px:Entity/*[local-name()="layout"]/field:ref[@Name="${el.get("Name")}"]`)).forEach(el => el && el.remove())
 
     // Quitamos las rutas que no tienen ni Identity ni Primary
-    entity.$$(`//px:Entity[not(@IdentityKey) and not(px:PrimaryKeys/px:PrimaryKey)]/px:Routes/px:Route`).remove();
+    let routes = entity.$$(`//px:Entity[not(@IdentityKey) and not(px:PrimaryKeys/px:PrimaryKey)]/px:Routes/px:Route`);
+    routes.remove();
 })
 
 xo.listener.on(['response::xo:prompt'], function ({ response_value }) {

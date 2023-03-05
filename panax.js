@@ -995,6 +995,17 @@ xo.listener.on('success::#server:submit', function ({ request, payload }) {
     })
 })
 
+xo.listener.on('failure::#server:submit', function ({ response }) {
+    this.document && this.document.$$('//result[@status="error"]/@statusMessage[contains(.,"DELETE") and contains(.,"REFERENCE")]').set(message => {
+        let [match, action, type, name, table, column] = [...message.value.matchAll(/^.*(INSERT|UPDATE|DELETE).*(REFERENCE)\s'([^']+)'.*, tabl[ae]\s'([^']+)', column\s'([^']+)'/g)][0];
+        message.parentNode.setAttributes({ action, type, name, table, column })
+        if (action == 'DELETE') {
+            return `No se puede eliminar el registro porque está en uso en el módulo ${table}.`
+        }
+        return message.value;
+    })
+})
+
 //xover.listener.on('hashchange', function (new_hash, old_hash) {
 //    let dirty_entity = xover.site.get("dirty");
 //    //xo.sections.active.select(`//px:Entity/data:rows/@xsi:nil|//px:Entity/data:rows[not(*)]|//px:Entity[@Schema="${dirty_entity["Schema"]}" and @Name="${dirty_entity["Name"]}"]/data:rows`).remove();

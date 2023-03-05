@@ -205,7 +205,14 @@ xo.listener.on(`change::px:Entity[px:Record/px:Field/@formula]/data:rows/xo:r/@*
         }
     }
 
-    function datediff(intervalType, first_date, last_date) {
+    const nullif = function (value, assertion) {
+        if (value == assertion) {
+            return null
+        }
+        return value;
+    }
+
+    const datediff = function (intervalType, first_date, last_date) {
         // Parse the input dates
         if (!(first_date && last_date)) return undefined;
         const first = new Date(first_date);
@@ -259,7 +266,11 @@ xo.listener.on(`change::px:Entity[px:Record/px:Field/@formula]/data:rows/xo:r/@*
                 let value = eval(formula);
                 row.set(key.value, [value, ''].coalesce())
             } catch (e) {
-                row.set(key.value, "")
+                if (e instanceof ReferenceError) {
+                    Promise.reject(e)
+                } else {
+                    row.set(key.value, "")
+                }
             }
         })
     }
@@ -892,7 +903,7 @@ px.submit = async function (data_rows) {
             return;
         }
         try {
-            xover.listener.dispatchEvent(new xover.listener.Event('beforeSubmit', { post: post }), row);
+            window.top.dispatchEvent(new xover.listener.Event('beforeSubmit', { post: post }, row));
         } catch (e) {
             return Promise.reject(e);
         }

@@ -86,7 +86,9 @@ xo.listener.on(['beforeRender::px:Entity'], function ({ section }) {
 
 xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state'))]`, function ({ element, attribute, old, value }) {
     let initial_value = element.getAttributeNodeNS('http://panax.io/state/initial', attribute.nodeName.replace(':', '-'));
-    if (value !== null && !initial_value) {
+    if (initial_value) {
+        initial_value == value && initial_value.remove();
+    } else if (value !== null) {
         element.set(`initial:${attribute.nodeName.replace(':', '-')}`, old);
     }
     element.set(`prev:${attribute.nodeName.replace(':', '-')}`, old);
@@ -918,7 +920,7 @@ px.submit = async function (data_rows) {
         xover.server.submit(payload, (return_value, request, response) => [return_value, request, response]).catch(result => {
             let result_document = result.document
             if (result_document instanceof Document) {
-                result_document.$$('//result[@status="error"]/@statusMessage').forEach(el => el.render())
+                result_document.$$('//result[not(//processing-instruction())][@status="error"]/@statusMessage').forEach(el => el.render())
                 result_document.render()
             } else if (result_document && result_document.render) {
                 result_document.render()
@@ -995,14 +997,23 @@ xo.listener.on('success::#server:submit', function ({ request, payload }) {
     })
 })
 
-xo.listener.on('failure::#server:submit', function ({ response }) {
+xo.listener.on('failure::#server:submit', function ({ payload }) {
     this.document && this.document.$$('//result[@status="error"]/@statusMessage[contains(.,"DELETE") and contains(.,"REFERENCE")]').set(message => {
-        let [match, action, type, name, table, column] = [...message.value.matchAll(/^.*(INSERT|UPDATE|DELETE).*(REFERENCE)\s'([^']+)'.*, tabl[ae]\s'([^']+)', column\s'([^']+)'/g)][0];
-        message.parentNode.setAttributes({ action, type, name, table, column })
+        let document = message.ownerDocument;
+        document.addStylesheet({href:"message.constraints.xslt", target: "main", role:"dialog" })
+        let [match, action, type, constraint_name, table, column] = [...message.value.matchAll(/^.*(INSERT|UPDATE|DELETE).*(REFERENCE)\s'([^']+)'.*, tabl[ae]\s'([^']+)', column\s'([^']+)'/g)][0];
+        message.parentNode.setAttributes({ action, type, constraint_name, column })
         if (action == 'DELETE') {
-            return `No se puede eliminar el registro porque está en uso en el módulo ${table}.`
+            let references = payload.select("/x:post/x:submit/post:batch/post:dataTable/post:deleteRow/@identityValue").map(identity => identity.value);
+            let [schema, table_name] = table.split(".")
+            if (references.length) {
+                message.parentNode.setAttributes({ schema, table_name });
+                message.parentNode.setAttribute("reference", references.join(","));
+            }
+            return `No se puede eliminar el registro porque está en uso en el módulo ${table_name} (${schema}).`
         }
-        return message.value;
+        return message.parentNode;
+        console.log(request)
     })
 })
 

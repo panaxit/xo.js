@@ -66,7 +66,7 @@ xo.listener.on(['removeFrom::data:rows'], function ({ }) {
     }
 })
 
-xo.listener.on(['beforeRender::px:Entity'], function ({ section }) {
+xo.listener.on(['beforeTransform::px:Entity'], function ({ section }) {
     let node = this;
 
     for (let association_ref of node.select(`//px:Entity/px:Record/px:Association[@Type="belongsTo"][px:Mappings/px:Mapping[2]]`)) {
@@ -148,9 +148,9 @@ px.selectRecord = function (selected_record, target) {
     let element = target.ownerElement;
     let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${target.localName}"]/px:Mappings/px:Mapping/@Referencer`);
     for (let referencer of referencers) {
-        element.set(referencer.value, selected_record && selected_record.getAttribute(referencer.parentNode.getAttribute("Referencee")) || "");
+        element.set(referencer.value, selected_record instanceof Element && selected_record.getAttribute(referencer.parentNode.getAttribute("Referencee")) || "");
     }
-     //let associations = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo']/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`);
+    //let associations = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo']/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`);
 }
 
 xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state')) and not(contains(namespace-uri(),'http://panax.io/metadata'))]`, function ({ node, element, attribute, old, value }) {
@@ -998,11 +998,14 @@ xo.listener.on('success::#server:submit', function ({ request, payload }) {
 })
 
 xo.listener.on('failure::#server:submit', function ({ payload }) {
-    this.document && this.document.$$('//result[@status="error"]/@statusMessage[contains(.,"DELETE") and contains(.,"REFERENCE")]').set(message => {
+    if (!this.document) return;
+
+    this.document.$$('//result[@status="error"]/@statusMessage').set(message => {
         let document = message.ownerDocument;
-        document.addStylesheet({href:"message.constraints.xslt", target: "main", role:"dialog" })
-        let [match, action, type, constraint_name, table, column] = [...message.value.matchAll(/^.*(INSERT|UPDATE|DELETE).*(REFERENCE)\s'([^']+)'.*, tabl[ae]\s'([^']+)', column\s'([^']+)'/g)][0];
+        let [match, action, type, constraint_name, table, column] = [...message.value.matchAll(/^.*(INSERT|UPDATE|DELETE).*(REFERENCE|FOREIGN KEY)\s'([^']+)'.*, tabl[ae]\s'([^']+)'(, column '([^']+)')?/g)][0];
         message.parentNode.setAttributes({ action, type, constraint_name, column })
+        let [schema, table_name] = table.split(".");
+        message.parentNode.setAttributes({ schema, table_name });
         if (action == 'DELETE') {
             let references = payload.select("/x:post/x:submit/post:batch/post:dataTable/post:deleteRow/@identityValue").map(identity => identity.value);
             let [schema, table_name] = table.split(".")
@@ -1011,9 +1014,15 @@ xo.listener.on('failure::#server:submit', function ({ payload }) {
                 message.parentNode.setAttribute("reference", references.join(","));
             }
             return `No se puede eliminar el registro porque está en uso en el módulo ${table_name} (${schema}).`
+        } else if (action == 'UPDATE') {
+            let association = xo.sections.active.selectFirst(`//px:Association[@AssociationName="${constraint_name}"]`);
+            if (association) {
+                let header_text = association.getAttribute("headerText");
+                let related_entity = association.selectFirst("px:Entity/@headerText");
+                return `El valor asignado en "${header_text}" sólo permite elementos existentes en el módulo ${related_entity}.`
+            }
         }
-        return message.parentNode;
-        console.log(request)
+        return message.value;
     })
 })
 

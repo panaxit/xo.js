@@ -656,7 +656,7 @@ px.loadData = function (entity, keys) {
     let page_index = keys["page_index"];
     constraints = [...id, ...pks]
 
-    let fields = Object.fromEntries(constraints.map(([key]) => key).concat(entity.$$('@custom:*|px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name')).map(field => field.prefix == 'custom' ? [`${field.nodeName}`, field.value] : [`${field.parentNode.nodeName == 'px:Association' && 'meta:' || ''}${field.value}`, `#panax.${field.parentNode.$("self::*[@DataType='nvarchar' or @DataType='varchar' or @DataType='foreignKey']") ? 'prepareString' : (field.parentNode.$("self::*[@DataType='xml']") ? 'prepareXML' : 'prepareValue')}(` + (field.parentNode.$("self::px:Association") && `(SELECT ${field.parentNode.$("px:Entity/@displayText|px:Entity[not(@displayText)]/@combobox:text").value} FROM [${field.parentNode.$("px:Entity/@Schema").value}].[${field.parentNode.$("px:Entity/@Name").value}] #parent WHERE ${field.parentNode.$$('px:Mappings/px:Mapping').map(map => '[' + entity.get("Name") + '].[' + map.get("Referencer") + '] = #parent.[' + map.get("Referencee") + ']').join(' AND ')})` || `[${field.value}]`) + ')']))
+    let fields = Object.fromEntries(constraints.map(([key]) => key).concat(entity.$$('@custom:*|px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name')).map(field => field.prefix == 'custom' ? [`${field.nodeName}`, field.value] : [`${field.parentNode.nodeName == 'px:Association' && 'meta:' || ''}${field.value}`, `#panax.${field.parentNode.$("self::*[@DataType='nvarchar' or @DataType='varchar' or @DataType='foreignKey' or @DataType='files']") ? 'prepareString' : (field.parentNode.$("self::*[@DataType='xml']") ? 'prepareXML' : 'prepareValue')}(` + (field.parentNode.$("self::px:Association") && `(SELECT ${field.parentNode.$("px:Entity/@displayText|px:Entity[not(@displayText)]/@combobox:text").value} FROM [${field.parentNode.$("px:Entity/@Schema").value}].[${field.parentNode.$("px:Entity/@Name").value}] #parent WHERE ${field.parentNode.$$('px:Mappings/px:Mapping').map(map => '[' + entity.get("Name") + '].[' + map.get("Referencer") + '] = #parent.[' + map.get("Referencee") + ']').join(' AND ')})` || `[${field.value}]`) + ')']))
 
     let text = entity.$$(`@displayText|self::*[not(@displayText)]/@combobox:text|px:Record/px:Field[not(@IsIdentity="1" or @DataType="xml")][1]/@Name|px:Record[not(*[2])]/px:Field[not(@DataType="xml")]/@Name`).shift();
     if (text) {
@@ -891,7 +891,7 @@ px.submit = async function (data_rows) {
     //}
     for (let row of data_rows) {
         let pending = [];
-        row.select(".//@*[starts-with(.,'blob:')]").filter(node => node && (!node.namespaceURI || node.namespaceURI.indexOf('http://panax.io/state') == -1)).map(node => { pending.push(xover.server.uploadFile(node)) })
+        row.select(".//@*[contains(.,'blob:')]").filter(node => node && (!node.namespaceURI || node.namespaceURI.indexOf('http://panax.io/state') == -1)).map(node => { pending.push(xover.server.uploadFile(node)) })
         await Promise.all(pending);
 
         let post = buildPost([row]);
@@ -1002,24 +1002,26 @@ xo.listener.on('failure::#server:submit', function ({ payload }) {
 
     this.document.$$('//result[@status="error"]/@statusMessage').set(message => {
         let document = message.ownerDocument;
-        let [match, action, type, constraint_name, table, column] = [...message.value.matchAll(/^.*(INSERT|UPDATE|DELETE).*(REFERENCE|FOREIGN KEY)\s'([^']+)'.*, tabl[ae]\s'([^']+)'(, column '([^']+)')?/g)][0];
-        message.parentNode.setAttributes({ action, type, constraint_name, column })
-        let [schema, table_name] = table.split(".");
-        message.parentNode.setAttributes({ schema, table_name });
-        if (action == 'DELETE') {
-            let references = payload.select("/x:post/x:submit/post:batch/post:dataTable/post:deleteRow/@identityValue").map(identity => identity.value);
-            let [schema, table_name] = table.split(".")
-            if (references.length) {
-                message.parentNode.setAttributes({ schema, table_name });
-                message.parentNode.setAttribute("reference", references.join(","));
-            }
-            return `No se puede eliminar el registro porque está en uso en el módulo ${table_name} (${schema}).`
-        } else if (action == 'UPDATE') {
-            let association = xo.sections.active.selectFirst(`//px:Association[@AssociationName="${constraint_name}"]`);
-            if (association) {
-                let header_text = association.getAttribute("headerText");
-                let related_entity = association.selectFirst("px:Entity/@headerText");
-                return `El valor asignado en "${header_text}" sólo permite elementos existentes en el módulo ${related_entity}.`
+        let [match, action, type, constraint_name, table, column] = [...message.value.matchAll(/^.*(INSERT|UPDATE|DELETE).*(REFERENCE|FOREIGN KEY)\s'([^']+)'.*, tabl[ae]\s'([^']+)'(, column '([^']+)')?/g)][0] || [];
+        if (match) {
+            message.parentNode.setAttributes({ action, type, constraint_name, column })
+            let [schema, table_name] = table.split(".");
+            message.parentNode.setAttributes({ schema, table_name });
+            if (action == 'DELETE') {
+                let references = payload.select("/x:post/x:submit/post:batch/post:dataTable/post:deleteRow/@identityValue").map(identity => identity.value);
+                let [schema, table_name] = table.split(".")
+                if (references.length) {
+                    message.parentNode.setAttributes({ schema, table_name });
+                    message.parentNode.setAttribute("reference", references.join(","));
+                }
+                return `No se puede eliminar el registro porque está en uso en el módulo ${table_name} (${schema}).`
+            } else if (action == 'UPDATE') {
+                let association = xo.sections.active.selectFirst(`//px:Association[@AssociationName="${constraint_name}"]`);
+                if (association) {
+                    let header_text = association.getAttribute("headerText");
+                    let related_entity = association.selectFirst("px:Entity/@headerText");
+                    return `El valor asignado en "${header_text}" sólo permite elementos existentes en el módulo ${related_entity}.`
+                }
             }
         }
         return message.value;

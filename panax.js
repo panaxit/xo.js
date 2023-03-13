@@ -1,5 +1,6 @@
 px = {}
 xover.qrl = xover.QRL;
+xo.spaces["px"] = "http://panax.io/entity";
 xo.spaces["data"] = "http://panax.io/source";
 Object.defineProperty(xo.session, 'login', {
     value: async function (username, password, connection_id = window.location.hostname) {
@@ -26,7 +27,10 @@ Object.defineProperty(xo.session, 'logout', {
     value: async function () {
         try {
             let response = await xover.server.logout();
-            history.go(-xo.site.position + 1);
+            let positions = -xo.site.position + 1;
+            //if (positions) {
+            //    history.go(positions);
+            //}
             for (store in xo.stores) {
                 xo.stores[store].remove()
             }
@@ -123,7 +127,7 @@ xo.listener.on(`change::html:select`, function ({ node, element, attribute, old,
     let src_element = this;
     if (!src_element instanceof HTMLElement) return;
     let scope = src_element.scope;
-    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r") || undefined;
+    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r") || null;
     if (selected_record) {
         px.selectRecord(selected_record, scope);
         let option = src_element[src_element.selectedIndex]
@@ -134,18 +138,22 @@ xo.listener.on(`change::html:select`, function ({ node, element, attribute, old,
 xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, value }) {
     let src_element = this;
     if (!src_element instanceof HTMLElement) return;
-    let scope = src_element.scope;
+    let scope = src_element.closest('ul,ol').scope;
 
-    let selected_record = src_element instanceof HTMLLIElement && src_element.scope.filter("self::xo:r") || undefined;
+    let selected_record = src_element instanceof HTMLLIElement && src_element.scope.filter("self::xo:r") || null;
     if (selected_record) {
-        px.selectRecord(selected_record, scope);
+        px.selectRecord(selected_record, src_element.parentNode.scope);
         let option = src_element;
         scope.set(option.textContent);
     }
 })
 
 px.selectRecord = function (selected_record, target) {
-    let element = target.ownerElement;
+    let element = target.ownerElement || target;
+    if (!element) {
+        event.preventDefault();
+        event.returnValue = false;
+    };
     let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${target.localName}"]/px:Mappings/px:Mapping/@Referencer`);
     for (let referencer of referencers) {
         element.set(referencer.value, selected_record instanceof Element && selected_record.getAttribute(referencer.parentNode.getAttribute("Referencee")) || "");
@@ -414,7 +422,7 @@ xo.listener.on(['beforeChange::@headerText', 'beforeChange::@container:*'], func
 
 xo.listener.on(['beforeRemove::xo:r'], function ({ element, attribute, value, old }) {
     let primary_value = px.getPrimaryValue(this);
-    if (primary_value.substr(1) && !element.get("state:delete")) {
+    if (primary_value && primary_value.substr(1) && !element.get("state:delete")) {
         element.toggle('state:delete', true)
         event.preventDefault()
     }
@@ -435,6 +443,7 @@ app.request = async function (object_name, mode) {
 
 px.getPrimaryValue = function (record) {
     let entity = record.$(`ancestor::px:Entity[1]`)
+    if (!entity) return null;
     id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => record.get(key.value));
     pks = entity.$$(`px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map(key => record.get(key.value));
     if (id.length) {

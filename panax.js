@@ -627,10 +627,25 @@ px.request = async function (...args) {
     }
 }
 
-xo.listener.on('fetch::px:Entity', function () {
+xo.listener.on('response::px:Entity', function ({ document }) {
     //this.replaceBy(this.transform("xover/databind.xslt"))
     //let control_type = (document.$('//px:Entity').getAttribute("xsi:type") || '').replace(':control', '.xslt')
-    this.addStylesheet({ href: "px-Entity.xslt", target: "@#shell main" });
+    document.addStylesheet({ href: "px-Entity.xslt", target: "@#shell main" });
+})
+
+xo.listener.on('fetch::px:Entity', function () {
+    let entity = this;
+    let prev = xo.site.history[0] || {};
+    let reference = prev.reference || {};
+    let ref_store = xo.stores[prev.store];
+    let ref_node = ref_store && ref_store.findById(reference.id) || null;
+    ref_node && ref_node.$$('ancestor::px:Association[1]').map(el => entity.$(`px:Entity/*[local-name()="layout"]/association:ref[@Name="${el.get("AssociationName")}"]`)).forEach(el => el && el.remove())
+
+    entity.$$('px:Entity/px:Record/px:Field[@mode="hidden"]').map(el => entity.$(`px:Entity/*[local-name()="layout"]/field:ref[@Name="${el.get("Name")}"]`)).forEach(el => el && el.remove())
+
+    // Quitamos las rutas que no tienen ni Identity ni Primary
+    let routes = entity.$$(`//px:Entity[not(@IdentityKey) and not(px:PrimaryKeys/px:PrimaryKey)]/px:Routes/px:Route[@Method="add" or @Method="edit" or @Method="delete"]`);
+    routes.remove();
 })
 
 px.setAttributes = function (target, attribute, value) {
@@ -944,21 +959,6 @@ px.submit = async function (data_rows) {
     }
 }
 
-xo.listener.on('load::px:Entity', function () {
-    let entity = this;
-    let prev = xo.site.history[0] || {};
-    let reference = prev.reference || {};
-    let ref_store = xo.stores[prev.store];
-    let ref_node = ref_store && ref_store.findById(reference.id) || null;
-    ref_node && ref_node.$$('ancestor::px:Association[1]').map(el => entity.$(`px:Entity/*[local-name()="layout"]/association:ref[@Name="${el.get("AssociationName")}"]`)).forEach(el => el && el.remove())
-
-    entity.$$('px:Entity/px:Record/px:Field[@mode="hidden"]').map(el => entity.$(`px:Entity/*[local-name()="layout"]/field:ref[@Name="${el.get("Name")}"]`)).forEach(el => el && el.remove())
-
-    // Quitamos las rutas que no tienen ni Identity ni Primary
-    let routes = entity.$$(`//px:Entity[not(@IdentityKey) and not(px:PrimaryKeys/px:PrimaryKey)]/px:Routes/px:Route`);
-    routes.remove();
-})
-
 xo.listener.on(['response::xo:prompt'], function ({ response_value }) {
     let response = this;
     new xo.Store(response.document, { tag: "#prompt" });
@@ -1006,7 +1006,7 @@ xo.listener.on('success::#server:submit', function ({ request, payload }) {
     })
 })
 
-xo.listener.on('failure::#server:submit', function ({ payload }) {
+xo.listener.on(['failure::#server:submit', 'failure::#server:request'], function ({ payload }) {
     if (!this.document) return;
 
     this.document.$$('//result[@status="error"]/@statusMessage').set(message => {

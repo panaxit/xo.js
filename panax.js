@@ -987,7 +987,7 @@ xo.listener.on('success::#server:submit', function ({ request, payload }) {
                 ref_node && ref_node.parentNode.select("(ancestor-or-self::px:Entity[1]/data:rows/@command|ancestor-or-self::data:rows[1]/@command)[last()]").set(value => value);
             }
             entity.ownerDocument.store.remove();
-            ref_store.select(`//px:Entity[@Schema="${entity_schema}" and @Name="${entity_name}"]/data:rows/@command`).forEach(attr => attr.set(attr.value));
+            ref_store && ref_store.select(`//px:Entity[@Schema="${entity_schema}" and @Name="${entity_name}"]/data:rows/@command`).forEach(attr => attr.set(attr.value));
             xo.site.set("dirty", Object.fromEntries([["Schema", entity_schema], ["Name", entity_name]]))
         } else {
             entity.$$('//data:rows').remove()

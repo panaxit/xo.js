@@ -274,7 +274,8 @@ xo.listener.on(`change::px:Entity[px:Record/px:Field/@formula]/data:rows/xo:r/@*
         })]).forEach(([key, formula]) => {
             try {
                 let value = eval(formula);
-                row.set(key.value, [!(value instanceof Infinity || isNaN(value) ) ? value : undefined, ''].coalesce())
+                value = isFinite(value) ? value : undefined;
+                row.set(key.value, [value, ''].coalesce())
             } catch (e) {
                 if (e instanceof ReferenceError) {
                     Promise.reject(e)

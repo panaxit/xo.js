@@ -128,7 +128,7 @@ xo.listener.on(`change::html:select`, function ({ node, element, attribute, old,
     if (!src_element instanceof HTMLElement) return;
     let scope = src_element.scope;
     let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r") || null;
-    if (selected_record) {
+    if (scope instanceof Attr && selected_record instanceof Element) {
         px.selectRecord(selected_record, scope);
         let option = src_element[src_element.selectedIndex]
         scope.set(option.value && option.text || "");
@@ -274,7 +274,7 @@ xo.listener.on(`change::px:Entity[px:Record/px:Field/@formula]/data:rows/xo:r/@*
         })]).forEach(([key, formula]) => {
             try {
                 let value = eval(formula);
-                row.set(key.value, [value, ''].coalesce())
+                row.set(key.value, [!(value instanceof Infinity || isNaN(value) ) ? value : undefined, ''].coalesce())
             } catch (e) {
                 if (e instanceof ReferenceError) {
                     Promise.reject(e)
@@ -350,8 +350,8 @@ xo.listener.on(['set::data:rows/@command', 'remove::data:rows[not(xo:r)]/@xsi:ni
         //let prev_value = targetNode.parentNode.getAttribute("prev:value");
         new_node.selectNodes('@*').forEach(attr => targetNode.setAttributeNS(attr.namespaceURI, attr.name, attr.value))
         targetNode.append(...new_node.childNodes);
-        let store = targetNode.store;
-        store && store.render();
+        //let store = targetNode.store;
+        /*store && store.render();*/
     } catch (e) {
         Promise.reject(e)
     }

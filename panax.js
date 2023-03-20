@@ -1010,10 +1010,11 @@ xo.listener.on('success::#server:submit', function ({ request, payload }) {
 xo.listener.on(['failure::#server:submit', 'failure::#server:request'], function ({ payload }) {
     if (!this.document) return;
 
-    this.document.$$('//result[@status="error"]/@statusMessage').set(message => {
+    this.document.$$('//result[@status="error"]/@statusMessage|xo:message/text()').set(message => {
         let document = message.ownerDocument;
-        let [match, action, type, constraint_name, table, column] = [...message.value.matchAll(/^.*(INSERT|UPDATE|DELETE).*(REFERENCE|FOREIGN KEY)\s'([^']+)'.*, tabl[ae]\s'([^']+)'(, column '([^']+)')?/g)][0] || [];
+        let [match, action, type, constraint_name, table, column] = [...message.value.matchAll(/^.*(INSERT|UPDATE|DELETE).*(REFERENCE|FOREIGN KEY)\s'([^']+)'.*, tabl[ae]\s'([^']+)'(?:, column '([^']+)')?/g)][0] || [];
         if (match) {
+            document.addStylesheet({ href:'message.constraints.xslt', role: 'alertdialog' })
             message.parentNode.setAttributes({ action, type, constraint_name, column })
             let [schema, table_name] = table.split(".");
             message.parentNode.setAttributes({ schema, table_name });

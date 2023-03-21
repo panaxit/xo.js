@@ -389,28 +389,28 @@ xo.listener.on('appendTo::data:rows', function () {
         if (!["belongsTo"].includes(association.getAttribute("Type"))) {
             let target_rows = this.select(`xo:r[not(px:Association[@AssociationName="${association.get("AssociationName")}"])]`)
             if (target_rows.length) {
-                let association_copy = association.cloneNode(true);
-                association_copy.select(".//@xo:id").remove();
-                association_copy.reseed();
-                target_rows.map(row => row.append(association_copy)).forEach(els => {
-                    els.forEach(el => {
-                        let entity = el.$(`px:Entity`);
-                        px.loadData(entity);
-                    });
-                });
+                for (let row of target_rows) {
+                    let association_copy = association.cloneNode(true);
+                    //let field_association = xo.xml.createNode(`<x:f Name="${association.getAttribute("AssociationName")}"/>`)
+                    association_copy.select(".//@xo:id").remove();
+                    association_copy.reseed();
+                    row.append(association_copy);
+                    let entity = association_copy.$(`px:Entity`);
+                    px.loadData(entity);
+                }
+            } else {
+                let entity = association.$(`px:Entity`);
+                px.loadData(entity);
             }
-        } else {
-            let entity = association.$(`px:Entity`);
-            px.loadData(entity);
+        };
+        let store = this.ownerDocument.store;
+        if (store && !this.selectFirst("px:Association")) {
+            store.render()
         }
-    });
-    let store = this.ownerDocument.store;
-    if (store && !this.selectFirst("px:Association")) {
-        store.render()
-    }
-    //if (this.parentNode instanceof Document) {
-    //    console.log(this)
-    //}
+        //if (this.parentNode instanceof Document) {
+        //    console.log(this)
+        //}
+    })
 })
 
 xo.listener.on(['beforeChange::@headerText', 'beforeChange::@container:*'], function ({ element, attribute, value, old }) {
@@ -644,6 +644,9 @@ xo.listener.on('fetch::px:Entity', function () {
 
     entity.$$('px:Entity/px:Record/px:Field[@mode="hidden"]').map(el => entity.$(`px:Entity/*[local-name()="layout"]/field:ref[@Name="${el.get("Name")}"]`)).forEach(el => el && el.remove())
 
+    // Quitamos rutas de los datagrids hijos de datagrids
+    entity.select(`//px:Entity[@control:type="datagrid:control"]/px:Record/px:Association/px:Entity[@control:type="datagrid:control"]/px:Routes/px:Route`).remove()
+
     // Quitamos las rutas que no tienen ni Identity ni Primary
     let routes = entity.$$(`//px:Entity[not(@IdentityKey) and not(px:PrimaryKeys/px:PrimaryKey)]/px:Routes/px:Route[@Method="add" or @Method="edit" or @Method="delete"]`);
     routes.remove();
@@ -700,7 +703,7 @@ px.loadData = function (entity, keys) {
     constraints = constraints.concat([...filters]);
 
     let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => (key instanceof Attr || value) && `${formatKey(key)} IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})` || key.indexOf("`") != -1 && formatKey(key) || key).join(' AND ');
-    let parent_row = entity.$('ancestor::xo:r');
+    let parent_row = entity.$('ancestor::xo:r[1]');
     if (parent_row) {
         let parent_relationship = entity.$('parent::px:Association[not(@Type="belongsTo")]/px:Mappings')
         let mappings = parent_relationship && parent_relationship.$$('px:Mapping').map(map => `[${entity.get("Name")}].[${map.get("Referencer")}] IN ('${parent_row.get(map.get("Referencee")) || 'NULL'}')`) || [];
@@ -1014,7 +1017,7 @@ xo.listener.on(['failure::#server:submit', 'failure::#server:request'], function
         let document = message.ownerDocument;
         let [match, action, type, constraint_name, table, column] = [...message.value.matchAll(/^.*(INSERT|UPDATE|DELETE).*(REFERENCE|FOREIGN KEY)\s'([^']+)'.*, tabl[ae]\s'([^']+)'(?:, column '([^']+)')?/g)][0] || [];
         if (match) {
-            document.addStylesheet({ href:'message.constraints.xslt', role: 'alertdialog' })
+            document.addStylesheet({ href: 'message.constraints.xslt', role: 'alertdialog' })
             message.parentNode.setAttributes({ action, type, constraint_name, column })
             let [schema, table_name] = table.split(".");
             message.parentNode.setAttributes({ schema, table_name });

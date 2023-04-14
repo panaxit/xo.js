@@ -1,5 +1,6 @@
 px = {}
-xover.qrl = xover.QRL;
+xover.qrl = xover.QUERI;
+xover.QRL = xover.QUERI;
 xo.spaces["px"] = "http://panax.io/entity";
 xo.spaces["data"] = "http://panax.io/source";
 Object.defineProperty(xo.session, 'login', {
@@ -323,7 +324,7 @@ xo.listener.on(['set::data:rows/@command', 'remove::data:rows[not(xo:r)]/@xsi:ni
     })
     let response;
     try {
-        response = await xover.sources[`${node.nodeName}:=${command}`].fetch(xover.json.tryParse(command), {
+        response = await xover.sources[`${node.nodeName}:=${command.value}`].fetch(xover.json.tryParse(command), {
             source: node
             , method: 'GET'
             , headers: headers
@@ -535,16 +536,16 @@ px.request = async function (...args) {
     let reference = prev.reference || {};
     let ref_store = xo.stores[prev.store];
     let ref_node = ref_store && ref_store.findById(reference.id) || null;
-    if (reference.id && !ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"]) {
+    if (reference.id && !ref_node && reference.id == xo.QUERI(location.hash.substr(1))["ref_node"]) {
         return Promise.reject("Se perdió la referencia.")
     }
     association_ref = ref_node && ref_node.$("ancestor::px:Entity[1]/parent::px:Association")
     if (typeof (request_or_entity_name) == 'string') {
         ({
-            fields, schema, name: entity_name, mode, identity_value, primary_values, ref_node, predicate: filters, settings: url_settings
-        } = xo.QRL(request_or_entity_name));
-        page_size = url_settings["pageSize"];
-        page_index = url_settings["pageIndex"];
+            fields, schema, name: entity_name, mode, identity_value, primary_values, ref_node, predicate: filters, headers: url_settings
+        } = xo.QUERI(request_or_entity_name));
+        page_size = url_settings.get("pageSize");
+        page_index = url_settings.get("pageIndex");
 
         //request["filters"] = Object.fromEntries(url.searchParams.entries());
         //[schema, entity_name, mode = args[1]] = url.pathname.substring(1).split(/[\/~]/);
@@ -669,7 +670,7 @@ px.loadData = function (entity, keys) {
         let reference = prev.reference || {};
         let ref_store = xo.stores[prev.store];
         let ref_node = ref_store && ref_store.findById(reference.id) || null;
-        if (ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"] && ref_node.matches("xo:r")) {
+        if (ref_node && reference.id == xo.QUERI(location.hash.substr(1))["ref_node"] && ref_node.matches("xo:r")) {
             let data_rows = entity.$("data:rows") || entity.createNode(`<data:rows xmlns:data="${ref_node.resolveNS("data")}"/>`)
             data_rows.append(ref_node.cloneNode(true))
             return;
@@ -684,7 +685,7 @@ px.loadData = function (entity, keys) {
     let page_index = keys["page_index"];
     constraints = [...id, ...pks]
 
-    let fields = Object.fromEntries(constraints.map(([key]) => key).concat(entity.$$('@custom:*|px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name')).map(field => field.prefix == 'custom' ? [`${field.nodeName}`, field.value] : [`${field.parentNode.nodeName == 'px:Association' && 'meta:' || ''}${field.value}`, `#panax.${field.parentNode.$("self::*[@DataType='nvarchar' or @DataType='varchar' or @DataType='foreignKey' or @DataType='files']") ? 'prepareString' : (field.parentNode.$("self::*[@DataType='xml']") ? 'prepareXML' : 'prepareValue')}(` + (field.parentNode.$("self::px:Association") && `(SELECT ${field.parentNode.$("px:Entity/@displayText|px:Entity[not(@displayText)]/@combobox:text").value} FROM [${field.parentNode.$("px:Entity/@Schema").value}].[${field.parentNode.$("px:Entity/@Name").value}] #parent WHERE ${field.parentNode.$$('px:Mappings/px:Mapping').map(map => '[' + entity.get("Name") + '].[' + map.get("Referencer") + '] = #parent.[' + map.get("Referencee") + ']').join(' AND ')})` || `[${field.value}]`) + ')']))
+    let fields = Object.fromEntries(constraints.map(([key]) => key).concat(entity.$$('@custom:*|px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name')).map(field => field.prefix == 'custom' ? [`${field.nodeName}`, field.value] : [`${field.parentNode.nodeName == 'px:Association' && 'meta:' || ''}${field.value}`, `#panax.${field.parentNode.$("self::*[@DataType='nvarchar' or @DataType='varchar' or @DataType='foreignKey' or @DataType='files']") ? 'prepareString' : (field.parentNode.$("self::*[@DataType='xml']") ? 'prepareXML' : 'prepareValue')}(` + (field.parentNode.$("self::px:Association") && `(SELECT ${field.parentNode.$("px:Entity/@displayText|px:Entity[not(@displayText)]/@combobox:text").value} FROM [${field.parentNode.$("px:Entity/@Schema").value}].[${field.parentNode.$("px:Entity/@Name").value}] #foreign WHERE ${field.parentNode.$$('px:Mappings/px:Mapping').map(map => '[' + entity.get("Name") + '].[' + map.get("Referencer") + '] = #foreign.[' + map.get("Referencee") + ']').join(' AND ')})` || `[${field.value}]`) + ')']))
 
     let text = entity.$$(`@displayText|self::*[not(@displayText)]/@combobox:text|px:Record/px:Field[not(@IsIdentity="1" or @DataType="xml")][1]/@Name|px:Record[not(*[2])]/px:Field[not(@DataType="xml")]/@Name`).shift();
     if (text) {
@@ -710,8 +711,7 @@ px.loadData = function (entity, keys) {
         predicate && mappings.unshift(predicate);
         predicate = mappings.join(' AND ')
     }
-    entity.setAttribute("data:rows", `${entity.get("Schema")}/${entity.get("Name")}?${encodeURIComponent(predicate) || ''}#?&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '1000')}#${Object.entries(fields).filter(([, value]) => value).sort((first, second) => first[1].indexOf("XML") - second[1].indexOf("XML")).map(([key, value]) => `[${value.indexOf("prepareXML") == -1 ? '@' + key : "x:f/@Name]='" + key + "', [x:f"}]=${value.replace(/#panax\.prepareXML/, '')}`).join(',')}`)
-    let store = entity.store;
+    entity.setAttribute("data:rows", `${entity.get("Schema")}/${entity.get("Name")}?${encodeURIComponent(predicate) || ''}#?&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '1000')}&fields=${encodeURIComponent(Object.entries(fields).filter(([, value]) => value).sort((first, second) => first[1].indexOf("XML") - second[1].indexOf("XML")).map(([key, value]) => `[${value.indexOf("prepareXML") == -1 ? '@' + key : "x:f/@Name]='" + key + "', [x:f"}]=${value.replace(/#panax\.prepareXML/, '')}`).join(','))}`)
 }
 
 px.getData = async function (...args) {
@@ -724,10 +724,10 @@ px.getData = async function (...args) {
         let fields, request, predicate = {}, url_settings;
         if (parameters && typeof (parameters.value || parameters) === 'string') {
             ({
-                fields, schema, name, mode, identity_value, primary_values, predicate, settings: url_settings
-            } = xo.QRL(parameters));
-            page_size = url_settings["pageSize"];
-            page_index = url_settings["pageIndex"];
+                fields, schema, name, mode, identity_value, primary_values, predicate, headers: url_settings
+            } = xo.QUERI(parameters));
+            page_size = url_settings.get("pageSize");
+            page_index = url_settings.get("pageIndex");
             request = `[${schema}].[${name}]`
             ////let [request_with_fields, ...predicate] = command.split(/=>|&filters=/);
             ////let [fields, request] = comnd.match('(?:(.*)~>)?(.+)');
@@ -738,8 +738,10 @@ px.getData = async function (...args) {
 
             /*TODO: Mover esto a un listener o definir */
             //parameters = (node.getAttribute('source_filters:' + attribute_base_name) || predicate || "");
-            predicate = Object.fromEntries(Object.entries(predicate));
-            parameters = Object.entries(predicate).filter(([key, value]) => key[0] != '@').map(([key, value]) => value && `[${key}]='${value.replace(/'/g, "''")}'` || key).join(' AND ')
+            let params = Object.fromEntries([...predicate.entries()].filter(([key, value]) => key[0] == '@'));
+            predicate = [...predicate.entries()].filter(([key, value]) => key[0] != '@').map(([key, value]) => value && `[${key}]='${value.replace(/'/g, "''")}'` || key).join(' AND ');
+            parameters = new URLSearchParams(request && { command: request, predicate: predicate } || {});
+            Object.entries(params).forEach(([key, value]) => parameters.append(key, value))
         }
         let root_node = node.prefix.replace(/^request$/, "source") + ":" + attribute_base_name;
         //
@@ -758,12 +760,10 @@ px.getData = async function (...args) {
             , "x-Debugging": xover.debug.enabled
             , "x-data-text": encodeURIComponent(node.getAttribute('source_text:' + attribute_base_name) || node.getAttribute('dataText') || "")
             , "x-data-value": encodeURIComponent(node.getAttribute('source_value:' + attribute_base_name) || node.getAttribute('dataValue') || "")
-            , "x-data-fields": fields || ""
+            , "x-data-fields": encodeURIComponent(fields || "")
             , "x-order-by": node.parentNode instanceof Element && node.parentNode.get("custom:sortBy") || ""
         }))
         settings["headers"] = headers;
-        parameters = request && { command: request, predicate: parameters } || {};
-        Object.assign(parameters, Object.fromEntries(Object.entries(predicate).filter(([key, value]) => key[0] == '@')));
     }
     args.push(parameters);
     args.push(settings);
@@ -782,7 +782,7 @@ px.getData = async function (...args) {
 }
 
 px.applyFilters = function (attribute_node) {
-    let command = xo.QRL(attribute_node);
+    let command = xo.QUERI(attribute_node);
     attribute_node.select("ancestor::px:Entity/px:Parameters//px:Parameter").forEach(param => {
         command.predicate[param.getAttribute("parameterName")] = (param.getAttribute("value") || "null")
     })
@@ -899,7 +899,7 @@ px.submit = async function (data_rows) {
     let reference = prev.reference || {};
     let ref_store = xo.stores[prev.store];
     let ref_node = ref_store && ref_store.findById(reference.id) || null;
-    if (ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"]) {
+    if (ref_node && reference.id == xo.QUERI(location.hash.substr(1))["ref_node"]) {
         if (ref_node.matches("xo:r")) {
             ref_node.replaceWith(data_rows[0])
         } else if (ref_node.matches("data:rows")) {
@@ -974,7 +974,7 @@ xo.listener.on('success::#server:submit', function ({ request, payload }) {
     let ref_store = xo.stores[prev.store];
     let ref_node = ref_store && ref_store.findById(reference.id) || null;
     ref_node = reference.attribute && ref_node.getAttributeNode(reference.attribute) || ref_node;
-    if (reference.id && !ref_node && reference.id == xo.qrl(location.hash.substr(1))["ref_node"]) {
+    if (reference.id && !ref_node && reference.id == xo.QUERI(location.hash.substr(1))["ref_node"]) {
         return Promise.reject("Se perdió la referencia.")
     }
     let result = this.document;

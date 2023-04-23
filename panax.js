@@ -151,7 +151,7 @@ xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, valu
     if (!src_element instanceof HTMLElement) return;
     let scope = src_element.closest('ul,ol').scope;
 
-    let selected_record = src_element instanceof HTMLLIElement && src_element.scope.filter("self::xo:r") || null;
+    let selected_record = src_element instanceof HTMLLIElement && src_element.scope.filter("self::xo:r") instanceof Element || null;
     if (selected_record) {
         px.selectRecord(selected_record, src_element.parentNode.scope);
         let option = src_element;
@@ -874,9 +874,9 @@ px.getData = async function (...args) {
 px.applyFilters = function (attribute_node) {
     let command = xo.QUERI(attribute_node);
     attribute_node.select("ancestor::px:Entity/px:Parameters//px:Parameter").forEach(param => {
-        command.predicate[param.getAttribute("parameterName")] = (param.getAttribute("value") || "null")
+        command.predicate.set(param.getAttribute("parameterName"), param.getAttribute("value") || "null")
     })
-    attribute_node.set(command.toString());
+    command.update()
 }
 
 px.createEmptyRow = function (entity) {

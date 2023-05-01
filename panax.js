@@ -151,7 +151,7 @@ xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, valu
     if (!src_element instanceof HTMLElement) return;
     let scope = src_element.closest('ul,ol').scope;
 
-    let selected_record = src_element instanceof HTMLLIElement && src_element.scope.filter("self::xo:r") instanceof Element || null;
+    let selected_record = src_element instanceof HTMLLIElement && src_element.scope && src_element.scope.filter("self::xo:r") instanceof Element || null;
     if (selected_record) {
         px.selectRecord(selected_record, src_element.parentNode.scope);
         let option = src_element;

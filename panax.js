@@ -717,7 +717,7 @@ px.loadData = function (entity, keys) {
     function getText(entity, entity_name) {
         let text = entity.$$(`@displayText|self::*[not(@displayText)]/@combobox:text|px:Record/px:Field[not(@IsIdentity="1" or @DataType="xml")][1]/@Name|px:Record[not(*[2])]/px:Field[not(@DataType="xml")]/@Name`).shift();
         if (text) {
-            return `RTRIM(#panax.${text.parentNode.getAttribute("DataType") == 'xml' && 'prepareXML' || 'prepareString'}([${entity_name}].[${text.value}]))`; // No se ponen brackets para los nombres de las funciones
+            return text.matches('@Name') && `RTRIM(#panax.${text.parentNode.getAttribute("DataType") == 'xml' && 'prepareXML' || 'prepareString'}([${entity_name}].[${text.value}]))` || text.value; // No se ponen brackets para los nombres de las funciones
         }
     }
 

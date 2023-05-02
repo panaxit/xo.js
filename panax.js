@@ -81,6 +81,15 @@ xo.listener.on(['change::px:Association[@DataType="junctionTable"]/px:Entity/dat
     target && target.append(element);
 })
 
+xo.listener.on(['change::@meta:pageIndex', 'change::@meta:pageSize'], function ({ element, value }) {
+    let command = element.get(`command`);
+    if (command) {
+        command = xo.QUERI(command)
+        command.headers.set(this.localName, value);
+    }
+    command.update()
+})
+
 xo.listener.on(['beforeTransform::px:Entity'], function ({ store }) {
     let node = this;
 
@@ -139,8 +148,8 @@ xo.listener.on(`change::html:select`, function ({ node, element, attribute, old,
     if (!src_element instanceof HTMLElement) return;
     let scope = src_element.scope;
     let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r") || null;
-    if (scope instanceof Attr && selected_record instanceof Element) {
-        px.selectRecord(selected_record, scope);
+    if (scope instanceof Attr) {
+        px.selectRecord(selected_record instanceof Element && selected_record || null, scope);
         let option = src_element[src_element.selectedIndex]
         scope.set(option.value && option.text || "");
     }
@@ -151,8 +160,8 @@ xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, valu
     if (!src_element instanceof HTMLElement) return;
     let scope = src_element.closest('ul,ol').scope;
 
-    let selected_record = src_element instanceof HTMLLIElement && src_element.scope && src_element.scope.filter("self::xo:r") instanceof Element || null;
-    if (selected_record) {
+    let selected_record = src_element instanceof HTMLLIElement && src_element.scope && src_element.scope.filter("self::xo:r") || null;
+    if (selected_record instanceof Element) {
         px.selectRecord(selected_record, src_element.parentNode.scope);
         let option = src_element;
         scope.set(option.textContent);

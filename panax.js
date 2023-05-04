@@ -188,14 +188,16 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
             element.setAttribute(other_referencer.value, "");
         }
     }
-    return;
-    let associated_references = element.$$(`px:Association[@DataType='junctionTable']/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`);
+    let associated_references = element.$$(`px:Association[contains(@DataType,'Table')]/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`);
     for (let referencer of associated_references) {
-        for (let command of referencer.selectNodes('ancestor::px:Association[1]/px:Entity/data:rows/@command')) {
-            let qri = xo.QUERI(command);
-            console.log(qri)
-        }
+        let associated_records = referencer.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*[name()="${referencer.value}"]`)
+        associated_records.forEach(attr => attr.value = value)
+        //for (let command of referencer.selectNodes('ancestor::px:Association[1]/px:Entity/data:rows/@command')) {
+        //    let qri = xo.QUERI(command);
+        //    console.log(qri)
+        //}
     }
+    return;
     element.$$(`px:Association[@DataType='junctionTable']/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`)
 
     //////////////////////////
@@ -597,9 +599,10 @@ px.request = async function (...args) {
     page_size = (page_size || xover.manifest.getSettings(`#${schema}/${entity_name}~${mode}`, "pageSize").pop());
     page_index = (page_index || xover.manifest.getSettings(`#${schema}/${entity_name}~${mode}`, "pageIndex").pop());
     let mock_store = xo.Store(xo.xml.createDocument(`<entity ${xover.json.toAttributes({ filters, mode, page_size, page_index, Name: entity_name, Schema: schema })}/>`), { tag: `#${schema}/${entity_name}~${mode}`.toLowerCase() });
-    let other_filters = Object.fromEntries(xo.manifest.getSettings(mock_store, 'filters'));
+    let other_filters = xo.manifest.getSettings(mock_store, 'filters');
     mock_store.remove();
-    filters = Object.assign(filters, other_filters);
+    filters = [...filters];
+    filters = filters.concat(other_filters);
     ////if (other_filters && other_filters[0] === '`') {
     ////    let entity = { schema: schema, name: entity_name };
     ////    other_filters = eval(other_filters.replace(/\\/g, '\\\\')).replace(/\\b/g, '\\b');
@@ -716,7 +719,7 @@ px.loadData = function (entity, keys) {
     keys = Object.assign({ identity_value: undefined, primary_values: [] }, keys);
     let id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => [key, keys.identity_value]);
     let pks = entity.$$(`px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map((key, ix) => [key, keys.primary_values[ix]]);
-    let filters = Object.entries(keys["filters"] || {});
+    let filters = keys["filters"] || [];
     let page_size = keys["page_size"];
     let page_index = keys["page_index"];
     constraints = [...id, ...pks]

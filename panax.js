@@ -158,10 +158,10 @@ xo.listener.on(`change::html:select`, function ({ node, element, attribute, old,
 xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, value }) {
     let src_element = this;
     if (!src_element instanceof HTMLElement) return;
-    let scope = src_element.closest('ul,ol').scope;
+    let scope = (src_element.closest('ul,ol') || {}).scope;
 
     let selected_record = src_element instanceof HTMLLIElement && src_element.scope && src_element.scope.filter("self::xo:r") || null;
-    if (selected_record instanceof Element) {
+    if (scope && selected_record instanceof Element) {
         px.selectRecord(selected_record, src_element.parentNode.scope);
         let option = src_element;
         scope.set(option.textContent);
@@ -766,6 +766,7 @@ px.loadData = function (entity, keys) {
         command.pathname = '';
         command.predicate.delete('AND');
         id.map(([el]) => command.fields[`[@${el.value}]`] = `#panax.prepareValue(NULL)`);
+        [...Object.entries(command.fields)].map(([el]) => command.fields[el] = `#panax.prepareValue(NULL)`);
         let mappings = entity.parentNode.select('px:Mappings/px:Mapping');
         for (let mapping of mappings) {
             let referencer = mapping.getAttribute("Referencer");
@@ -1096,7 +1097,7 @@ xo.listener.on('success::#server:submit', function ({ request, payload }) {
             ref_store && ref_store.select(`//px:Entity[@Schema="${entity_schema}" and @Name="${entity_name}"]/data:rows/@command`).forEach(attr => attr.set(attr.value));
             xo.site.set("dirty", Object.fromEntries([["Schema", entity_schema], ["Name", entity_name]]))
         } else {
-            entity.$$('//data:rows').remove()
+            entity.$$('//data:rows/@command').forEach(command => xo.QUERI(command).update())
         }
         return;
     }

@@ -94,10 +94,10 @@ xo.listener.on(['beforeTransform::px:Entity'], function ({ store }) {
     let node = this;
 
     for (let association_ref of node.select(`//px:Entity/px:Record/px:Association[@Type="belongsTo"][px:Mappings/px:Mapping[2]]`)) {
-        let referencers = association_ref.select('px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Entity[1]/@IdentityKey)]/@Referencer').map(referencer => referencer.value);
-        let row = association_ref.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*`).filter(attr => referencers.includes(attr.name));
+        let referencers = Object.fromEntries(association_ref.select('px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Entity[1]/@IdentityKey)]/@Referencer').map(referencer => [referencer.value, referencer.parentNode.getAttribute("Referencee")]));
+        let row = association_ref.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*`).filter(attr => Object.keys(referencers).includes(attr.name));
         let data_rows = association_ref.selectFirst(`px:Entity[@IdentityKey]/data:rows`);
-        let rows = data_rows && data_rows.select(`xo:r`).filter(_row => row.filter(attr => _row.get(attr.name) != attr.value).length) || [];
+        let rows = data_rows && data_rows.select(`xo:r`).filter(_row => row.filter(attr => _row.get(referencers[attr.name]) != attr.value).length) || [];
         if (rows.length) {
             rows.removeAll({ silent: true });
             if (!data_rows.select("xo:r").length) {
@@ -182,9 +182,9 @@ px.selectRecord = function (selected_record, target) {
 }
 
 xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state')) and not(contains(namespace-uri(),'http://panax.io/metadata'))]`, function ({ node, element, attribute, old, value }) {
-    let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo']/px:Mappings/px:Mapping[following-sibling::px:Mapping]/@Referencer[.="${node.name}"]`);
+    let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo']/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`);
     for (let referencer of referencers) {
-        for (let other_referencer of referencer.parentNode.selectNodes('following-sibling::px:Mapping/@Referencer')) {
+        for (let other_referencer of referencer.parentNode.selectNodes(`ancestor::px:Association[1]/following-sibling::px:Association[@Type='belongsTo']/px:Mappings[px:Mapping/@Referencer[.="${node.name}"]]/px:Mapping/@Referencer[.!="${node.name}"]`)) {
             element.setAttribute(other_referencer.value, "");
         }
     }

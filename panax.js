@@ -481,11 +481,18 @@ app.request = async function (object_name, mode) {
     return xo.sources.defaults["#" + name] || xo.xml.createDocument(`<?xml-stylesheet type="text/xsl" href="form.xslt" target="@#shell main"?><?xml-stylesheet type="text/xsl" href="shell_buttons.xslt" target="@#shell #shell_buttons" action="replace"?><${name} schema="${schema}"/>`)
 }
 
-px.getPrimaryValue = function (record) {
-    let entity = record.$(`ancestor::px:Entity[1]`)
+px.getPrimaryValue = function (record, entity) {
+    entity = entity || record.$(`ancestor::px:Entity[1]`)
     if (!entity) return null;
-    id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => record.get(key.value));
-    pks = entity.$$(`px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map(key => record.get(key.value));
+    if (entity.matches(`px:Association`)) {
+        let association_ref = entity;
+        let referencees = Object.fromEntries(association_ref.select('px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Entity[1]/@IdentityKey)]/@Referencee').map(referencee => [referencee.value, referencee.parentNode.getAttribute("Referencer")]));
+        id = entity.$$(`px:Entity/px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => record.get(referencees[key.value]));
+        pks = entity.$$(`px:Entity/px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map(key => record.get(referencees[key.value]));
+    } else {
+        id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => record.get(key.value));
+        pks = entity.$$(`px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map(key => record.get(key.value));
+    }
     if (id.length) {
         return ":" + id.join("/")
     } else if (pks.length) {
@@ -495,21 +502,54 @@ px.getPrimaryValue = function (record) {
     }
 }
 
-px.editSelectedOption = function (src_element) {
+px.editSelectedOption = async function (src_element) {
     let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r").filter(el => el instanceof Element);
+    let scope = src_element.scope;
+    if (!scope) {
+        return Promise.reject("No hay scope asociado")
+    };
     if (!selected_record) {
         return Promise.reject("No hay registro asociado")
     }
-    let primary_value = px.getPrimaryValue(selected_record);
-    let href
+    let scope_entity = scope.parentNode.selectFirst("ancestor::px:Entity[1]");
+    let selected_record_entity = selected_record.$(`ancestor::px:Entity[1]`);
+
+    let primary_value;
+    let href;
+    let foreign_entity;
+    if (scope_entity === selected_record_entity) {
+        let association = scope.select(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${scope.localName}"]`)[0];
+        primary_value = px.getPrimaryValue(selected_record, association);
+        foreign_entity = association.$(`px:Entity`);
+    } else {
+        primary_value = px.getPrimaryValue(selected_record, selected_record_entity);
+        foreign_entity = selected_record_entity;
+    }
     if (primary_value.substr(1)) {
-        let entity = selected_record.$(`ancestor::px:Entity[1]`)
-        href = `#${entity.get("Schema")}/${entity.get("Name")}${primary_value}~edit`
+        href = `#${foreign_entity.get("Schema")}/${foreign_entity.get("Name")}${primary_value}~edit`
     } else {
         return Promise.reject("No se puede editar el registro")
     }
     xo.site.seed = href
 }
+
+xo.listener.on("update::@command", function () {
+    let command = xo.QUERI(this);
+    return command.update();
+});
+
+xo.listener.on("downloadCatalog::xo:r/@meta:*", function () {
+    let scope = this;
+    let association = scope.select(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${scope.localName}"]`)[0];
+    let commands = association.select("data:rows/@command");
+    let return_value;
+    if (commands.length) {
+        return_value = commands.map(command => command.update())
+    } else {
+        return_value = px.loadData(scope.$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${scope.localName}"]/px:Entity`))
+    }
+    return return_value
+});
 
 px.refreshCatalog = function (src_element) {
     src_element.scope.select(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${src_element.scope.localName}"]/px:Entity/data:rows/@command`).forEach(command => command.set(command => command.value));
@@ -703,6 +743,7 @@ px.setAttributes = function (target, attribute, value) {
 }
 
 px.loadData = function (entity, keys) {
+    let returnValue = [];
     if (!(entity instanceof Node)) return;
     if (entity.matches("/px:Entity")) {
         let prev = xo.site.history[0] || {};
@@ -754,6 +795,7 @@ px.loadData = function (entity, keys) {
         predicate = predicate.concat(mappings)
     }
     let data_rows = xo.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
+    returnValue.push(data_rows);
     entity.append(data_rows);
     data_rows.setAttribute("command", `${entity.get("Schema")}/${entity.get("Name")}?${new URLSearchParams(predicate || {})}#?&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '1000')}&fields=${encodeURIComponent(Object.entries(fields).filter(([, value]) => value).sort((first, second) => first[1].indexOf("XML") - second[1].indexOf("XML")).map(([key, value]) => `[${value.indexOf("prepareXML") == -1 ? '@' + key : "x:f/@Name]='" + key + "', [x:f"}]=${value.replace(/#panax\.prepareXML/, '')}`).join('&'))}`)
     let junction_association = entity.select(`self::px:Entity[parent::px:Association[@DataType="junctionTable"]]/px:Record/px:Association`).filter(fks => {
@@ -799,8 +841,10 @@ px.loadData = function (entity, keys) {
         command.fields['[@meta:text]'] = '#panax.prepareString(NULL)';
         command.update();
         data_rows_complement.set("xsi:type", "mock")
+        returnValue.push(data_rows_complement);
         entity.append(data_rows_complement);
     }
+    return returnValue;
 }
 
 px.getData = async function (...args) {
@@ -894,7 +938,7 @@ px.applyFilters = function (attribute_node) {
 
 px.createEmptyRow = function (entity) {
     let fields = [...new Set(entity.$$('px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name').map(field => ((field.parentNode.nodeName == 'px:Association' ? 'meta:' : '') + field.value) + '=""'))].join(' ')
-    return xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" ${fields}/>`).reseed();
+    return xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" xsi:type="mock" ${fields}/>`).reseed();
 }
 
 xover.listener.on('click::a', async function (event) {
@@ -993,7 +1037,7 @@ px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data
             mappings.forEach(mapping => dataRow.nodeName != 'deleteRow' && dataRow.insertFirst(xo.xml.createNode(`<fkey xmlns="http://panax.io/persistence" name="${mapping}" maps="${mapping.$("../@Referencee")}"/>`)))
             dataTable.append(dataRow);
             row.select(`px:Association[not(@Type="belongsTo")]/px:Entity`).forEach(foreign_entity => {
-                return buildPost(foreign_entity.$$('data:rows[not(@xsi:type="mock")]/xo:r'), dataRow)
+                return buildPost(foreign_entity.$$('data:rows[not(@xsi:type="mock")]/xo:r[not(@xsi:type="mock")]'), dataRow)
             })
         }
         return target;

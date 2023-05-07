@@ -108,14 +108,15 @@ xo.listener.on(['beforeTransform::px:Entity'], function ({ store }) {
     }
 })
 
-xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state'))]`, function ({ element, attribute, old, value }) {
-    let initial_value = element.getAttributeNodeNS('http://panax.io/state/initial', attribute.nodeName.replace(':', '-'));
+xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state'))]`, function ({ element: row, attribute, old, value }) {
+    let initial_value = row.getAttributeNodeNS('http://panax.io/state/initial', attribute.nodeName.replace(':', '-'));
+    row.select(`@xsi:type[.="mock"]`).remove();
     if (initial_value) {
         initial_value == value && initial_value.remove();
     } else if (value !== null) {
-        element.set(`initial:${attribute.nodeName.replace(':', '-')}`, old);
+        row.set(`initial:${attribute.nodeName.replace(':', '-')}`, old);
     }
-    element.set(`prev:${attribute.nodeName.replace(':', '-')}`, old);
+    row.set(`prev:${attribute.nodeName.replace(':', '-')}`, old);
 })
 
 //xo.listener.on(`change::xo:r/@meta:*`, function ({ node, element, attribute, old, value }) {
@@ -938,7 +939,7 @@ px.applyFilters = function (attribute_node) {
 
 px.createEmptyRow = function (entity) {
     let fields = [...new Set(entity.$$('px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name').map(field => ((field.parentNode.nodeName == 'px:Association' ? 'meta:' : '') + field.value) + '=""'))].join(' ')
-    return xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" xsi:type="mock" ${fields}/>`).reseed();
+    return xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" xmlns:state="http://panax.io/state" xsi:type="mock" state:new="true" ${fields}/>`).reseed();
 }
 
 xover.listener.on('click::a', async function (event) {
@@ -1120,7 +1121,7 @@ xo.listener.on('success::#server:submit', function ({ request, payload }) {
     let reference = prev.reference || {};
     let ref_store = xo.stores[prev.store];
     let ref_node = ref_store && ref_store.findById(reference.id) || null;
-    ref_node = reference.attribute && ref_node.getAttributeNode(reference.attribute) || ref_node;
+    ref_node = reference.attribute && ref_node && ref_node.getAttributeNode(reference.attribute) || ref_node;
     if (reference.id && !ref_node && reference.id == xo.QUERI(location.hash.substr(1))["ref_node"]) {
         return Promise.reject("Se perdió la referencia.")
     }

@@ -709,12 +709,6 @@ px.request = async function (...args) {
     }
 }
 
-xo.listener.on('response::px:Entity', function ({ document }) {
-    //this.replaceBy(this.transform("xover/databind.xslt"))
-    //let control_type = (document.$('//px:Entity').getAttribute("xsi:type") || '').replace(':control', '.xslt')
-    document.addStylesheet({ href: "px-Entity.xslt", target: "@#shell main" });
-})
-
 xo.listener.on('fetch::px:Entity', function () {
     let entity = this;
     let prev = xo.site.history[0] || {};
@@ -731,6 +725,12 @@ xo.listener.on('fetch::px:Entity', function () {
     // Quitamos las rutas que no tienen ni Identity ni Primary
     let routes = entity.$$(`//px:Entity[not(@IdentityKey) and not(px:PrimaryKeys/px:PrimaryKey)]/px:Routes/px:Route[@Method="add" or @Method="edit" or @Method="delete"]`);
     routes.remove();
+})
+
+xo.listener.on('fetch::px:Entity[not(//processing-instruction())]', function ({ document }) {
+    //this.replaceBy(this.transform("xover/databind.xslt"))
+    //let control_type = (document.$('//px:Entity').getAttribute("xsi:type") || '').replace(':control', '.xslt')
+    document.addStylesheet({ href: "px-Entity.xslt", target: "@#shell main" });
 })
 
 px.setAttributes = function (target, attribute, value) {

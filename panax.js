@@ -111,6 +111,7 @@ xo.listener.on(['beforeTransform::px:Entity'], function ({ store }) {
 xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state'))]`, function ({ element: row, attribute, old, value }) {
     let initial_value = row.getAttributeNodeNS('http://panax.io/state/initial', attribute.nodeName.replace(':', '-'));
     row.select(`@xsi:type[.="mock"]`).remove();
+    row.set(`state:dirty`, 1);
     if (initial_value) {
         initial_value == value && initial_value.remove();
     } else if (value !== null) {
@@ -251,6 +252,10 @@ xo.listener.on(`change::px:Entity[px:Record/px:Field/@formula]/data:rows/xo:r/@*
             return null
         }
         return value;
+    }
+
+    const isnull = function (value, failover) {
+        return value != null && value || failover;
     }
 
     const datediff = function (intervalType, first_date, last_date) {
@@ -461,17 +466,14 @@ xo.listener.on(['beforeChange::@headerText', 'beforeChange::@container:*'], func
     this.value = value.replace(/:/g, '').trim()
 })
 
-xo.listener.on(['beforeRemove::xo:r'], function ({ element, attribute, value, old }) {
-    let primary_value = px.getPrimaryValue(this);
-    if (primary_value && primary_value.substr(1) && !element.get("state:delete")) {
-        element.toggle('state:delete', true)
+xo.listener.on(['set::xo:r/@state:delete'], function ({ element, attribute, value, old }) {
+    let primary_value = px.getPrimaryValue(element);
+    if (primary_value && primary_value.substr(1)) {
         event.preventDefault()
+    } else {
+        element.remove()
     }
 })
-
-function isnull(value, failover) {
-    return value != null && value || failover;
-}
 
 app = {}
 
@@ -541,7 +543,8 @@ xo.listener.on("update::@command", function () {
 
 xo.listener.on("downloadCatalog::xo:r/@meta:*", function () {
     let scope = this;
-    let association = scope.select(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${scope.localName}"]`)[0];
+    let association = scope.select(`ancestor::px:Entity[1]/px:Record/px:Association[@Type="belongsTo"][@AssociationName="${scope.localName}"]`)[0];
+    if (!association) return;
     let commands = association.select("data:rows/@command");
     let return_value;
     if (commands.length) {
@@ -551,6 +554,10 @@ xo.listener.on("downloadCatalog::xo:r/@meta:*", function () {
     }
     return return_value
 });
+
+//xo.listener.on("render", function () {
+//    [...new Set([...document.querySelectorAll(`[xo-attribute]`)].filter(el => el.scope && el.scope.prefix == 'meta').map(el => el.scope))].forEach(scope => scope.dispatch(`downloadCatalog`))
+//});
 
 px.refreshCatalog = function (src_element) {
     src_element.scope.select(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${src_element.scope.localName}"]/px:Entity/data:rows/@command`).forEach(command => command.set(command => command.value));

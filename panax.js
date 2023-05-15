@@ -1033,7 +1033,7 @@ px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data
                     return value && initial == undefined || initial && initial.value && initial.value != value || false;
                 }).length) {
                     dataRow = xo.xml.createNode(`<updateRow xmlns="http://panax.io/persistence"${id ? ` identityValue="${row.get(id.value)}"` : ''}/>`);
-                    entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula)]/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {
+                    entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula or @mode="readonly")]/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {
                         let isPK = field.$(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey[@Field_Name="${field}"]`)
                         let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}"${isPK ? ` isPK="true"` : ''}/>`);
                         let current_value = (row.get(`${field}`) || {}).value;
@@ -1055,7 +1055,7 @@ px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data
                     })
                 } else {
                     dataRow = xo.xml.createNode(`<insertRow xmlns="http://panax.io/persistence"/>`);
-                    entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula)]/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {
+                    entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula or @mode="readonly")]/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {
                         let isPK = field.$(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey[@Field_Name="${field}"]`);
                         let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}"${isPK ? ` isPK="true"` : ''}/>`);
                         field_node.textContent = [row.get(field.value)].map(val => !val.value && (field.$("../@defaultValue") || 'null') || `'${val}'`);

@@ -151,7 +151,8 @@ xo.listener.on(`change::html:select`, function ({ node, element, attribute, old,
     let scope = src_element.scope;
     let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r") || null;
     if (scope instanceof Attr) {
-        px.selectRecord(selected_record instanceof Element && selected_record || null, scope);
+        scope.dispatch('selectRecord', selected_record instanceof Element && selected_record || null);
+        //px.selectRecord(selected_record instanceof Element && selected_record || null, scope);
         let option = src_element[src_element.selectedIndex]
         scope.set(option.value && option.text || "");
     }
@@ -164,9 +165,24 @@ xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, valu
 
     let selected_record = src_element instanceof HTMLLIElement && src_element.scope && src_element.scope.filter("self::xo:r") || null;
     if (scope && selected_record instanceof Element) {
-        px.selectRecord(selected_record, src_element.parentNode.scope);
+        src_element.parentNode.scope.dispatch('selectRecord', selected_record);
+        //px.selectRecord(selected_record, src_element.parentNode.scope);
         let option = src_element;
         scope.set(option.textContent);
+    }
+})
+
+xo.listener.on([`selectRecord::@*`, `selectRecord::*`], function ({ args }) {
+    let target = this;
+    let element = target.ownerElement || target;
+    let selected_record = args[0];
+    if (!element) {
+        event.preventDefault();
+        event.returnValue = false;
+    };
+    let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${target.localName}"]/px:Mappings/px:Mapping/@Referencer`);
+    for (let referencer of referencers) {
+        element.set(referencer.value, selected_record instanceof Element && selected_record.getAttribute(referencer.parentNode.getAttribute("Referencee")) || "");
     }
 })
 

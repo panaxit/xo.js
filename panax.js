@@ -663,15 +663,17 @@ px.request = async function (...args) {
     let current_store = xover.stores.active;
     current_store.state.busy = true;
     try {
-        let Response = await xover.server.request(`command=[#entity].request @@user_id=NULL, @full_entity_name='[${schema}].[${entity_name}]', @mode=${(!mode ? 'DEFAULT' : `'${mode}'`)}, @page_index=${(page_index || 'DEFAULT')}, @page_size=${(page_size || 'DEFAULT')}, @max_records=DEFAULT, @control_type=DEFAULT, @Filters=DEFAULTS, @lang=es, @rebuild=${rebuild}, @column_list=DEFAULT, @output=HTML`, {
-            headers: {
+        let headers = new Headers({
                 "Content-Type": 'text/xml'
                 , "Accept": 'text/xml'
                 , "x-Detect-Input-Variables": false
                 , "x-Detect-Output-Variables": false
                 , "x-Debugging": xover.debug.enabled
-            }
-        })
+        });
+        headers = Object.fromEntries([...headers].concat(Object.entries((this.settings || {}).headers)));
+        let Response = await xover.server.request(`command=[#entity].request @@user_id=NULL, @full_entity_name='[${schema}].[${entity_name}]', @mode=${(!mode ? 'DEFAULT' : `'${mode}'`)}, @page_index=${(page_index || 'DEFAULT')}, @page_size=${(page_size || 'DEFAULT')}, @max_records=DEFAULT, @control_type=DEFAULT, @Filters=DEFAULTS, @lang=es, @rebuild=${rebuild}, @column_list=DEFAULT, @output=HTML`, {
+            headers: headers
+        });
         //Request.requester = ref;
         if (!(Response instanceof xover.Store) && Response && Response.documentElement) {
             Response.$$('//px:Entity').set("meta:type", "entity")
@@ -904,8 +906,8 @@ px.getData = async function (...args) {
         let headers = new Headers(xover.json.merge(settings["headers"] instanceof Headers && Object.fromEntries(settings["headers"].entries()), {
             "Cache-Response": (node.parentNode && Array.prototype.coalesce(eval(node.getAttribute("cache" + ":" + (attribute_base_name))), eval(node.parentNode && node.parentNode instanceof Element && node.parentNode.getAttribute("cache" + ":" + (attribute_base_name))), false))
             , "Accept": content_type.xml
-            , "cache-control": 'force-cache'
-            , "pragram": 'force-cache'
+            , "cache-control": 'max-age=0'
+            /*, "pragma": 'force-cache'*/
             , "x-original-request": command
             , "x-namespaces": `'${node.resolveNS(node.prefix)}' as ${node.prefix}`
             , "x-Root-Node": root_node
@@ -929,6 +931,9 @@ px.getData = async function (...args) {
         //let entity = node.$('parent::px:Entity[//px:Entity[@mode="add"]]')
         if (entity && !(response.documentElement.firstElementChild)) {
             response.documentElement.append(px.createEmptyRow(entity))
+        }
+        if (node.$('self::*[not(@xsi:type="mock")]/parent::px:Entity/parent::px:Association[@DataType="junctionTable"]')) {
+            response.documentElement.select(`xo:r`).forEach(row => row.set("state:checked", "true"))
         }
         return response
     } catch (e) {

@@ -318,7 +318,7 @@ xo.listener.on(`change::px:Entity[px:Record/px:Field/@formula]/data:rows/xo:r/@*
             let ref = attr.parentNode.parentNode.selectFirst(`px:Field[@Name="${field.substring(1, field.length - 1)}"]`);
             let formatValue = (value => {
                 value = value.value || value;
-                value = (value === null) && String(value) || value !== undefined && value[0] != "'" && `'${value}'` || value || '';
+                value = !ref && value || (value === null) && String(value) || value !== undefined && (isFinite(value) && value || value[0] != "'" && `'${value || ''}'`) || '';
                 return value;
             });
             let value = formatValue(row.getAttribute(field.substring(1, field.length - 1)) || (ref ? (['varchar', 'nvarchar', 'date'].includes(ref.getAttribute("DataType")) ? '' : 0) : `'${field}'`));
@@ -1125,7 +1125,9 @@ px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data
             let result_document = result.document
             if (result_document instanceof Document) {
                 result_document.$$('//result[not(//processing-instruction())][@status="error"]/@statusMessage').forEach(el => el.render())
-                result_document.render()
+                if (result_document.documentElement) {
+                    result_document.render()
+                }
             } else if (result_document && result_document.render) {
                 result_document.render()
             } else if (result.render) {

@@ -94,6 +94,7 @@ xo.listener.on(['beforeTransform::px:Entity'], function ({ store }) {
     let node = this;
 
     for (let association_ref of node.select(`//px:Entity/px:Record/px:Association[@Type="belongsTo"][px:Mappings/px:Mapping[2]]`)) {
+        if (!xo.site.sections[event.detail.stylesheet.href].find(section => section.querySelector(`[xo-attribute="meta:${association_ref.getAttribute("Name")}"]`))) return;
         let referencers = Object.fromEntries(association_ref.select('px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Entity[1]/@IdentityKey)]/@Referencer').map(referencer => [referencer.value, referencer.parentNode.getAttribute("Referencee")]));
         let row = association_ref.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*`).filter(attr => Object.keys(referencers).includes(attr.name));
         let data_rows = association_ref.selectFirst(`px:Entity[@IdentityKey]/data:rows`);
@@ -149,8 +150,8 @@ xo.listener.on(`change::html:select`, function ({ node, element, attribute, old,
     let src_element = this;
     if (!src_element instanceof HTMLElement) return;
     let scope = src_element.scope;
-    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r") || null;
-    if (scope instanceof Attr) {
+    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r").pop();
+    if (scope instanceof Attr && !selected_record.parentNode.selectFirst("ancestor::xo:r")) {
         scope.dispatch('selectRecord', selected_record instanceof Element && selected_record || null);
         //px.selectRecord(selected_record instanceof Element && selected_record || null, scope);
         let option = src_element[src_element.selectedIndex]
@@ -163,8 +164,8 @@ xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, valu
     if (!src_element instanceof HTMLElement) return;
     let scope = (src_element.closest('ul,ol') || {}).scope;
 
-    let selected_record = src_element instanceof HTMLLIElement && src_element.scope && src_element.scope.filter("self::xo:r") || null;
-    if (scope && selected_record instanceof Element) {
+    let selected_record = src_element instanceof HTMLLIElement && src_element.scope && src_element.scope.filter("self::xo:r").pop();
+    if (scope && selected_record instanceof Element && !selected_record.parentNode.selectFirst("ancestor::xo:r")) {
         src_element.parentNode.scope.dispatch('selectRecord', selected_record);
         //px.selectRecord(selected_record, src_element.parentNode.scope);
         let option = src_element;
@@ -522,7 +523,7 @@ px.getPrimaryValue = function (record, entity) {
 }
 
 px.editSelectedOption = async function (src_element) {
-    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r").filter(el => el instanceof Element);
+    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r").filter(el => el instanceof Element).pop();
     let scope = src_element.scope;
     if (!scope) {
         return Promise.reject("No hay scope asociado")
@@ -569,6 +570,14 @@ xo.listener.on("downloadCatalog::xo:r/@meta:*", function () {
         return_value = px.loadData(scope.$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${scope.localName}"]/px:Entity`))
     }
     return return_value
+});
+
+Object.defineProperty(Attr.prototype, 'schema', {
+    get: function () {
+        let scope = this;
+        let schema = scope.namespaceURI === 'http://panax.io/metadata' && scope.select(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${scope.localName}"]`) || scope.select(`ancestor::px:Entity[1]/px:Record/px:Field[@Name="${scope.name}"]`);
+        return schema;
+    }
 });
 
 //xo.listener.on("render", function () {
@@ -680,11 +689,11 @@ px.request = async function (...args) {
     current_store.state.busy = true;
     try {
         let headers = new Headers({
-                "Content-Type": 'text/xml'
-                , "Accept": 'text/xml'
-                , "x-Detect-Input-Variables": false
-                , "x-Detect-Output-Variables": false
-                , "x-Debugging": xover.debug.enabled
+            "Content-Type": 'text/xml'
+            , "Accept": 'text/xml'
+            , "x-Detect-Input-Variables": false
+            , "x-Detect-Output-Variables": false
+            , "x-Debugging": xover.debug.enabled
         });
         headers = Object.fromEntries([...headers].concat(Object.entries((this.settings || {}).headers)));
         let Response = await xover.server.request(`command=[#entity].request @@user_id=NULL, @full_entity_name='[${schema}].[${entity_name}]', @mode=${(!mode ? 'DEFAULT' : `'${mode}'`)}, @page_index=${(page_index || 'DEFAULT')}, @page_size=${(page_size || 'DEFAULT')}, @max_records=DEFAULT, @control_type=DEFAULT, @Filters=DEFAULTS, @lang=es, @rebuild=${rebuild}, @column_list=DEFAULT, @output=HTML`, {

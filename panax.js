@@ -151,7 +151,7 @@ xo.listener.on(`change::html:select`, function ({ node, element, attribute, old,
     if (!src_element instanceof HTMLElement) return;
     let scope = src_element.scope;
     let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r").pop();
-    if (scope instanceof Attr && !selected_record.parentNode.selectFirst("ancestor::xo:r")) {
+    if (scope instanceof Attr && selected_record && !selected_record.parentNode.selectFirst("ancestor::xo:r")) {
         scope.dispatch('selectRecord', selected_record instanceof Element && selected_record || null);
         //px.selectRecord(selected_record instanceof Element && selected_record || null, scope);
         let option = src_element[src_element.selectedIndex]
@@ -165,7 +165,7 @@ xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, valu
     let scope = (src_element.closest('ul,ol') || {}).scope;
 
     let selected_record = src_element instanceof HTMLLIElement && src_element.scope && src_element.scope.filter("self::xo:r").pop();
-    if (scope && selected_record instanceof Element && !selected_record.parentNode.selectFirst("ancestor::xo:r")) {
+    if (scope && selected_record instanceof Element && selected_record && !selected_record.parentNode.selectFirst("ancestor::xo:r")) {
         src_element.parentNode.scope.dispatch('selectRecord', selected_record);
         //px.selectRecord(selected_record, src_element.parentNode.scope);
         let option = src_element;
@@ -778,6 +778,18 @@ px.setAttributes = function (target, attribute, value) {
 }
 
 px.loadData = function (entity, keys) {
+    function quotename(str, quoteChar) {
+        if (typeof str !== 'string') {
+            throw new TypeError('Input must be a string');
+        }
+
+        if (!quoteChar || typeof quoteChar !== 'string' || quoteChar.length !== 1) {
+            quoteChar = '"';
+        }
+
+        return quoteChar + str.replace(quoteChar, quoteChar + quoteChar) + quoteChar;
+    }
+
     let returnValue = [];
     if (!(entity instanceof Node)) return;
     if (entity.matches("/px:Entity")) {
@@ -816,7 +828,11 @@ px.loadData = function (entity, keys) {
     //let mappings = entity.$$("ancestor::px:Association[1][@Type='belongsTo']/px:Mappings/px:Mapping/@Referencee")
     fields["meta:value"] = pks.map(el => `RTRIM(#panax.prepareString([${el[0]}]))`).join("+'/'+");
     //}
-    fields["meta:orderBy"] = entity.getAttribute("custom:sortBy")
+    let order_by = entity.getAttribute("custom:sortBy") || entity.select("px:Record/*/@sortOrder").sort((a, b) => {
+        const orderA = parseInt(a.value);
+        const orderB = parseInt(b.value);
+        return orderA - orderB;
+    }).map(attr => quotename(attr.parentNode.getAttribute("Name"))).join(",")
 
     let formatValue = (value => (value === null) && String(value) || value !== undefined && value[0] != "'" && `'${value}'` || value || '');
     let formatKey = ((entity) => (key => key instanceof Attr && key.value || key.indexOf("`") != -1 && eval(key.replace(/\\/g, '\\\\')).replace(/\\b/g, '\\b') || `[${key}]`))({ schema: entity.getAttribute("Schema"), name: entity.getAttribute("Name") });
@@ -832,7 +848,7 @@ px.loadData = function (entity, keys) {
     let data_rows = xo.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
     returnValue.push(data_rows);
     entity.append(data_rows);
-    data_rows.setAttribute("command", `${entity.get("Schema")}/${entity.get("Name")}?${new URLSearchParams(predicate || {})}#?&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '1000')}&fields=${encodeURIComponent(Object.entries(fields).filter(([, value]) => value).sort((first, second) => first[1].indexOf("XML") - second[1].indexOf("XML")).map(([key, value]) => `[${value.indexOf("prepareXML") == -1 ? '@' + key : "x:f/@Name]='" + key + "', [x:f"}]=${value.replace(/#panax\.prepareXML/, '')}`).join('&'))}`)
+    data_rows.setAttribute("command", `${entity.get("Schema")}/${entity.get("Name")}?${new URLSearchParams(predicate || {})}#?&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '1000')}&orderBy=${order_by}&fields=${encodeURIComponent(Object.entries(fields).filter(([, value]) => value).sort((first, second) => first[1].indexOf("XML") - second[1].indexOf("XML")).map(([key, value]) => `[${value.indexOf("prepareXML") == -1 ? '@' + key : "x:f/@Name]='" + key + "', [x:f"}]=${value.replace(/#panax\.prepareXML/, '')}`).join('&'))}`)
     let junction_association = entity.select(`self::px:Entity[parent::px:Association[@DataType="junctionTable"]]/px:Record/px:Association`).filter(fks => {
         let pks = fks.select(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map(pk => pk.value);
         return fks.select(`px:Mappings/px:Mapping/@Referencer`).every(referencer => pks.includes(referencer.value))
@@ -896,6 +912,7 @@ px.getData = async function (...args) {
             } = xo.QUERI(parameters));
             page_size = url_settings.get("pageSize");
             page_index = url_settings.get("pageIndex");
+            order_by = url_settings.get("orderBy");
             if (name) {
                 request = `[${name}]`
                 if (schema) {
@@ -943,7 +960,7 @@ px.getData = async function (...args) {
             , "x-data-text": encodeURIComponent(node.getAttribute('source_text:' + attribute_base_name) || node.getAttribute('dataText') || "")
             , "x-data-value": encodeURIComponent(node.getAttribute('source_value:' + attribute_base_name) || node.getAttribute('dataValue') || "")
             , "x-data-fields": (fields.toString().replace(/&/g, ',') || "")
-            , "x-order-by": node.parentNode instanceof Element && node.parentNode.get("custom:sortBy") || ""
+            , "x-order-by": order_by || ""
         }))
         settings["headers"] = headers;
     }

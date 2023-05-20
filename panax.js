@@ -575,14 +575,20 @@ xo.listener.on("downloadCatalog::xo:r/@meta:*", function () {
 Object.defineProperty(Attr.prototype, 'schema', {
     get: function () {
         let scope = this;
-        let schema = scope.namespaceURI === 'http://panax.io/metadata' && scope.select(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${scope.localName}"]`) || scope.select(`ancestor::px:Entity[1]/px:Record/px:Field[@Name="${scope.name}"]`);
-        return schema;
+        let field_name
+        if ('ref' == scope.parentNode.localName && scope.parentNode.namespaceURI.indexOf("http://panax.io/layout/") == 0) {
+            field_name = scope.value
+        } else if (!scope.filter('parent::xo:r').pop()) {
+            return null
+        } else if (scope.namespaceURI === 'http://panax.io/metadata') {
+            field_name = scope.localName
+        } else {
+            field_name = scope.name
+        }
+        if (!field_name) return null;
+        return scope.selectFirst(`ancestor::px:Entity[1]/px:Record/px:*[@Name="${field_name}"]`);
     }
 });
-
-//xo.listener.on("render", function () {
-//    [...new Set([...document.querySelectorAll(`[xo-attribute]`)].filter(el => el.scope && el.scope.prefix == 'meta').map(el => el.scope))].forEach(scope => scope.dispatch(`downloadCatalog`))
-//});
 
 px.refreshCatalog = function (src_element) {
     src_element.scope.select(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${src_element.scope.localName}"]/px:Entity/data:rows/@command`).forEach(command => command.set(command => command.value));
@@ -778,18 +784,6 @@ px.setAttributes = function (target, attribute, value) {
 }
 
 px.loadData = function (entity, keys) {
-    function quotename(str, quoteChar) {
-        if (typeof str !== 'string') {
-            throw new TypeError('Input must be a string');
-        }
-
-        if (!quoteChar || typeof quoteChar !== 'string' || quoteChar.length !== 1) {
-            quoteChar = '"';
-        }
-
-        return quoteChar + str.replace(quoteChar, quoteChar + quoteChar) + quoteChar;
-    }
-
     let returnValue = [];
     if (!(entity instanceof Node)) return;
     if (entity.matches("/px:Entity")) {
@@ -828,11 +822,7 @@ px.loadData = function (entity, keys) {
     //let mappings = entity.$$("ancestor::px:Association[1][@Type='belongsTo']/px:Mappings/px:Mapping/@Referencee")
     fields["meta:value"] = pks.map(el => `RTRIM(#panax.prepareString([${el[0]}]))`).join("+'/'+");
     //}
-    let order_by = entity.getAttribute("custom:sortBy") || entity.select("px:Record/*/@sortOrder").sort((a, b) => {
-        const orderA = parseInt(a.value);
-        const orderB = parseInt(b.value);
-        return orderA - orderB;
-    }).map(attr => quotename(attr.parentNode.getAttribute("Name"))).join(",")
+    let order_by = px.buildSortSentence(entity);
 
     let formatValue = (value => (value === null) && String(value) || value !== undefined && value[0] != "'" && `'${value}'` || value || '');
     let formatKey = ((entity) => (key => key instanceof Attr && key.value || key.indexOf("`") != -1 && eval(key.replace(/\\/g, '\\\\')).replace(/\\b/g, '\\b') || `[${key}]`))({ schema: entity.getAttribute("Schema"), name: entity.getAttribute("Name") });
@@ -897,6 +887,51 @@ px.loadData = function (entity, keys) {
     }
     return returnValue;
 }
+
+px.buildSortSentence = function (entity) {
+    if (!entity) return '';
+    function quotename(str, quoteChar) {
+        if (typeof str !== 'string') {
+            throw new TypeError('Input must be a string');
+        }
+
+        if (!quoteChar || typeof quoteChar !== 'string' || quoteChar.length !== 1) {
+            quoteChar = '"';
+        }
+
+        return quoteChar + str.replace(quoteChar, quoteChar + quoteChar) + quoteChar;
+    }
+    return entity.getAttribute("custom:sortBy") || entity.select("px:Record/*/@sortOrder").sort((a, b) => {
+        const orderA = parseInt(a.value);
+        const orderB = parseInt(b.value);
+        return orderA - orderB;
+    }).map(attr => quotename(attr.parentNode.getAttribute("Name")) + (' ' + (attr.parentNode.getAttribute("sortDirection") || '')).trimEnd()).join(",")
+}
+
+xo.listener.on([`change::px:Record/px:*/@sortOrder`, `change::px:Record/px:*/@sortDirection`], function ({ old, value }) {
+    if (xover.listener.keypress.ctrlKey) {
+        let attrs = this.parentNode.select('@sortOrder|@sortDirection');
+        if (this.matches('@sortDirection[.!=""]')) {
+            attrs.remove()
+        }
+    } else if (old === null) {
+        this.select('ancestor::px:Record[1]/*/@sortOrder|ancestor::px:Record[1]/*/@sortDirection').filter(sorter => sorter.parentNode !== this.parentNode).remove()
+    }
+    for (let command of this.select(`ancestor::px:Entity[1]/data:rows/@command`)) {
+        qri = xo.QUERI(command)
+        qri.headers.set("orderBy", px.buildSortSentence(this.selectFirst('ancestor::px:Entity[1]')));
+        qri.update()
+    }
+})
+
+xo.listener.on(`change::px:Record/px:*[not(@sortOrder)]/@sortDirection`, function ({ element }) {
+    let sortOrder = element.select('parent::px:Record[1]/*/@sortOrder').sort((a, b) => {
+        const orderA = parseInt(a.value);
+        const orderB = parseInt(b.value);
+        return orderA - orderB;
+    }).map(el => +el.value).pop() || 0;
+    element.setAttribute("sortOrder", sortOrder + 1);
+})
 
 px.getData = async function (...args) {
     let settings = args.pop() || {};

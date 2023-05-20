@@ -933,6 +933,31 @@ xo.listener.on(`change::px:Record/px:*[not(@sortOrder)]/@sortDirection`, functio
     element.setAttribute("sortOrder", sortOrder + 1);
 })
 
+xo.listener.on(`filter::@*`, function () {
+    if ((event.srcEvent || event).ctrlKey && this.ownerElement) {
+        this.remove();
+        return;
+    }
+    filters = prompt(`Filtrar por ${this.parentNode.getAttribute("Name")}`);
+    if (filters == '') this.remove();
+    if (!filters) return;
+    this.set(filters);
+})
+
+xo.listener.on('change::@state:filter', function ({ target, stylesheet }) {
+    for (let command of this.parentNode.select(`ancestor-or-self::px:Entity[1]/data:rows/@command`)) {
+        qri = xo.QUERI(command)
+        let predicate = qri.predicate;
+        for (let key of predicate.keys()) {
+            predicate.delete(key)
+        }
+        for (let filter of this.parentNode.select('ancestor-or-self::px:Record[1]/*/@state:filter')) {
+            predicate.append('AND', `${filter.parentNode.getAttribute("Name")} LIKE '%${(filter.value || '').replace(/'/g,"''")}%'`);
+        }
+        qri.update()
+    }
+})
+
 px.getData = async function (...args) {
     let settings = args.pop() || {};
     let parameters = args.pop() || {};

@@ -342,11 +342,11 @@ xo.listener.on(`change::px:Entity[px:Record/px:Field/@formula]/data:rows/xo:r/@*
 
 xo.listener.on('remove::px:Entity//data:rows', function () {
     let command = this.get("command")
-    let previous_parent = this.previousParentNode;
-    if (!this.previousParentNode.$(`data:rows[@command="${command}"]`) && previous_parent.getAttribute(`@data:rows`) == command) {
+    let previous_parent = this.formerParentNode;
+    if (!this.formerParentNode.$(`data:rows[@command="${command}"]`) && previous_parent.getAttribute(`@data:rows`) == command) {
         let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
         data_rows.reseed();
-        this.previousParentNode.append(data_rows);
+        this.formerParentNode.append(data_rows);
         data_rows.set("command", command);
     }
 })

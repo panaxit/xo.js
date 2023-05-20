@@ -954,6 +954,7 @@ xo.listener.on('change::@state:filter', function ({ target, stylesheet }) {
         for (let filter of this.parentNode.select('ancestor-or-self::px:Record[1]/*/@state:filter')) {
             predicate.append('AND', `${filter.parentNode.getAttribute("Name")} LIKE '%${(filter.value || '').replace(/'/g,"''")}%'`);
         }
+        qri.headers.set("pageIndex", 1);
         qri.update()
     }
 })

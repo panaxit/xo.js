@@ -376,7 +376,10 @@ xo.listener.on(['append::data:rows[@command]', 'set::data:rows/@command', 'remov
     })
     let response;
     try {
-        response = await xover.sources[`${node.nodeName}:=${command.value}`].fetch(xover.json.tryParse(command), {
+        this.source && this.source.source && this.source.source.abortFetch && this.source.source.abortFetch();
+        let source = xover.sources[`${node.nodeName}:=${command.value}`];
+        this.source = source;
+        response = await source.fetch.call(this, xover.json.tryParse(command), {
             source: node
             , method: 'GET'
             , headers: headers
@@ -402,7 +405,9 @@ xo.listener.on(['append::data:rows[@command]', 'set::data:rows/@command', 'remov
         }
         new_node.selectNodes("@xo:id").remove()
         //let prev_value = targetNode.parentNode.getAttribute("prev:value");
+        targetNode.disconnect();
         new_node.selectNodes('@*').forEach(attr => targetNode.setAttributeNS(attr.namespaceURI, attr.name, attr.value))
+        targetNode.connect();
         targetNode.append(...new_node.childNodes);
         //let store = targetNode.store;
         /*store && store.render();*/
@@ -576,7 +581,8 @@ Object.defineProperty(Attr.prototype, 'schema', {
     get: function () {
         let scope = this;
         let field_name
-        if ('ref' == scope.parentNode.localName && scope.parentNode.namespaceURI.indexOf("http://panax.io/layout/") == 0) {
+        if (!scope) return null;
+        if (scope.parentNode.matches("self::field:ref|self::association:ref")) {
             field_name = scope.value
         } else if (!scope.filter('parent::xo:r').pop()) {
             return null
@@ -702,7 +708,7 @@ px.request = async function (...args) {
             , "x-Debugging": xover.debug.enabled
         });
         headers = Object.fromEntries([...headers].concat(Object.entries((this.settings || {}).headers)));
-        let Response = await xover.server.request(`command=[#entity].request @@user_id=NULL, @full_entity_name='[${schema}].[${entity_name}]', @mode=${(!mode ? 'DEFAULT' : `'${mode}'`)}, @page_index=${(page_index || 'DEFAULT')}, @page_size=${(page_size || 'DEFAULT')}, @max_records=DEFAULT, @control_type=DEFAULT, @Filters=DEFAULTS, @lang=es, @rebuild=${rebuild}, @column_list=DEFAULT, @output=HTML`, {
+        let Response = await xover.server.request.call(this, `command=[#entity].request @@user_id=NULL, @full_entity_name='[${schema}].[${entity_name}]', @mode=${(!mode ? 'DEFAULT' : `'${mode}'`)}, @page_index=${(page_index || 'DEFAULT')}, @page_size=${(page_size || 'DEFAULT')}, @max_records=DEFAULT, @control_type=DEFAULT, @Filters=DEFAULTS, @lang=es, @rebuild=${rebuild}, @column_list=DEFAULT, @output=HTML`, {
             headers: headers
         });
         //Request.requester = ref;
@@ -825,14 +831,14 @@ px.loadData = function (entity, keys) {
     let order_by = px.buildSortSentence(entity);
 
     let formatValue = (value => (value === null) && String(value) || value !== undefined && value[0] != "'" && `'${value}'` || value || '');
-    let formatKey = ((entity) => (key => key instanceof Attr && key.value || key.indexOf("`") != -1 && eval(key.replace(/\\/g, '\\\\')).replace(/\\b/g, '\\b') || `[${key}]`))({ schema: entity.getAttribute("Schema"), name: entity.getAttribute("Name") });
+    let formatKey = ((entity) => (key => key instanceof Attr && `[${key.value}]` || key.indexOf("`") != -1 && eval(key.replace(/\\/g, '\\\\')).replace(/\\b/g, '\\b') || `[${key}]`))({ schema: entity.getAttribute("Schema"), name: entity.getAttribute("Name") });
     constraints = constraints.concat([...filters]);
 
-    let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => (key instanceof Attr || value) && ['AND', `${formatKey(key)} IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})`] || key.indexOf("`") != -1 && formatKey(key) || key);
+    let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => (key instanceof Attr || value) && ['WHERE', `${formatKey(key)} IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})`] || key.indexOf("`") != -1 && formatKey(key) || key);
     let parent_row = entity.$('ancestor::xo:r[1]');
     if (parent_row) {
         let parent_relationship = entity.$('parent::px:Association[not(@Type="belongsTo")]/px:Mappings')
-        let mappings = parent_relationship && parent_relationship.$$('px:Mapping').map(map => ['AND', `[${entity.get("Name")}].[${map.get("Referencer")}] IN ('${parent_row.get(map.get("Referencee")) || 'NULL'}')`]) || [];
+        let mappings = parent_relationship && parent_relationship.$$('px:Mapping').map(map => ['WHERE', `[${entity.get("Name")}].[${map.get("Referencer")}] IN ('${parent_row.get(map.get("Referencee")) || 'NULL'}')`]) || [];
         predicate = predicate.concat(mappings)
     }
     let data_rows = xo.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
@@ -847,7 +853,7 @@ px.loadData = function (entity, keys) {
         let data_rows_complement = data_rows.cloneNode(true).reseed(true);
         let command = xo.QUERI(data_rows_complement.get("command"));
         command.pathname = '';
-        command.predicate.delete('AND');
+        command.predicate.delete('WHERE');
         id.map(([el]) => command.fields[`[@${el.value}]`] = `#panax.prepareValue(NULL)`);
         [...Object.entries(command.fields)].map(([el]) => command.fields[el] = `#panax.prepareValue(NULL)`);
         let mappings = entity.parentNode.select('px:Mappings/px:Mapping');
@@ -868,11 +874,11 @@ px.loadData = function (entity, keys) {
                 for (let curr_association of junction_association.filter(curr_association => curr_association != association)) {
                     let curr_entity = curr_association.selectFirst("px:Entity/@Name");
                     for (let matching_mapping of curr_association.select(`px:Mappings/px:Mapping[@Referencer="${referencer}"]`)) {
-                        command.predicate.append('AND', `[${table_name}].[${referencee}] = [${curr_entity.value}].[${matching_mapping.getAttribute("Referencee")}]`)
+                        command.predicate.append('WHERE', `[${table_name}].[${referencee}] = [${curr_entity.value}].[${matching_mapping.getAttribute("Referencee")}]`)
                     }
                 }
                 if (mappings.find(mapping => mapping.getAttribute("Referencer") == referencer)) {
-                    command.predicate.append('AND', `[${table_name}].[${referencee}] = '${parent_row.getAttribute(referencer)}'`)
+                    command.predicate.append('WHERE', `[${table_name}].[${referencee}] = '${parent_row.getAttribute(referencer)}'`)
                 }
                 command.fields[`[@${referencer}]`] = `#panax.prepareValue([${table_name}].[${referencee}])`
             }
@@ -890,22 +896,15 @@ px.loadData = function (entity, keys) {
 
 px.buildSortSentence = function (entity) {
     if (!entity) return '';
-    function quotename(str, quoteChar) {
-        if (typeof str !== 'string') {
-            throw new TypeError('Input must be a string');
-        }
-
-        if (!quoteChar || typeof quoteChar !== 'string' || quoteChar.length !== 1) {
-            quoteChar = '"';
-        }
-
+    function formatName(node, quoteChar = '"') {
+        let str = node.select("../@Name").map(name => name.matches("px:Association/@Name") && `@meta:${name}` || `@${name}`).pop();
         return quoteChar + str.replace(quoteChar, quoteChar + quoteChar) + quoteChar;
     }
     return entity.getAttribute("custom:sortBy") || entity.select("px:Record/*/@sortOrder").sort((a, b) => {
         const orderA = parseInt(a.value);
         const orderB = parseInt(b.value);
         return orderA - orderB;
-    }).map(attr => quotename(attr.parentNode.getAttribute("Name")) + (' ' + (attr.parentNode.getAttribute("sortDirection") || '')).trimEnd()).join(",")
+    }).map(attr => formatName(attr) + (' ' + (attr.parentNode.getAttribute("sortDirection") || '')).trimEnd()).join(",")
 }
 
 xo.listener.on([`change::px:Record/px:*/@sortOrder`, `change::px:Record/px:*/@sortDirection`], function ({ old, value }) {
@@ -938,21 +937,24 @@ xo.listener.on(`filter::@*`, function () {
         this.remove();
         return;
     }
-    filters = prompt(`Filtrar por ${this.parentNode.getAttribute("Name")}`);
+    filters = prompt(`Filtrar por ${this.parentNode.getAttribute("headerText") || this.parentNode.getAttribute("Name")}`);
     if (filters == '') this.remove();
     if (!filters) return;
     this.set(filters);
 })
 
 xo.listener.on('change::@state:filter', function ({ target, stylesheet }) {
+    function formatName(node, quoteChar = '"') {
+        let str = node.select("../@Name").map(name => name.matches("px:Association/@Name") && `@meta:${name}` || `@${name}`).pop();
+        return quoteChar + str.replace(quoteChar, quoteChar + quoteChar) + quoteChar;
+    }
+
     for (let command of this.parentNode.select(`ancestor-or-self::px:Entity[1]/data:rows/@command`)) {
         qri = xo.QUERI(command)
         let predicate = qri.predicate;
-        for (let key of predicate.keys()) {
-            predicate.delete(key)
-        }
+        predicate.delete('AND');
         for (let filter of this.parentNode.select('ancestor-or-self::px:Record[1]/*/@state:filter')) {
-            predicate.append('AND', `${filter.parentNode.getAttribute("Name")} LIKE '%${(filter.value || '').replace(/'/g,"''")}%'`);
+            predicate.append('AND', `${formatName(filter)} LIKE '%${(filter.value || '').replace(/'/g, "''")}%' COLLATE Latin1_General_CI_AI`);
         }
         qri.headers.set("pageIndex", 1);
         qri.update()
@@ -990,7 +992,7 @@ px.getData = async function (...args) {
             //parameters = (node.getAttribute('source_filters:' + attribute_base_name) || predicate || "");
             //let params = Object.fromEntries([...predicate.entries()].filter(([key, value]) => key[0] == '@'));
             /*predicate = ([...predicate.entries()].filter(([key, value]) => key[0] != '@').map(([key, value]) => value === undefined && key || key.toUpperCase() == 'AND' && (value || '') || `${key[0] == '[' && key || `[${key}]`}='${(value || '').replace(/'/g, "''")}'`)).join(' AND ');*/
-            parameters = new URLSearchParams([...predicate.entries()].filter(([key]) => key).map(([key, value]) => !value && !key.match(/^\[[^\]]+\]|\w+/g) && ['AND', key] ||
+            parameters = new URLSearchParams([...predicate.entries()].filter(([key]) => key).map(([key, value]) => !value && !key.match(/^\[[^\]]+\]|\w+/g) && ['WHERE', key] ||
                 key.match(/^\[[^\]]+\]|\w+/) && [key, (value || '')]));
 
 

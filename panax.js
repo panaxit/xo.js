@@ -90,6 +90,14 @@ xo.listener.on(['change::@meta:pageIndex', 'change::@meta:pageSize'], function (
     command.update()
 })
 
+/*xo.listener.on(['change::@meta:*[.=""]'], function ({ element: row }) { //disabled
+    let association = this.schema;
+    if (!association) return;
+    for (let mapping of association.select("px:Mappings/px:Mapping/@Referencer")) {
+        row.set(mapping.value, "");
+    }
+})*/
+
 xo.listener.on(['beforeTransform::px:Entity'], function ({ store }) {
     let node = this;
 
@@ -103,7 +111,7 @@ xo.listener.on(['beforeTransform::px:Entity'], function ({ store }) {
             rows.removeAll({ silent: true });
             if (!data_rows.select("xo:r").length) {
                 data_rows.setAttribute("xsi:nil", true);
-                row.map(attr => store.find(attr.parentNode).getAttributeNode(`meta:${association_ref.getAttribute("AssociationName")}`)).filter(el => el.value).forEach(attr => attr.set(""));
+                //row.map(attr => store.find(attr.parentNode).getAttributeNode(`meta:${association_ref.getAttribute("AssociationName")}`)).filter(el => el.value).forEach(attr => attr.set(""));
             }
         }
     }
@@ -150,12 +158,11 @@ xo.listener.on(`change::html:select`, function ({ node, element, attribute, old,
     let src_element = this;
     if (!src_element instanceof HTMLElement) return;
     let scope = src_element.scope;
-    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r").pop();
-    if (scope instanceof Attr && selected_record && !selected_record.parentNode.selectFirst("ancestor::xo:r")) {
-        scope.dispatch('selectRecord', selected_record instanceof Element && selected_record || null);
+    let selected_record = src_element instanceof HTMLSelectElement && (src_element[src_element.selectedIndex].scope || src_element[src_element.selectedIndex].scope);
+    if (scope instanceof Attr) {
+        //scope.dispatch('selectRecord', selected_record instanceof Element && selected_record || null);
         //px.selectRecord(selected_record instanceof Element && selected_record || null, scope);
-        let option = src_element[src_element.selectedIndex]
-        scope.set(option.value && option.text || "");
+        scope.set(selected_record || "");
     }
 })
 
@@ -187,6 +194,25 @@ xo.listener.on([`selectRecord::@*`, `selectRecord::*`], function ({ args }) {
     }
 })
 
+xo.listener.on([`beforeSet::xo:r/@meta:*`], function ({ value, old }) {
+    //if (!(value.matches && value.matches("xo:r"))) return value;
+    if (old == value) return value;
+    let target = this;
+    let element = target.ownerElement || target;
+    let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${target.localName}"]/px:Mappings/px:Mapping/@Referencer`);
+    let selected_record = value instanceof Node && value.matches("xo:r") && value || typeof (value) === 'string' && referencers[0].selectFirst(`ancestor::px:Association[1]/px:Entity/data:rows/xo:r[@meta:text="${value}"]`) || null;
+    if (selected_record === null) {
+        referencers = referencers.filter(referencer => referencer.parentNode.getAttribute("Referencee") == referencer.selectFirst(`ancestor::px:Association[1]/px:Entity/@IdentityKey`));
+    }
+    for (let referencer of referencers) {
+        let new_value = selected_record instanceof Element && selected_record.getAttribute(referencer.parentNode.getAttribute("Referencee")) || "";
+        if (element.getAttribute(referencer.value) != new_value) {
+            element.set(referencer.value, new_value);
+        }
+    }
+    return selected_record instanceof Node && selected_record.getAttributeNode("meta:text") || selected_record || "";
+})
+
 px.selectRecord = function (selected_record, target) {
     let element = target.ownerElement || target;
     if (!element) {
@@ -200,52 +226,34 @@ px.selectRecord = function (selected_record, target) {
     //let associations = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo']/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`);
 }
 
-xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state')) and not(contains(namespace-uri(),'http://panax.io/metadata'))]`, function ({ node, element, attribute, old, value }) {
-    let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo']/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`);
+xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state')) and not(contains(namespace-uri(),'http://panax.io/metadata'))]`, async function ({ node, element: row, attribute, old, value }) {
+    this.freeze();
+    let field = (node.schema || {});
+    if (!field) return;
+    let referencers = row.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo']/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`);
     for (let referencer of referencers) {
-        for (let other_referencer of referencer.parentNode.selectNodes(`ancestor::px:Association[1]/following-sibling::px:Association[@Type='belongsTo']/px:Mappings[px:Mapping/@Referencer[.="${node.name}"]]/px:Mapping/@Referencer[.!="${node.name}"]`)) {
-            element.setAttribute(other_referencer.value, "");
-        }
-    }
-    let associated_references = element.$$(`px:Association[contains(@DataType,'Table')]/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`);
-    for (let referencer of associated_references) {
-        let associated_records = referencer.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*[name()="${referencer.value}"]`)
-        associated_records.forEach(attr => attr.value = value)
-        //for (let command of referencer.selectNodes('ancestor::px:Association[1]/px:Entity/data:rows/@command')) {
-        //    let qri = xo.QUERI(command);
-        //    console.log(qri)
-        //}
-    }
-    return;
-    element.$$(`px:Association[@DataType='junctionTable']/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`)
-
-    //////////////////////////
-    for (let association_ref of element.select(`ancestor::px:Entity[1]/px:Record/px:Association[@Type="belongsTo"][px:Mappings/px:Mapping[2]]`)) {
-        let referencers = association_ref.select('px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Entity[1]/@IdentityKey)]/@Referencer').map(referencer => referencer.value);
-        let row = association_ref.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*`).filter(attr => referencers.includes(attr.name));
-        let data_rows = association_ref.selectFirst(`px:Entity[@IdentityKey]/data:rows`);
-        let rows = data_rows && data_rows.select(`xo:r`).filter(_row => row.filter(attr => _row.get(attr.name) != attr.value).length) || [];
-        if (rows.length) {
-            rows.removeAll({ silent: true });
-            if (!data_rows.select("xo:r").length) {
-                data_rows.setAttribute("xsi:nil", true);
-                row.map(attr => store.find(attr.parentNode).getAttributeNode(`meta:${association_ref.getAttribute("AssociationName")}`)).filter(el => el.value).forEach(attr => attr.set(""));
+        for (let mapping of referencer.select("ancestor::px:Mappings/px:Mapping/@Referencer")) {
+            let previous_fields = mapping.selectFirst(`ancestor::px:Record[1]/px:Field[@Name="${mapping}"]`).select("@Name|preceding-sibling::px:Field/@Name").map(field => field.value);
+            let filters = mapping.select(`ancestor::px:Mappings/px:Mapping/@Referencer`).filter(ref => previous_fields.includes(ref.value)).map(ref => [ref.parentNode.getAttribute("Referencee"), row.getAttribute(ref.value)]);
+            let association_name = mapping.selectFirst(`ancestor::px:Association[1]/@Name`);
+            let catalog = mapping.selectFirst("ancestor::px:Association[1]/px:Entity");
+            let options = catalog.select("data:rows/xo:r");
+            let meta_attribute = row.getAttributeNode(`meta:${association_name}`);
+            if (!options.length) {
+                let downloader = meta_attribute.dispatch('downloadCatalog')
+                console.log(downloader);
+            }
+            if (!options.find(item => filters.every(([key, value]) => item.getAttribute(key) == value))) {
+                row.getAttribute(mapping.value) && row.setAttribute(mapping.value, "");
+                if (meta_attribute.value) meta_attribute = "";
             }
         }
     }
-    //////////////////////////
-    return
-    let references = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo']/px:Mappings/px:Mapping[@Referencer="${node.name}"]`);
 
-    let row = association_ref.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*`).filter(attr => referencers.includes(attr.name));
-    let data_rows = association_ref.selectFirst(`px:Entity[@IdentityKey]/data:rows`);
-    let rows = data_rows && data_rows.select(`xo:r`).filter(_row => row.filter(attr => _row.get(attr.name) != attr.value).length) || [];
-    if (rows.length) {
-        rows.removeAll({ silent: true });
-        if (!data_rows.select("xo:r").length) {
-            data_rows.setAttribute("xsi:nil", true);
-            row.map(attr => store.find(attr.parentNode).getAttributeNode(`meta:${association_ref.getAttribute("AssociationName")}`)).filter(el => el.value).forEach(attr => attr.set(""));
-        }
+    let associated_references = row.$$(`px:Association[contains(@DataType,'Table')]/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`);
+    for (let referencer of associated_references) {
+        let associated_records = referencer.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*[name()="${referencer.value}"]`)
+        associated_records.forEach(attr => attr.value = value)
     }
 })
 

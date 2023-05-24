@@ -160,7 +160,6 @@ xo.listener.on(`change::html:select`, function ({ node, element, attribute, old,
     let scope = src_element.scope;
     let selected_record = src_element instanceof HTMLSelectElement && (src_element[src_element.selectedIndex].scope || src_element[src_element.selectedIndex].scope);
     if (scope instanceof Attr) {
-        scope.dispatch('selectRecord', selected_record instanceof Element && selected_record || null);
         //px.selectRecord(selected_record instanceof Element && selected_record || null, scope);
         scope.set(selected_record || "");
     }
@@ -197,9 +196,9 @@ xo.listener.on([`selectRecord::@*`, `selectRecord::*`], function ({ args }) {
 xo.listener.on([`beforeSet::xo:r/@meta:*`], function ({ value, old }) {
     //if (!(value.matches && value.matches("xo:r"))) return value;
     if (old == value) return value;
-    let target = this;
-    let element = target.ownerElement || target;
-    let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${target.localName}"]/px:Mappings/px:Mapping/@Referencer`);
+    let scope = this;
+    let element = scope.ownerElement || scope;
+    let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${scope.localName}"]/px:Mappings/px:Mapping/@Referencer`);
     let selected_record = value instanceof Node && value.matches("xo:r") && value || typeof (value) === 'string' && referencers[0].selectFirst(`ancestor::px:Association[1]/px:Entity/data:rows/xo:r[@meta:text="${value}"]`) || null;
     if (selected_record === null) {
         referencers = referencers.filter(referencer => referencer.parentNode.getAttribute("Referencee") == referencer.selectFirst(`ancestor::px:Association[1]/px:Entity/@IdentityKey`));
@@ -210,7 +209,9 @@ xo.listener.on([`beforeSet::xo:r/@meta:*`], function ({ value, old }) {
             element.set(referencer.value, new_value);
         }
     }
-    return selected_record instanceof Node && selected_record.getAttributeNode("meta:text") || selected_record || "";
+    selected_record = selected_record instanceof Node && selected_record.getAttributeNode("meta:text") || selected_record || "";
+    scope.dispatch('selectRecord', selected_record instanceof Node && selected_record.selectFirst(`ancestor-or-self::xo:r[1]`) || null);
+    return selected_record;
 })
 
 px.selectRecord = function (selected_record, target) {

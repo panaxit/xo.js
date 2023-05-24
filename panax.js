@@ -160,7 +160,7 @@ xo.listener.on(`change::html:select`, function ({ node, element, attribute, old,
     let scope = src_element.scope;
     let selected_record = src_element instanceof HTMLSelectElement && (src_element[src_element.selectedIndex].scope || src_element[src_element.selectedIndex].scope);
     if (scope instanceof Attr) {
-        //scope.dispatch('selectRecord', selected_record instanceof Element && selected_record || null);
+        scope.dispatch('selectRecord', selected_record instanceof Element && selected_record || null);
         //px.selectRecord(selected_record instanceof Element && selected_record || null, scope);
         scope.set(selected_record || "");
     }

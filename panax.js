@@ -71,9 +71,24 @@ xo.listener.on(['removeFrom::data:rows'], function ({ }) {
     }
 })
 
-xo.listener.on(['change::px:Association[@DataType="junctionTable"]/px:Entity/data:rows/xo:r/@state:checked[.="true"]'], function ({ element }) {
-    let target = element.selectFirst(`ancestor::px:Entity[1]/data:rows[not(@xsi:type="mock")]`);
-    target && target.append(element);
+xo.listener.on([`set::xo:r[@state:new="true"]/@state:checked[.="false"]`, `remove::xo:r[@state:new="true"]/@state:checked`], function () {
+    this.parentNode.remove();
+})
+
+xo.listener.on([`change::px:Association[@DataType='junctionTable']/px:Entity/px:Record/px:Association[@Name=../../*[local-name()='layout']/association:ref/@Name]/px:Entity/data:rows/xo:r/@state:checked[.="true"]`], function ({ element }) {
+    let association_ref = element.selectFirst(`ancestor::px:Association[1]`);
+    let target = association_ref.selectFirst(`ancestor::px:Entity[1]/data:rows`);
+
+    let referencers = association_ref.select('px:Mappings/px:Mapping/@Referencer').map(referencer => [referencer.value, referencer.parentNode.getAttribute("Referencee")]);
+
+    let node = xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" xmlns:state="http://panax.io/state" state:checked="true" state:new="true" state:dirty="true" ${target.select(`../px:Record/*/@Name`).map(attr => `${attr.matches("px:Association/@Name") ? 'meta:' : ''}${attr.value}=""`).join(" ")}/>`).reseed();
+    for (let [referencer, referencee] of referencers) {
+        node.setAttribute(referencer, element.getAttribute(referencee))
+        node.srcElement = element;
+    }
+    node.setAttribute(`meta:${association_ref.getAttribute("Name")}`, element.getAttribute("meta:text"), { silent: true });
+
+    target && target.append(node);
 })
 
 xo.listener.on(['change::px:Association[@DataType="junctionTable"]/px:Entity/data:rows/xo:r[not(@meta:id!="")]/@state:checked[.="false"]', 'remove::px:Association[@DataType="junctionTable"]/px:Entity/data:rows/xo:r[not(@meta:id!="")]/@state:checked'], function ({ element }) {
@@ -100,6 +115,23 @@ xo.listener.on(['change::@meta:pageIndex', 'change::@meta:pageSize'], function (
 
 xo.listener.on(['beforeTransform::px:Entity'], function ({ store }) {
     let node = this;
+
+    for (let association_ref of node.select(`//px:Association[@DataType='junctionTable']/px:Entity/px:Record/px:Association[@Name=../../*[local-name()='layout']/association:ref/@Name][px:Entity/data:rows/xo:r]`)) {
+        let selected_options = association_ref.select(`ancestor::px:Association[1]/px:Entity/data:rows/xo:r`);
+        if (!selected_options.length) continue;
+
+        let referencers = association_ref.select('px:Mappings/px:Mapping/@Referencer').map(referencer => [referencer.value, referencer.parentNode.getAttribute("Referencee")]);
+        if (!referencers.length) return;
+
+        for (let row of association_ref.select(`px:Entity/data:rows/xo:r`)) {
+            let match = selected_options.find(selected_row => referencers.every(([referencer, referencee]) => selected_row.getAttribute(referencer) == row.getAttribute(referencee)));
+            if (match) {
+                match.disconnect();
+                match.setAttribute("meta:position", row.getAttribute("meta:position"));
+                row.remove({ silent: true });
+            }
+        }
+    }
 
     for (let association_ref of node.select(`//px:Entity/px:Record/px:Association[@Type="belongsTo"][px:Mappings/px:Mapping[2]]`)) {
         if (!xo.site.sections[event.detail.stylesheet.href].find(section => section.querySelector(`[xo-attribute="meta:${association_ref.getAttribute("Name")}"]`))) return;
@@ -858,48 +890,52 @@ px.loadData = function (entity, keys) {
         let pks = fks.select(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map(pk => pk.value);
         return fks.select(`px:Mappings/px:Mapping/@Referencer`).every(referencer => pks.includes(referencer.value))
     });
-    if (junction_association.length) {
-        let data_rows_complement = data_rows.cloneNode(true).reseed(true);
-        let command = xo.QUERI(data_rows_complement.get("command"));
-        command.pathname = '';
-        command.predicate.delete('WHERE');
-        id.map(([el]) => command.fields[`[@${el.value}]`] = `#panax.prepareValue(NULL)`);
-        [...Object.entries(command.fields)].map(([el]) => command.fields[el] = `#panax.prepareValue(NULL)`);
-        let mappings = entity.parentNode.select('px:Mappings/px:Mapping');
-        for (let mapping of mappings) {
-            let referencer = mapping.getAttribute("Referencer");
-            let referencee = mapping.getAttribute("Referencee");
-            command.fields[`[@${referencer}]`] = parent_row.getAttribute(referencee) || null
-        }
-        for (let association of junction_association) {
-            let associated_entity = association.selectFirst("px:Entity");
-            let table_name = associated_entity.getAttribute("Name");
-            command.predicate.append('FROM',
-                [associated_entity].reduce((name, entity) => `[${entity.getAttribute("Schema")}].[${entity.getAttribute("Name")}]`, ''))
-            command.fields[`[@meta:${association.getAttribute("AssociationName")}]`] = getText(associated_entity, table_name);
-            for (let mapping of association.select('px:Mappings/px:Mapping')) {
-                let referencer = mapping.getAttribute("Referencer");
-                let referencee = mapping.getAttribute("Referencee");
-                for (let curr_association of junction_association.filter(curr_association => curr_association != association)) {
-                    let curr_entity = curr_association.selectFirst("px:Entity/@Name");
-                    for (let matching_mapping of curr_association.select(`px:Mappings/px:Mapping[@Referencer="${referencer}"]`)) {
-                        command.predicate.append('WHERE', `[${table_name}].[${referencee}] = [${curr_entity.value}].[${matching_mapping.getAttribute("Referencee")}]`)
-                    }
-                }
-                if (mappings.find(mapping => mapping.getAttribute("Referencer") == referencer)) {
-                    command.predicate.append('WHERE', `[${table_name}].[${referencee}] = '${parent_row.getAttribute(referencer)}'`)
-                }
-                command.fields[`[@${referencer}]`] = `#panax.prepareValue([${table_name}].[${referencee}])`
-            }
-        }
-        command.fields['[@meta:value]'] = '#panax.prepareValue(NULL)';
-        command.fields['[@meta:id]'] = '#panax.prepareValue(NULL)';
-        command.fields['[@meta:text]'] = '#panax.prepareString(NULL)';
-        command.update();
-        data_rows_complement.set("xsi:type", "mock")
-        returnValue.push(data_rows_complement);
-        entity.append(data_rows_complement);
+    for (let association of junction_association) {
+        let associated_entity = association.selectFirst("px:Entity");
+        px.loadData(associated_entity);
     }
+    //if (junction_association.length) {
+    //    let data_rows_complement = data_rows.cloneNode(true).reseed(true);
+    //    let command = xo.QUERI(data_rows_complement.get("command"));
+    //    command.pathname = '';
+    //    command.predicate.delete('WHERE');
+    //    id.map(([el]) => command.fields[`[@${el.value}]`] = `#panax.prepareValue(NULL)`);
+    //    [...Object.entries(command.fields)].map(([el]) => command.fields[el] = `#panax.prepareValue(NULL)`);
+    //    let mappings = entity.parentNode.select('px:Mappings/px:Mapping');
+    //    for (let mapping of mappings) {
+    //        let referencer = mapping.getAttribute("Referencer");
+    //        let referencee = mapping.getAttribute("Referencee");
+    //        command.fields[`[@${referencer}]`] = parent_row.getAttribute(referencee) || null
+    //    }
+    //    for (let association of junction_association) {
+    //        let associated_entity = association.selectFirst("px:Entity");
+    //        let table_name = associated_entity.getAttribute("Name");
+    //        command.predicate.append('FROM',
+    //            [associated_entity].reduce((name, entity) => `[${entity.getAttribute("Schema")}].[${entity.getAttribute("Name")}]`, ''))
+    //        command.fields[`[@meta:${association.getAttribute("AssociationName")}]`] = getText(associated_entity, table_name);
+    //        for (let mapping of association.select('px:Mappings/px:Mapping')) {
+    //            let referencer = mapping.getAttribute("Referencer");
+    //            let referencee = mapping.getAttribute("Referencee");
+    //            for (let curr_association of junction_association.filter(curr_association => curr_association != association)) {
+    //                let curr_entity = curr_association.selectFirst("px:Entity/@Name");
+    //                for (let matching_mapping of curr_association.select(`px:Mappings/px:Mapping[@Referencer="${referencer}"]`)) {
+    //                    command.predicate.append('WHERE', `[${table_name}].[${referencee}] = [${curr_entity.value}].[${matching_mapping.getAttribute("Referencee")}]`)
+    //                }
+    //            }
+    //            if (mappings.find(mapping => mapping.getAttribute("Referencer") == referencer)) {
+    //                command.predicate.append('WHERE', `[${table_name}].[${referencee}] = '${parent_row.getAttribute(referencer)}'`)
+    //            }
+    //            command.fields[`[@${referencer}]`] = `#panax.prepareValue([${table_name}].[${referencee}])`
+    //        }
+    //    }
+    //    command.fields['[@meta:value]'] = '#panax.prepareValue(NULL)';
+    //    command.fields['[@meta:id]'] = '#panax.prepareValue(NULL)';
+    //    command.fields['[@meta:text]'] = '#panax.prepareString(NULL)';
+    //    command.update();
+    //    data_rows_complement.set("xsi:type", "mock")
+    //    returnValue.push(data_rows_complement);
+    //    entity.append(data_rows_complement);
+    //}
     return returnValue;
 }
 
@@ -947,22 +983,32 @@ xo.listener.on(`filter::@*`, function () {
         return;
     }
     filters = prompt(`Filtrar por ${this.parentNode.getAttribute("headerText") || this.parentNode.getAttribute("Name")}`);
-    if (filters == '') this.remove();
-    if (!filters) return;
-    this.set(filters);
+    if (!filters) filters = null;
+    if (this.matches(`px:Association[@DataType="junctionTable"]/px:Entity/px:Record/px:Association/@*`)) {
+        this.parentNode.select(`px:Entity/data:rows`).forEach(entity => entity.setAttribute(this.nodeName, filters))
+    } else {
+        this.set(filters);
+    }
 })
 
 xo.listener.on('change::@state:filter', function ({ target, stylesheet }) {
     function formatName(node, quoteChar = '"') {
-        let str = node.select("../@Name").map(name => name.matches("px:Association/@Name") && `@meta:${name}` || `@${name}`).pop();
+        let str = node.select("../@Name|../self::data:rows").map(name => name.matches("data:rows") ? '@meta:text' : name.matches("px:Association/@Name") && `@meta:${name}` || `@${name}`).pop();
         return quoteChar + str.replace(quoteChar, quoteChar + quoteChar) + quoteChar;
     }
 
-    for (let command of this.parentNode.select(`ancestor-or-self::px:Entity[1]/data:rows/@command`)) {
+    let commands;
+    if (this.matches(`px:Association[@DataType="junctionTable"]/px:Entity/px:Record/px:Association/@*`)) {
+        commands = this.parentNode.select(`px:Entity[1]/data:rows/@command`)
+    } else {
+        commands = this.parentNode.select(`ancestor-or-self::px:Entity[1]/data:rows/@command`)
+    }
+
+    for (let command of commands) {
         qri = xo.QUERI(command)
         let predicate = qri.predicate;
         predicate.delete('AND');
-        for (let filter of this.parentNode.select('ancestor-or-self::px:Record[1]/*/@state:filter')) {
+        for (let filter of command.parentNode.select('@state:filter|ancestor-or-self::px:Entity[1]/px:Record/*/@state:filter')) {
             predicate.append('AND', `${formatName(filter)} LIKE '%${(filter.value || '').replace(/'/g, "''")}%' COLLATE Latin1_General_CI_AI`);
         }
         qri.headers.set("pageIndex", 1);

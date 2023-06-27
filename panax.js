@@ -748,7 +748,7 @@ px.request = async function (...args) {
             , "x-Detect-Output-Variables": false
             , "x-Debugging": xover.debug.enabled
         });
-        headers = Object.fromEntries([...headers].concat(Object.entries((this.settings || {}).headers)));
+        headers = Object.fromEntries([...headers].concat(Object.entries((this.settings || {}).headers || {})));
         let Response = await xover.server.request.call(this, `command=[#entity].request @@user_id=NULL, @full_entity_name='[${schema}].[${entity_name}]', @mode=${(!mode ? 'DEFAULT' : `'${mode}'`)}, @page_index=${(page_index || 'DEFAULT')}, @page_size=${(page_size || 'DEFAULT')}, @max_records=DEFAULT, @control_type=DEFAULT, @Filters=DEFAULTS, @lang=es, @rebuild=${rebuild}, @column_list=DEFAULT, @output=HTML`, {
             headers: headers
         });

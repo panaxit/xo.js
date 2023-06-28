@@ -43,8 +43,8 @@ Object.defineProperty(xo.session, 'logout', {
 })
 
 xo.listener.on(['beforeRender::#shell', 'beforeAppendTo::html:main', 'beforeAppendTo::html:body'], function ({ target }) {
-    if (!(event.detail.args || []).filter(el => !(el instanceof HTMLStyleElement || el instanceof HTMLScriptElement || el.matches("dialog,[role=alertdialog],[role=alert],[role=dialog]"))).length) return;
-    [...target.childNodes].filter(el => el.matches && !el.matches(`script,dialog,[role=alertdialog],[role=alert],[role=dialog]`)).removeAll()
+    if (!(event.detail.args || []).filter(el => !(el instanceof Comment || el instanceof HTMLStyleElement || el instanceof HTMLScriptElement || el.matches("dialog,[role=alertdialog],[role=alert],[role=dialog],[role=status],[role=progressbar]"))).length) return;
+    [...target.childNodes].filter(el => el.matches && !el.matches(`script,dialog,[role=alertdialog],[role=alert],[role=dialog],[role=status],[role=progressbar]`)).removeAll()
 })
 
 xo.listener.on([`beforeRemove::html:div[@role='alertdialog'][contains(*/@class,'modal')]`], function () {

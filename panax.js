@@ -42,7 +42,7 @@ Object.defineProperty(xo.session, 'logout', {
     }, writable: true, configurable: true
 })
 
-xo.listener.on(['beforeRender::#shell', 'beforeAppendTo::html:main', 'beforeAppendTo::html:body'], function ({ target }) {
+xo.listener.on(['beforeRender::#shell', 'beforeAppendTo::html:main', 'beforeAppendTo::html:body'], function ({ target, event }) {
     if (!(event.detail.args || []).filter(el => !(el instanceof Comment || el instanceof HTMLStyleElement || el instanceof HTMLScriptElement || el.matches("dialog,[role=alertdialog],[role=alert],[role=dialog],[role=status],[role=progressbar]"))).length) return;
     [...target.childNodes].filter(el => el.matches && !el.matches(`script,dialog,[role=alertdialog],[role=alert],[role=dialog],[role=status],[role=progressbar]`)).removeAll()
 })
@@ -113,7 +113,7 @@ xo.listener.on(['change::@meta:pageIndex', 'change::@meta:pageSize'], function (
     }
 })*/
 
-xo.listener.on(['beforeTransform::px:Entity'], function ({ store }) {
+xo.listener.on(['beforeTransform::px:Entity'], function ({ event }) {
     let node = this;
 
     for (let association_ref of node.select(`//px:Association[@DataType='junctionTable']/px:Entity/px:Record/px:Association[@Name=../../*[local-name()='layout']/association:ref/@Name][px:Entity/data:rows/xo:r]`)) {
@@ -211,7 +211,7 @@ xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, valu
     }
 })
 
-xo.listener.on([`selectRecord::@*`, `selectRecord::*`], function ({ args }) {
+xo.listener.on([`selectRecord::@*`, `selectRecord::*`], function ({ args, event }) {
     let target = this;
     let element = target.ownerElement || target;
     let selected_record = args[0];
@@ -529,7 +529,7 @@ xo.listener.on(['beforeChange::@headerText', 'beforeChange::@container:*'], func
     this.value = value.replace(/:/g, '').trim()
 })
 
-xo.listener.on(['set::xo:r/@state:delete'], function ({ element, attribute, value, old }) {
+xo.listener.on(['set::xo:r/@state:delete'], function ({ element, attribute, value, old, event }) {
     let primary_value = px.getPrimaryValue(element);
     if (primary_value && primary_value.substr(1)) {
         event.preventDefault()
@@ -977,7 +977,7 @@ xo.listener.on(`change::px:Record/px:*[not(@sortOrder)]/@sortDirection`, functio
     element.setAttribute("sortOrder", sortOrder + 1);
 })
 
-xo.listener.on(`filter::@*`, function () {
+xo.listener.on(`filter::@*`, function ({ event }) {
     if ((event.srcEvent || event).ctrlKey && this.ownerElement) {
         this.remove();
         return;

@@ -1285,9 +1285,9 @@ px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data
     }
 }
 
-xo.listener.on(['response::xo:prompt'], function ({ response_value }) {
-    let response = this;
-    new xo.Store(response.document, { tag: "#prompt" });
+xo.listener.on(['reject::xo:prompt'], function ({ document }) {
+    new xo.Store(document, { tag: "#prompt" });
+    xo.site.active = "#prompt";
 })
 
 xo.listener.on('success::#server:submit', function ({ request, payload }) {

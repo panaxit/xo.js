@@ -679,15 +679,13 @@ px.getEntityFields = function (source) {
     return { fields, schema, name, mode, identity_value, primary_values, ref_node, predicate, settings }
 }
 
-px.request = async function (...args) {
+px.request = async function (request_or_entity_name, ...args) {
     let request = {};
     let fields, schema, name, mode, identity_value, primary_values, filters, settings, page_index, page_size;
     if (args.length && args[args.length - 1].constructor === {}.constructor) {
         request = Object.assign(request, args.pop());
         ({ schema, name: entity_name } = request);
     }
-    let request_or_entity_name = args.pop();
-
     if (!request_or_entity_name) {
         return null;
     }
@@ -717,7 +715,7 @@ px.request = async function (...args) {
     mode = (mode || request["mode"] || "view");
     page_index = request["page_index"] || page_index;
     page_size = request["page_size"] || page_size;
-    filters = (request["filters"] || filters);
+    filters = (request["filters"] || filters || []);
     on_success = (request["on_success"] || on_success);
     rebuild = request["rebuild"]
 

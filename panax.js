@@ -1362,6 +1362,36 @@ xo.listener.on(['failure::#server:submit', 'failure::#server:request'], function
     })
 })
 
+xover.listener.on('error', async function ({ event }) {
+    if (!(event && !(event.defaultPrevented))) return;
+    if (!(this.scope || {}).schema) return;
+    let srcElement = event.target;
+    let store = await xover.storehouse.files;
+    let src = srcElement.getAttribute("src") || "";
+    let record = await store.get(src.split('?')[0]);
+    if (record) {
+        let old_url = srcElement.src;
+        if (record.file.type.indexOf('image') !== -1) {
+            let new_url = window.URL.createObjectURL(record.file);
+            srcElement.src = new_url;
+            record.uid = new_url;
+            store.put(record);
+            srcElement.source && srcElement.source.selectNodes(`.//@*[.='${old_url}']`).forEach(node => node.value = new_url);
+            store.delete(old_url);
+            return;
+        }
+    }
+    if ([...document.querySelectorAll('link[href]')].find(node => node.getAttribute("href").indexOf('bootstrap-icons') !== -1)) { //
+        let new_element = targetDocument.createElement("i");
+        new_element.className = `bi bi-filetype bi-filetype${record ? record.extension : (xo.URL(src).pathname.match(/\.\w{1,3}$/) || [''])[0].replace(/\./g, '-')}`;
+        if (srcElement.closest('picture')) {
+            srcElement.closest('picture').replace(new_element);
+        } else {
+            srcElement.replaceWith(new_element);
+        }
+    }
+})
+
 //xover.listener.on('hashchange', function (new_hash, old_hash) {
 //    let dirty_entity = xover.site.get("dirty");
 //    //xo.stores.active.select(`//px:Entity/data:rows/@xsi:nil|//px:Entity/data:rows[not(*)]|//px:Entity[@Schema="${dirty_entity["Schema"]}" and @Name="${dirty_entity["Name"]}"]/data:rows`).remove();

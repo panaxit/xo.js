@@ -569,7 +569,7 @@ px.getPrimaryValue = function (record, entity) {
 }
 
 px.editSelectedOption = async function (src_element) {
-    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r").filter(el => el instanceof Element).pop();
+    let selected_record = src_element instanceof HTMLSelectElement && (src_element[src_element.selectedIndex].scope || []).filter("self::xo:r").filter(el => el instanceof Element).pop();
     let scope = src_element.scope;
     if (!scope) {
         return Promise.reject("No hay scope asociado")
@@ -747,6 +747,7 @@ px.request = async function (request_or_entity_name, ...args) {
             , "x-Debugging": xover.debug.enabled
         });
         headers = Object.fromEntries([...headers].concat(Object.entries((this.settings || {}).headers || {})));
+        this.progress = xo.sources["loading.xslt"].render();
         let Response = await xover.server.request.call(this, `command=[#entity].request @@user_id=NULL, @full_entity_name='[${schema}].[${entity_name}]', @mode=${(!mode ? 'DEFAULT' : `'${mode}'`)}, @page_index=${(page_index || 'DEFAULT')}, @page_size=${(page_size || 'DEFAULT')}, @max_records=DEFAULT, @control_type=DEFAULT, @Filters=DEFAULTS, @lang=es, @rebuild=${rebuild}, @column_list=DEFAULT, @output=HTML`, {
             headers: headers
         });
@@ -784,7 +785,11 @@ px.request = async function (request_or_entity_name, ...args) {
             //store.initialize();
             //xover.stores.active = store;
         }
+        let progress = await this.progress;
+        progress && progress.remove();
     } catch (e) {
+        let progress = await this.progress;
+        progress && progress.remove();
         current_store.state.busy = undefined;
         if (e.document instanceof HTMLDocument) {
             return Promise.reject(xover.dom.createDialog(e.document));
@@ -793,6 +798,10 @@ px.request = async function (request_or_entity_name, ...args) {
         }
     }
 }
+
+xo.listener.on('pushstate', function () {
+    xover.stores.seed.render()
+})
 
 xo.listener.on('fetch::px:Entity', function () {
     let entity = this;

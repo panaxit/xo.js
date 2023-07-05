@@ -42,9 +42,9 @@ Object.defineProperty(xo.session, 'logout', {
     }, writable: true, configurable: true
 })
 
-xo.listener.on(['beforeRender::#shell', 'beforeAppendTo::html:main', 'beforeAppendTo::html:body'], function ({ target }) {
-    if (!(event.detail.args || []).filter(el => !(el instanceof HTMLStyleElement || el instanceof HTMLScriptElement || el.matches("dialog,[role=alertdialog],[role=alert],[role=dialog]"))).length) return;
-    [...target.childNodes].filter(el => el.matches && !el.matches(`script,dialog,[role=alertdialog],[role=alert],[role=dialog]`)).removeAll()
+xo.listener.on(['beforeRender::#shell', 'beforeAppendTo::html:main', 'beforeAppendTo::html:body'], function ({ target, event }) {
+    if (!(event.detail.args || []).filter(el => !(el instanceof Comment || el instanceof HTMLStyleElement || el instanceof HTMLScriptElement || el.matches("dialog,[role=alertdialog],[role=alert],[role=dialog],[role=status],[role=progressbar]"))).length) return;
+    [...target.childNodes].filter(el => el.matches && !el.matches(`script,dialog,[role=alertdialog],[role=alert],[role=dialog],[role=status],[role=progressbar]`)).removeAll()
 })
 
 xo.listener.on([`beforeRemove::html:div[@role='alertdialog'][contains(*/@class,'modal')]`], function () {
@@ -113,7 +113,7 @@ xo.listener.on(['change::@meta:pageIndex', 'change::@meta:pageSize'], function (
     }
 })*/
 
-xo.listener.on(['beforeTransform::px:Entity'], function ({ store }) {
+xo.listener.on(['beforeTransform::px:Entity'], function ({ event }) {
     let node = this;
 
     for (let association_ref of node.select(`//px:Association[@DataType='junctionTable']/px:Entity/px:Record/px:Association[@Name=../../*[local-name()='layout']/association:ref/@Name][px:Entity/data:rows/xo:r]`)) {
@@ -211,7 +211,7 @@ xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, valu
     }
 })
 
-xo.listener.on([`selectRecord::@*`, `selectRecord::*`], function ({ args }) {
+xo.listener.on([`selectRecord::@*`, `selectRecord::*`], function ({ args, event }) {
     let target = this;
     let element = target.ownerElement || target;
     let selected_record = args[0];
@@ -529,7 +529,7 @@ xo.listener.on(['beforeChange::@headerText', 'beforeChange::@container:*'], func
     this.value = value.replace(/:/g, '').trim()
 })
 
-xo.listener.on(['set::xo:r/@state:delete'], function ({ element, attribute, value, old }) {
+xo.listener.on(['set::xo:r/@state:delete'], function ({ element, attribute, value, old, event }) {
     let primary_value = px.getPrimaryValue(element);
     if (primary_value && primary_value.substr(1)) {
         event.preventDefault()
@@ -569,7 +569,7 @@ px.getPrimaryValue = function (record, entity) {
 }
 
 px.editSelectedOption = async function (src_element) {
-    let selected_record = src_element instanceof HTMLSelectElement && src_element[src_element.selectedIndex].scope.filter("self::xo:r").filter(el => el instanceof Element).pop();
+    let selected_record = src_element instanceof HTMLSelectElement && (src_element[src_element.selectedIndex].scope || []).filter("self::xo:r").filter(el => el instanceof Element).pop();
     let scope = src_element.scope;
     if (!scope) {
         return Promise.reject("No hay scope asociado")
@@ -679,15 +679,13 @@ px.getEntityFields = function (source) {
     return { fields, schema, name, mode, identity_value, primary_values, ref_node, predicate, settings }
 }
 
-px.request = async function (...args) {
+px.request = async function (request_or_entity_name, ...args) {
     let request = {};
     let fields, schema, name, mode, identity_value, primary_values, filters, settings, page_index, page_size;
     if (args.length && args[args.length - 1].constructor === {}.constructor) {
         request = Object.assign(request, args.pop());
         ({ schema, name: entity_name } = request);
     }
-    let request_or_entity_name = args.pop();
-
     if (!request_or_entity_name) {
         return null;
     }
@@ -717,7 +715,7 @@ px.request = async function (...args) {
     mode = (mode || request["mode"] || "view");
     page_index = request["page_index"] || page_index;
     page_size = request["page_size"] || page_size;
-    filters = (request["filters"] || filters);
+    filters = (request["filters"] || filters || []);
     on_success = (request["on_success"] || on_success);
     rebuild = request["rebuild"]
 
@@ -748,7 +746,8 @@ px.request = async function (...args) {
             , "x-Detect-Output-Variables": false
             , "x-Debugging": xover.debug.enabled
         });
-        headers = Object.fromEntries([...headers].concat(Object.entries((this.settings || {}).headers)));
+        headers = Object.fromEntries([...headers].concat(Object.entries((this.settings || {}).headers || {})));
+        this.progress = xo.sources["loading.xslt"].render();
         let Response = await xover.server.request.call(this, `command=[#entity].request @@user_id=NULL, @full_entity_name='[${schema}].[${entity_name}]', @mode=${(!mode ? 'DEFAULT' : `'${mode}'`)}, @page_index=${(page_index || 'DEFAULT')}, @page_size=${(page_size || 'DEFAULT')}, @max_records=DEFAULT, @control_type=DEFAULT, @Filters=DEFAULTS, @lang=es, @rebuild=${rebuild}, @column_list=DEFAULT, @output=HTML`, {
             headers: headers
         });
@@ -786,7 +785,11 @@ px.request = async function (...args) {
             //store.initialize();
             //xover.stores.active = store;
         }
+        let progress = await this.progress;
+        progress && progress.remove();
     } catch (e) {
+        let progress = await this.progress;
+        progress && progress.remove();
         current_store.state.busy = undefined;
         if (e.document instanceof HTMLDocument) {
             return Promise.reject(xover.dom.createDialog(e.document));
@@ -795,6 +798,10 @@ px.request = async function (...args) {
         }
     }
 }
+
+xo.listener.on('pushstate', function () {
+    xover.stores.seed.render()
+})
 
 xo.listener.on('fetch::px:Entity', function () {
     let entity = this;
@@ -977,7 +984,7 @@ xo.listener.on(`change::px:Record/px:*[not(@sortOrder)]/@sortDirection`, functio
     element.setAttribute("sortOrder", sortOrder + 1);
 })
 
-xo.listener.on(`filter::@*`, function () {
+xo.listener.on(`filter::@*`, function ({ event }) {
     if ((event.srcEvent || event).ctrlKey && this.ownerElement) {
         this.remove();
         return;
@@ -1289,9 +1296,9 @@ px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data
     }
 }
 
-xo.listener.on(['response::xo:prompt'], function ({ response_value }) {
-    let response = this;
-    new xo.Store(response.document, { tag: "#prompt" });
+xo.listener.on(['reject::xo:prompt'], function ({ document }) {
+    new xo.Store(document, { tag: "#prompt" });
+    xo.site.active = "#prompt";
 })
 
 xo.listener.on('success::#server:submit', function ({ request, payload }) {
@@ -1366,6 +1373,36 @@ xo.listener.on(['failure::#server:submit', 'failure::#server:request'], function
         }
         return message.value;
     })
+})
+
+xover.listener.on('error', async function ({ event }) {
+    if (!(event && !(event.defaultPrevented))) return;
+    if (!(this.scope || {}).schema) return;
+    let srcElement = event.target;
+    let store = await xover.storehouse.files;
+    let src = srcElement.getAttribute("src") || "";
+    let record = await store.get(src.split('?')[0]);
+    if (record) {
+        let old_url = srcElement.src;
+        if (record.file.type.indexOf('image') !== -1) {
+            let new_url = window.URL.createObjectURL(record.file);
+            srcElement.src = new_url;
+            record.uid = new_url;
+            store.put(record);
+            srcElement.source && srcElement.source.selectNodes(`.//@*[.='${old_url}']`).forEach(node => node.value = new_url);
+            store.delete(old_url);
+            return;
+        }
+    }
+    if ([...document.querySelectorAll('link[href]')].find(node => node.getAttribute("href").indexOf('bootstrap-icons') !== -1)) { //
+        let new_element = targetDocument.createElement("i");
+        new_element.className = `bi bi-filetype bi-filetype${record ? record.extension : (xo.URL(src).pathname.match(/\.\w{1,3}$/) || [''])[0].replace(/\./g, '-')}`;
+        if (srcElement.closest('picture')) {
+            srcElement.closest('picture').replace(new_element);
+        } else {
+            srcElement.replaceWith(new_element);
+        }
+    }
 })
 
 //xover.listener.on('hashchange', function (new_hash, old_hash) {

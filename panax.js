@@ -407,7 +407,6 @@ xo.listener.on('set::@data:rows', function ({ value, old: prev }) {
 })
 
 xo.listener.on(['append::data:rows[@command]', 'set::data:rows/@command', 'remove::data:rows[not(xo:r)]/@xsi:nil'], async function ({ value, old: prev }) {
-    //let current = this.parentNode && this.parentNode.$(`data:rows[@command="${prev}"]`);
     let node = this.selectFirst(`ancestor-or-self::data:rows[1]`);
     let targetNode = node
     let command = node.get("command");
@@ -417,41 +416,28 @@ xo.listener.on(['append::data:rows[@command]', 'set::data:rows/@command', 'remov
     })
     let response;
     try {
-        this.source && this.source.source && this.source.source.abortFetch && this.source.source.abortFetch();
-        let source = xover.sources[`${node.nodeName}:=${command.value}`];
-        this.source = source;
-        response = await source.fetch.call(this, xover.json.tryParse(command), {
+        node.context && node.context.controller && node.context.controller.abort();
+        let source = xover.sources[`${node.nodeName}:=${command.value}`];//.cloneNode(true);
+        node.context = source;
+        response = await source.fetch(xover.json.tryParse(command), {
             source: node
             , method: 'GET'
             , headers: headers
         })
-        node.select("*").remove({ silent: true });
-        if (response instanceof Error) {
-            return Promise.reject(response);
-        } else if (typeof (response) === 'string') {
-            return Promise.reject(new Error(response))
-        } else if (!(response instanceof Document)) {
-            return Promise.reject(new Error("Response is not a document"))
-        } else if (!response.documentElement) {
-            return Promise.reject(new Error("Response is empty"))
+        response.reseed();
+        let firstElementChild = response.cloneNode(true).firstElementChild;
+        if (firstElementChild) {
+            targetNode.disconnect();
+            firstElementChild.select('@xo:id').remove();
+            firstElementChild.select('@*').forEach(attr => targetNode.setAttributeNS(attr.namespaceURI, attr.name, attr.value));
+            targetNode.connect();
+            targetNode.replaceChildren(...firstElementChild.childNodes);
+        } else {
+            targetNode.replaceChildren()
         }
-        let new_node = response.cloneNode(true).reseed();
-        new_node = new_node.documentElement;
-        //let fragment = document.createDocumentFragment();
-        if (new_node && (new_node.tagName == targetNode.tagName || new_node.$('self::xo:response') || ["http://www.mozilla.org/TransforMiix"].includes(new_node.namespaceURI))) {
-            if (!new_node.firstElementChild) {
-                targetNode.set("xsi:nil", true);
-                //new_node.append(xover.xml.createNode(`<xo:empty xmlns:xo="http://panax.io/xover"/>`).reseed());
-            }
+        if (!targetNode.firstElementChild) {
+            targetNode.set("xsi:nil", true);
         }
-        new_node.selectNodes("@xo:id").remove()
-        //let prev_value = targetNode.parentNode.getAttribute("prev:value");
-        targetNode.disconnect();
-        new_node.selectNodes('@*').forEach(attr => targetNode.setAttributeNS(attr.namespaceURI, attr.name, attr.value))
-        targetNode.connect();
-        targetNode.append(...new_node.childNodes);
-        //let store = targetNode.store;
-        /*store && store.render();*/
     } catch (e) {
         Promise.reject(e)
     }

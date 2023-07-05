@@ -1143,6 +1143,10 @@ function saveConfiguration() {
 
 xo.spaces["post"] = "http://panax.io/persistence";
 
+xo.listener.on('post::xo:r', function () {
+    px.submit(this)
+})
+
 px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data:rows/xo:r`)) {
     data_rows = data_rows instanceof Array ? data_rows : [data_rows];
     function buildPost(data_rows, target = xo.xml.createNode(`<batch xmlns="http://panax.io/persistence" xmlns:state="http://panax.io/state" xmlns:session="http://panax.io/session"/>`)) {

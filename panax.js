@@ -42,7 +42,7 @@ Object.defineProperty(xo.session, 'logout', {
     }, writable: true, configurable: true
 })
 
-xo.listener.on(['beforeRender::#shell', 'beforeAppendTo::html:main', 'beforeAppendTo::html:body'], function ({ target, event }) {
+xo.listener.on(['beforeRender::#shell.xslt', 'beforeAppendTo::html:main', 'beforeAppendTo::html:body'], function ({ target, event }) {
     if (!(event.detail.args || []).filter(el => !(el instanceof Comment || el instanceof HTMLStyleElement || el instanceof HTMLScriptElement || el.matches("dialog,[role=alertdialog],[role=alert],[role=dialog],[role=status],[role=progressbar]"))).length) return;
     [...target.childNodes].filter(el => el.matches && !el.matches(`script,dialog,[role=alertdialog],[role=alert],[role=dialog],[role=status],[role=progressbar]`)).removeAll()
 })
@@ -61,8 +61,14 @@ xo.listener.on([`beforeRemove::html:div[@role='alertdialog'][contains(*/@class,'
 //    this.select();
 //})
 
-xo.listener.on(['render::*'], function () {
+xo.listener.on(['render::*[//button[not(@type)]]'], function () {
     this.selectNodes("//button[not(@type)]").forEach(el => el.set("type", "button")) //default behavior
+})
+
+xo.listener.on(['render'], function ({ changes }) {
+    for (let [, node] of [...changes].map(map => [...map]).map(([[old, node]]) => [old, node]).filter(([old, node]) => old instanceof Element).filter(([old, node]) => old.getAttribute("step") != node.getAttribute("step"))) {
+        node.closest('main').scrollTo(0, 0)
+    }
 })
 
 xo.listener.on(['removeFrom::data:rows'], function ({ }) {
@@ -75,7 +81,7 @@ xo.listener.on([`set::xo:r[@state:new="true"]/@state:checked[.="false"]`, `remov
     this.parentNode.remove();
 })
 
-xo.listener.on([`change::px:Association[@DataType='junctionTable']/px:Entity/px:Record/px:Association[@Name=../../*[local-name()='layout']/association:ref/@Name]/px:Entity/data:rows/xo:r/@state:checked[.="true"]`], function ({ element }) {
+xo.listener.on([`beforeSet::px:Association[@DataType='junctionTable']/px:Entity/px:Record/px:Association[@Name=../../*[local-name()='layout']/association:ref/@Name]/px:Entity/data:rows/xo:r/@state:checked`], function ({ element }) {
     let association_ref = element.selectFirst(`ancestor::px:Association[1]`);
     let target = association_ref.selectFirst(`ancestor::px:Entity[1]/data:rows`);
 
@@ -89,11 +95,11 @@ xo.listener.on([`change::px:Association[@DataType='junctionTable']/px:Entity/px:
     node.setAttribute(`meta:${association_ref.getAttribute("Name")}`, element.getAttribute("meta:text"), { silent: true });
 
     target && target.append(node);
+    event.preventDefault();
 })
 
-xo.listener.on(['change::px:Association[@DataType="junctionTable"]/px:Entity/data:rows/xo:r[not(@meta:id!="")]/@state:checked[.="false"]', 'remove::px:Association[@DataType="junctionTable"]/px:Entity/data:rows/xo:r[not(@meta:id!="")]/@state:checked'], function ({ element }) {
-    let target = element.selectFirst(`ancestor::px:Entity[1]/data:rows[@xsi:type="mock"]`);
-    target && target.append(element);
+xo.listener.on(['change::px:Association[@DataType="junctionTable"]/px:Entity/data:rows/xo:r[(@meta:id!="")]/@state:checked[.="false"]', 'remove::px:Association[@DataType="junctionTable"]/px:Entity/data:rows/xo:r[(@meta:id!="")]/@state:checked'], function ({ element }) {
+    element.set("state:delete", "true");
 })
 
 xo.listener.on(['change::@meta:pageIndex', 'change::@meta:pageSize'], function ({ element, value }) {
@@ -238,7 +244,7 @@ xo.listener.on([`beforeSet::xo:r/@meta:*`], function ({ value, old }) {
     for (let referencer of referencers) {
         let new_value = selected_record instanceof Element && selected_record.getAttribute(referencer.parentNode.getAttribute("Referencee")) || "";
         if (element.getAttribute(referencer.value) != new_value) {
-            element.set(referencer.value, new_value);
+            xo.delay(10).then(() => element.set(referencer.value, new_value));
         }
     }
     selected_record = selected_record instanceof Node && selected_record.getAttributeNode("meta:text") || selected_record || "";
@@ -273,12 +279,14 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
             let options = catalog.select("data:rows/xo:r");
             let meta_attribute = row.getAttributeNode(`meta:${association_name}`);
             if (!options.length) {
-                let downloader = meta_attribute.dispatch('downloadCatalog')
-                console.log(downloader);
+                let catalog = await meta_attribute.dispatch('downloadCatalog');
+                options = catalog.select("data:rows/xo:r");
             }
-            if (!options.find(item => filters.every(([key, value]) => item.getAttribute(key) == value))) {
-                row.getAttribute(mapping.value) && row.setAttribute(mapping.value, "");
-                if (meta_attribute.value) meta_attribute = "";
+            let select_option = options.find(item => filters.every(([key, value]) => item.getAttribute(key) == value));
+            let new_text = select_option && select_option.getAttribute("meta:text") || "";
+            if (!new_text) {
+                row.get(mapping.value) && row.setAttribute(mapping.value, "");
+                meta_attribute.set("");
             }
         }
     }
@@ -594,10 +602,10 @@ xo.listener.on("downloadCatalog::xo:r/@meta:*", function () {
     let scope = this;
     let association = scope.select(`ancestor::px:Entity[1]/px:Record/px:Association[@Type="belongsTo"][@AssociationName="${scope.localName}"]`)[0];
     if (!association) return;
-    let commands = association.select("data:rows/@command");
+    let commands = association.select("descendant::data:rows[not(xo:r)]/@command");
     let return_value;
     if (commands.length) {
-        return_value = commands.map(command => command.update())
+        return_value = commands.map(command => command.dispatch('update'))
     } else {
         return_value = px.loadData(scope.$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${scope.localName}"]/px:Entity`))
     }
@@ -723,7 +731,7 @@ px.request = async function (request_or_entity_name, ...args) {
     ////var current_location = window.location.hash.match(/#(\w+):(\w+)/);
     rebuild = ((xover.listener.keypress.altKey || xover.session.autoRebuild) ? '1' : [rebuild, 'DEFAULT'].coalesce());
     let current_store = xover.stores.active;
-    current_store.state.busy = true;
+    //current_store.state.busy = true;
     try {
         let headers = new Headers({
             "Content-Type": 'text/xml'
@@ -776,7 +784,7 @@ px.request = async function (request_or_entity_name, ...args) {
     } catch (e) {
         let progress = await this.progress;
         progress && progress.remove();
-        current_store.state.busy = undefined;
+        //current_store.state.busy = undefined;
         if (e.document instanceof HTMLDocument) {
             return Promise.reject(xover.dom.createDialog(e.document));
         } else {
@@ -1006,6 +1014,25 @@ xo.listener.on('change::@state:filter', function ({ target, stylesheet }) {
         }
         qri.headers.set("pageIndex", 1);
         qri.update()
+    }
+})
+
+xo.listener.on(['beforeRender::#px-Entity.xslt'], function ({ target, changes }) {
+    if (target.contains(document.activeElement) && [document.activeElement.closest('.dropdown')].filter(el => el && el.querySelector('.dropdown-toggle.show')).length) {
+        if (changes) {
+            for (let [[curr_node, new_node]] of changes) {
+                if (curr_node.constructor !== new_node.constructor || curr_node.contains(document.activeElement) || !curr_node.parentNode) continue;
+                if (curr_node.matches('.dropdown *')) {
+                    let [curr_select, new_select] = curr_node.querySelector('select') && [curr_node.querySelector('select'), new_node.querySelector('select')] || [curr_node.closest('.dropdown'), new_node.closest('.dropdown')] || [];
+                    if (curr_select && new_select) {
+                        curr_select.replaceChildren(...new_select.childNodes);
+                        event.preventDefault();
+                    } else {
+                        curr_node.replaceWith(new_node)
+                    }
+                }
+            }
+        }
     }
 })
 

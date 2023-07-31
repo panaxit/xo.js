@@ -61,7 +61,7 @@ xo.listener.on([`beforeRemove::html:div[@role='alertdialog'][contains(*/@class,'
 //    this.select();
 //})
 
-xo.listener.on(['render::*[//button[not(@type)]]'], function () {
+xo.listener.on(['transform::*[//button[not(@type)]]'], function () {
     this.selectNodes("//button[not(@type)]").forEach(el => el.set("type", "button")) //default behavior
 })
 
@@ -217,19 +217,19 @@ xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, valu
     }
 })
 
-xo.listener.on([`selectRecord::@*`, `selectRecord::*`], function ({ args, event }) {
-    let target = this;
-    let element = target.ownerElement || target;
-    let selected_record = args[0];
-    if (!element) {
-        event.preventDefault();
-        event.returnValue = false;
-    };
-    let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${target.localName}"]/px:Mappings/px:Mapping/@Referencer`);
-    for (let referencer of referencers) {
-        element.set(referencer.value, selected_record instanceof Element && selected_record.getAttribute(referencer.parentNode.getAttribute("Referencee")) || "");
-    }
-})
+//xo.listener.on([`selectRecord::@*`, `selectRecord::*`], function ({ args, event }) {
+//    let target = this;
+//    let element = target.ownerElement || target;
+//    let selected_record = args[0];
+//    if (!element) {
+//        event.preventDefault();
+//        event.returnValue = false;
+//    };
+//    let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${target.localName}"]/px:Mappings/px:Mapping/@Referencer`);
+//    for (let referencer of referencers) {
+//        element.set(referencer.value, selected_record instanceof Element && selected_record.getAttribute(referencer.parentNode.getAttribute("Referencee")) || "");
+//    }
+//})
 
 xo.listener.on([`beforeSet::xo:r/@meta:*`], function ({ value, old }) {
     //if (!(value.matches && value.matches("xo:r"))) return value;
@@ -237,7 +237,7 @@ xo.listener.on([`beforeSet::xo:r/@meta:*`], function ({ value, old }) {
     let scope = this;
     let element = scope.ownerElement || scope;
     let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${scope.localName}"]/px:Mappings/px:Mapping/@Referencer`);
-    let selected_record = value instanceof Node && value.matches("xo:r") && value || typeof (value) === 'string' && referencers[0].selectFirst(`ancestor::px:Association[1]/px:Entity/data:rows/xo:r[@meta:text="${value}"]`) || null;
+    let selected_record = value instanceof Node && value.matches("xo:r") && value || typeof (value) === 'string' && value && referencers[0].selectFirst(`ancestor::px:Association[1]/px:Entity/data:rows/xo:r[@meta:text="${value}"]`) || null;
     if (selected_record === null) {
         referencers = referencers.filter(referencer => referencer.parentNode.getAttribute("Referencee") == referencer.selectFirst(`ancestor::px:Association[1]/px:Entity/@IdentityKey`));
     }
@@ -248,7 +248,7 @@ xo.listener.on([`beforeSet::xo:r/@meta:*`], function ({ value, old }) {
         }
     }
     selected_record = selected_record instanceof Node && selected_record.getAttributeNode("meta:text") || selected_record || "";
-    scope.dispatch('selectRecord', selected_record instanceof Node && selected_record.selectFirst(`ancestor-or-self::xo:r[1]`) || null);
+    /*scope.dispatch('selectRecord', selected_record instanceof Node && selected_record.selectFirst(`ancestor-or-self::xo:r[1]`) || null);*/
     return selected_record;
 })
 
@@ -279,8 +279,8 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
             let options = catalog.select("data:rows/xo:r");
             let meta_attribute = row.getAttributeNode(`meta:${association_name}`);
             if (!options.length) {
-                let catalog = await meta_attribute.dispatch('downloadCatalog');
-                options = catalog.select("data:rows/xo:r");
+                let catalog = [await meta_attribute.dispatch('downloadCatalog')];
+                options = [catalog].flat(Infinity).filter(el => el).reduce((arr, el) => arr.push(...el.select("data:rows/xo:r")),[]);
             }
             let select_option = options.find(item => filters.every(([key, value]) => item.getAttribute(key) == value));
             let new_text = select_option && select_option.getAttribute("meta:text") || "";
@@ -886,7 +886,8 @@ px.loadData = function (entity, keys) {
     let data_rows = xo.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
     returnValue.push(data_rows);
     entity.append(data_rows);
-    data_rows.setAttribute("command", `${entity.get("Schema")}/${entity.get("Name")}?${new URLSearchParams(predicate || {})}#?&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '1000')}&orderBy=${order_by}&fields=${encodeURIComponent(Object.entries(fields).filter(([, value]) => value).sort((first, second) => first[1].indexOf("XML") - second[1].indexOf("XML")).map(([key, value]) => `[${value.indexOf("prepareXML") == -1 ? '@' + key : "x:f/@Name]='" + key + "', [x:f"}]=${value.replace(/#panax\.prepareXML/, '')}`).join('&'))}`)
+    let command = xo.QUERI(`${entity.get("Schema")}/${entity.get("Name")}?${new URLSearchParams(predicate || {})}#&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '3000')}&orderBy=${order_by}&fields=${encodeURIComponent(Object.entries(fields).filter(([, value]) => value).sort((first, second) => first[1].indexOf("XML") - second[1].indexOf("XML")).map(([key, value]) => `[${value.indexOf("prepareXML") == -1 ? '@' + key : "x:f/@Name]='" + key + "', [x:f"}]=${value.replace(/#panax\.prepareXML/, '')}`).join('&'))}`).toString();
+    data_rows.setAttribute("command", command);
     let junction_association = entity.select(`self::px:Entity[parent::px:Association[@DataType="junctionTable"]]/px:Record/px:Association`).filter(fks => {
         let pks = fks.select(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map(pk => pk.value);
         return fks.select(`px:Mappings/px:Mapping/@Referencer`).every(referencer => pks.includes(referencer.value))
@@ -1408,7 +1409,7 @@ xover.listener.on('error', async function ({ event }) {
         }
     }
     if ([...document.querySelectorAll('link[href]')].find(node => node.getAttribute("href").indexOf('bootstrap-icons') !== -1)) { //
-        let new_element = targetDocument.createElement("i");
+        let new_element = window.document.createElement("i");
         new_element.className = `bi bi-filetype bi-filetype${record ? record.extension : (xo.URL(src).pathname.match(/\.\w{1,3}$/) || [''])[0].replace(/\./g, '-')}`;
         if (srcElement.closest('picture')) {
             srcElement.closest('picture').replace(new_element);

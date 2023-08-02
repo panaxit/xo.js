@@ -232,7 +232,7 @@ xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, valu
 //})
 
 xo.listener.on([`beforeSet::xo:r/@meta:*`], function ({ value, old }) {
-    //if (!(value.matches && value.matches("xo:r"))) return value;
+    if (!(value instanceof Node && value.matches && value.matches("xo:r"))) return;
     if (old == value) return value;
     let scope = this;
     let element = scope.ownerElement || scope;
@@ -265,7 +265,7 @@ px.selectRecord = function (selected_record, target) {
     //let associations = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo']/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`);
 }
 
-xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state')) and not(contains(namespace-uri(),'http://panax.io/metadata'))]`, async function ({ node, element: row, attribute, old, value }) {
+xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state')) and not(contains(namespace-uri(),'http://panax.io/metadata'))]`, async function ({ node, element: row, attribute, old, value, attributes }) {
     this.freeze();
     let field = (node.schema || {});
     if (!field) return;
@@ -274,18 +274,20 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
         for (let mapping of referencer.select("ancestor::px:Mappings/px:Mapping/@Referencer")) {
             let previous_fields = mapping.selectFirst(`ancestor::px:Record[1]/px:Field[@Name="${mapping}"]`).select("@Name|preceding-sibling::px:Field/@Name").map(field => field.value);
             let filters = mapping.select(`ancestor::px:Mappings/px:Mapping/@Referencer`).filter(ref => previous_fields.includes(ref.value)).map(ref => [ref.parentNode.getAttribute("Referencee"), row.getAttribute(ref.value)]);
+            let referencee = mapping.parentNode.getAttribute("Referencee");
             let association_name = mapping.selectFirst(`ancestor::px:Association[1]/@Name`);
             let catalog = mapping.selectFirst("ancestor::px:Association[1]/px:Entity");
             let options = catalog.select("data:rows/xo:r");
             let meta_attribute = row.getAttributeNode(`meta:${association_name}`);
             if (!options.length) {
                 let catalog = [await meta_attribute.dispatch('downloadCatalog')];
-                options = [catalog].flat(Infinity).filter(el => el).reduce((arr, el) => arr.push(...el.select("data:rows/xo:r")),[]);
+                options = [catalog].flat(Infinity).filter(el => el instanceof Element && el.selectFirst("data:rows/xo:r")).reduce((arr, el) => arr.push(...el.select("data:rows/xo:r")), []);
             }
-            let select_option = options.find(item => filters.every(([key, value]) => item.getAttribute(key) == value));
-            let new_text = select_option && select_option.getAttribute("meta:text") || "";
-            if (!new_text) {
-                row.get(mapping.value) && row.setAttribute(mapping.value, "");
+            let select_option = options.filter(item => filters.every(([key, value]) => item.getAttribute(key) == value));
+            if (!options.filter(item => item.getAttribute(referencee) == row.getAttribute(referencer))) {
+                row.setAttribute(mapping.value, "");
+            }
+            if (meta_attribute.value && !select_option.find(option => meta_attribute.value == option.getAttribute("meta:text"))) {
                 meta_attribute.set("");
             }
         }

@@ -846,7 +846,8 @@ px.loadData = function (entity, keys) {
             return;
         }
     }
-    if (entity.$('data:rows')) return;
+    let data_rows = entity.$('data:rows');
+    if (data_rows) return data_rows;
     keys = Object.assign({ identity_value: undefined, primary_values: [] }, keys);
     let id = entity.$$(`px:Record/px:Field[@IsIdentity="1"]/@Name`).map(key => [key, keys.identity_value]);
     let pks = entity.$$(`px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map((key, ix) => [key, keys.primary_values[ix]]);
@@ -884,7 +885,7 @@ px.loadData = function (entity, keys) {
         let mappings = parent_relationship && parent_relationship.$$('px:Mapping').map(map => ['WHERE', `[${entity.get("Name")}].[${map.get("Referencer")}] IN ('${parent_row.get(map.get("Referencee")) || 'NULL'}')`]) || [];
         predicate = predicate.concat(mappings)
     }
-    let data_rows = xo.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
+    data_rows = xo.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
     returnValue.push(data_rows);
     entity.append(data_rows);
     let command = xo.QUERI(`${entity.get("Schema")}/${entity.get("Name")}?${new URLSearchParams(predicate || {})}#&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '3000')}&orderBy=${order_by}&fields=${encodeURIComponent(Object.entries(fields).filter(([, value]) => value).sort((first, second) => first[1].indexOf("XML") - second[1].indexOf("XML")).map(([key, value]) => `[${value.indexOf("prepareXML") == -1 ? '@' + key : "x:f/@Name]='" + key + "', [x:f"}]=${value.replace(/#panax\.prepareXML/, '')}`).join('&'))}`).toString();

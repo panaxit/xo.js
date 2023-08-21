@@ -87,7 +87,7 @@ xo.listener.on([`beforeSet::px:Association[@DataType='junctionTable']/px:Entity/
 
     let referencers = association_ref.select('px:Mappings/px:Mapping/@Referencer').map(referencer => [referencer.value, referencer.parentNode.getAttribute("Referencee")]);
 
-    let node = xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" xmlns:state="http://panax.io/state" state:checked="true" state:new="true" state:dirty="true" ${target.select(`../px:Record/*/@Name`).map(attr => `${attr.matches("px:Association/@Name") ? 'meta:' : ''}${attr.value}=""`).join(" ")}/>`).reseed();
+    let node = xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" xmlns:state="http://panax.io/state" state:checked="true" state:new="true" state:dirty="true" ${target.select(`../px:Record/*/@Name`).map(attr => `${attr.matches("px:Association/@Name") ? 'meta:' : ''}${attr.value}=""`).join(" ")}/>`).seed();
     for (let [referencer, referencee] of referencers) {
         node.setAttribute(referencer, element.getAttribute(referencee))
         node.srcElement = element;
@@ -388,7 +388,7 @@ xo.listener.on('remove::px:Entity//data:rows', function () {
     let previous_parent = this.formerParentNode;
     if (!this.formerParentNode.$(`data:rows[@command="${command}"]`) && previous_parent.getAttribute(`@data:rows`) == command) {
         let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
-        data_rows.reseed();
+        data_rows.seed();
         this.formerParentNode.append(data_rows);
         data_rows.set("command", command);
     }
@@ -402,7 +402,7 @@ xo.listener.on('set::@data:rows', function ({ value, old: prev }) {
     let current = this.parentNode && this.parentNode.$(`data:rows`);
     current && current.remove();
     if (!this.parentNode.$(`data:rows`)) {
-        let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`).reseed();
+        let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`).seed();
         this.parentNode.append(data_rows);
         data_rows.set("command", value);
     }
@@ -426,7 +426,7 @@ xo.listener.on(['append::data:rows[@command]', 'set::data:rows/@command', 'remov
             , method: 'GET'
             , headers: headers
         })
-        response.reseed();
+        response.seed();
         let firstElementChild = response.cloneNode(true).firstElementChild;
         if (firstElementChild) {
             targetNode.disconnect();
@@ -449,7 +449,7 @@ xo.listener.on(['append::data:rows[@command]', 'set::data:rows/@command', 'remov
 //    this.parentNode.select('xo:r').removeAll()
 //    if (!this.parentNode.$('xo:r')) {
 //        let data_rows = xover.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
-//        data_rows.reseed();
+//        data_rows.seed();
 //        data_rows.set("command", this.value);
 //        this.parentNode.append(data_rows);
 //    }
@@ -489,7 +489,7 @@ xo.listener.on('appendTo::data:rows', function () {
                     let association_copy = association.cloneNode(true);
                     //let field_association = xo.xml.createNode(`<x:f Name="${association.getAttribute("AssociationName")}"/>`)
                     association_copy.select(".//@xo:id").remove();
-                    association_copy.reseed();
+                    association_copy.seed();
                     row.append(association_copy);
                     let entity = association_copy.$(`px:Entity`);
                     px.loadData(entity);
@@ -892,7 +892,7 @@ px.loadData = function (entity, keys) {
         px.loadData(associated_entity);
     }
     //if (junction_association.length) {
-    //    let data_rows_complement = data_rows.cloneNode(true).reseed(true);
+    //    let data_rows_complement = data_rows.cloneNode(true).seed(true);
     //    let command = xo.QUERI(data_rows_complement.get("command"));
     //    command.pathname = '';
     //    command.predicate.delete('WHERE');
@@ -1108,7 +1108,7 @@ px.applyFilters = function (attribute_node) {
 
 px.createEmptyRow = function (entity) {
     let fields = [...new Set(entity.$$('px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name').map(field => ((field.parentNode.nodeName == 'px:Association' ? 'meta:' : '') + field.value) + '=""'))].join(' ')
-    return xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" xmlns:state="http://panax.io/state" xsi:type="mock" state:new="true" ${fields}/>`).reseed();
+    return xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" xmlns:state="http://panax.io/state" xsi:type="mock" state:new="true" ${fields}/>`).seed();
 }
 
 xover.listener.on('click::a', async function (event) {

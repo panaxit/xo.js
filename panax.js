@@ -1013,25 +1013,6 @@ xo.listener.on('change::@state:filter', function ({ target, stylesheet }) {
     }
 })
 
-xo.listener.on(['beforeRender::#px-Entity.xslt'], function ({ target, changes }) {
-    if (target.contains(document.activeElement) && [document.activeElement.closest('.dropdown')].filter(el => el && el.querySelector('.dropdown-toggle.show')).length) {
-        if (changes) {
-            for (let [[curr_node, new_node]] of changes) {
-                if (curr_node.constructor !== new_node.constructor || curr_node.contains(document.activeElement) || !curr_node.parentNode) continue;
-                if (curr_node.matches('.dropdown *')) {
-                    let [curr_select, new_select] = curr_node.querySelector('select') && [curr_node.querySelector('select'), new_node.querySelector('select')] || [curr_node.closest('.dropdown'), new_node.closest('.dropdown')] || [];
-                    if (curr_select && new_select) {
-                        curr_select.replaceChildren(...new_select.childNodes);
-                        event.preventDefault();
-                    } else {
-                        curr_node.replaceWith(new_node)
-                    }
-                }
-            }
-        }
-    }
-})
-
 px.getData = async function (...args) {
     let settings = args.pop() || {};
     let parameters = args.pop() || {};

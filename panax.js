@@ -1,3 +1,34 @@
+Entries = (node) => [node.name, +node.value];
+
+Parent = function (node) { return node.parentNode }
+
+Sum = function (x, y) { return +x + y }
+
+Avg = function (x) { return ((this.Count * this.Value) + x) / ((this.Count || 0) + 1) }
+
+Money = function (x, format = xover.site.locale) {
+    let money = new Intl.NumberFormat(format, {
+        style: 'currency',
+        currency: 'USD',
+    });
+    return money.format(x)
+}
+
+Group = (result, arg) => {
+    result = result instanceof Node && {} || result;
+    [key, value] = arg instanceof Attr && Entries(arg) || arg;
+    Object.defineProperty(result, "Count", { value: !result.hasOwnProperty("Count") ? 0 : result.Count, writable: true, enumerable: false, configurable: true });
+    result.Count += 1;
+
+    Object.defineProperty(result, "Operator", { value: result.Operator || (x => x), writable: true, enumerable: false, configurable: true });
+
+    if (!result[key]) result[key] = 0;
+    result.Value = result[key];
+    result[key] = result.Operator.apply(result, [value, result[key]]);
+    delete result["Value"]
+    return result
+}
+
 px = {}
 xover.qrl = xover.QUERI;
 xover.QRL = xover.QUERI;

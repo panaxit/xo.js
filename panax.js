@@ -171,7 +171,7 @@ xo.listener.on(['beforeTransform::px:Entity'], function ({ event }) {
     }
 
     for (let association_ref of node.select(`//px:Entity/px:Record/px:Association[@Type="belongsTo"][px:Mappings/px:Mapping[2]]`)) {
-        if (!xo.site.sections[event.detail.stylesheet.href].find(section => section.querySelector(`[xo-attribute="meta:${association_ref.getAttribute("Name")}"]`))) continue;
+        if (!xo.site.sections[event.detail.stylesheet.href].find(section => section.querySelector(`[xo-slot="meta:${association_ref.getAttribute("Name")}"]`))) continue;
         let referencers = Object.fromEntries(association_ref.select('px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Entity[1]/@IdentityKey)]/@Referencer').map(referencer => [referencer.value, referencer.parentNode.getAttribute("Referencee")]));
         let row = Object.fromEntries(association_ref.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*`).filter(attr => Object.keys(referencers).includes(attr.name)).map(attr=>[attr.name, attr.value]));
         let data_rows = association_ref.selectFirst(`px:Entity[@IdentityKey]/data:rows`);

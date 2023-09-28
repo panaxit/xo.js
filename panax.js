@@ -160,7 +160,11 @@ xo.listener.on(['beforeTransform::px:Entity'], function ({ event }) {
 xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state'))]`, function ({ element: row, attribute, old, value }) {
     let initial_value = row.getAttributeNodeNS('http://panax.io/state/initial', attribute.nodeName.replace(':', '-'));
     row.select(`@xsi:type[.="mock"]`).remove();
-    row.set(`state:dirty`, 1);
+    if (initial_value && initial_value.value == this.value) {
+        row.removeAttribute(`state:dirty`)
+    } else {
+        row.set(`state:dirty`, 1);
+    }
     if (initial_value) {
         initial_value == value && initial_value.remove();
     } else if (value !== null) {

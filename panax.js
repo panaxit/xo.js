@@ -1,34 +1,3 @@
-Entries = (node) => [node.name, +node.value];
-
-Parent = function (node) { return node.parentNode }
-
-Sum = function (x, y) { return +x + y }
-
-Avg = function (x) { return ((this.Count * this.Value) + x) / ((this.Count || 0) + 1) }
-
-Money = function (x, format = xover.site.locale) {
-    let money = new Intl.NumberFormat(format, {
-        style: 'currency',
-        currency: 'USD',
-    });
-    return money.format(x)
-}
-
-Group = (result, arg) => {
-    result = result instanceof Node && {} || result;
-    [key, value] = arg instanceof Attr && Entries(arg) || arg;
-    Object.defineProperty(result, "Count", { value: !result.hasOwnProperty("Count") ? 0 : result.Count, writable: true, enumerable: false, configurable: true });
-    result.Count += 1;
-
-    Object.defineProperty(result, "Operator", { value: result.Operator || (x => x), writable: true, enumerable: false, configurable: true });
-
-    if (!result[key]) result[key] = 0;
-    result.Value = result[key];
-    result[key] = result.Operator.apply(result, [value, result[key]]);
-    delete result["Value"]
-    return result
-}
-
 px = {}
 xover.qrl = xover.QUERI;
 xover.QRL = xover.QUERI;
@@ -80,7 +49,7 @@ xo.listener.on(['beforeRender::#shell.xslt', 'beforeAppendTo::html:main', 'befor
 
 xo.listener.on([`beforeRemove::html:div[@role='alertdialog'][contains(*/@class,'modal')]`], function () {
     let removed_from = this;
-    let store = removed_from.getAttribute("xo-store");
+    let store = removed_from.getAttribute("xo-source");
     if (store && store in xover.stores) {
         delete xover.stores[store];
     }
@@ -96,8 +65,10 @@ xo.listener.on(['transform::*[//button[not(@type)]]'], function () {
     this.selectNodes("//button[not(@type)]").forEach(el => el.set("type", "button")) //default behavior
 })
 
-xo.listener.on(['render'], function ({ changes }) {
-    for (let [, node] of [...changes].map(map => [...map]).map(([[old, node]]) => [old, node]).filter(([old, node]) => old instanceof Element).filter(([old, node]) => old.getAttribute("step") != node.getAttribute("step"))) {
+xo.listener.on(['render::px-Entity.xslt'], function ({ node, old }) {
+    let current_step = (node.querySelector(".wizard li.active") || document.createElement("p")).getAttribute("data-position")
+    let old_step = (old.querySelector(".wizard li.active") || document.createElement("p")).getAttribute("data-position");
+    if (current_step && old_step != current_step) {
         node.closest('main').scrollTo(0, 0)
     }
 })
@@ -173,9 +144,9 @@ xo.listener.on(['beforeTransform::px:Entity'], function ({ event }) {
     for (let association_ref of node.select(`//px:Entity/px:Record/px:Association[@Type="belongsTo"][px:Mappings/px:Mapping[2]]`)) {
         if (!xo.site.sections[event.detail.stylesheet.href].find(section => section.querySelector(`[xo-slot="meta:${association_ref.getAttribute("Name")}"]`))) continue;
         let referencers = Object.fromEntries(association_ref.select('px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Entity[1]/@IdentityKey)]/@Referencer').map(referencer => [referencer.value, referencer.parentNode.getAttribute("Referencee")]));
-        let row = Object.fromEntries(association_ref.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*`).filter(attr => Object.keys(referencers).includes(attr.name)).map(attr=>[attr.name, attr.value]));
+        let row = Object.fromEntries(association_ref.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*`).filter(attr => Object.keys(referencers).includes(attr.name)).map(attr => [attr.name, attr.value]));
         let data_rows = association_ref.selectFirst(`px:Entity[@IdentityKey]/data:rows`);
-        let rows = data_rows && data_rows.select(`xo:r`).filter(_row => ![...Object.entries(referencers)].every(([referencer,referencee])=> row[referencer] == _row.get(referencee) )) || [];
+        let rows = data_rows && data_rows.select(`xo:r`).filter(_row => ![...Object.entries(referencers)].every(([referencer, referencee]) => row[referencer] == _row.get(referencee))) || [];
         if (rows.length) {
             rows.removeAll({ silent: true });
             if (!data_rows.select("xo:r").length) {
@@ -757,6 +728,7 @@ px.request = async function (request_or_entity_name, ...args) {
     rebuild = ((xover.listener.keypress.altKey || xover.session.autoRebuild) ? '1' : [rebuild, 'DEFAULT'].coalesce());
     let current_store = xover.stores.active;
     //current_store.state.busy = true;
+    let progress = xo.sources["loading.xslt"].render();
     try {
         let headers = new Headers({
             "Content-Type": 'text/xml'
@@ -766,7 +738,6 @@ px.request = async function (request_or_entity_name, ...args) {
             , "x-Debugging": xover.debug.enabled
         });
         headers = Object.fromEntries([...headers].concat(Object.entries((this.settings || {}).headers || {})));
-        this.progress = xo.sources["loading.xslt"].render();
         let Response = await xover.server.request.call(this, `command=[#entity].request @@user_id=NULL, @full_entity_name='[${schema}].[${entity_name}]', @mode=${(!mode ? 'DEFAULT' : `'${mode}'`)}, @page_index=${(page_index || 'DEFAULT')}, @page_size=${(page_size || 'DEFAULT')}, @max_records=DEFAULT, @control_type=DEFAULT, @Filters=DEFAULTS, @lang=es, @rebuild=${rebuild}, @column_list=DEFAULT, @output=HTML`, {
             headers: headers
         });
@@ -775,7 +746,10 @@ px.request = async function (request_or_entity_name, ...args) {
             Response.$$('//px:Entity').set("meta:type", "entity")
             Response.documentElement.setAttributeNS(xover.spaces["xmlns"], "xmlns:data", "http://panax.io/source");
             association_ref && Response.documentElement.$$(`*[local-name()="layout"]/association:*[@name="${association_ref.get("AssociationName")}"]`).remove()
-            px.loadData(Response.$('px:Entity'), mode == 'add' && { identity_value: null, primary_values: [null] } || { identity_value, primary_values, filters, page_size, page_index });
+            let documentElement = Response.documentElement;
+            xo.delay(100).then(() => {
+                px.loadData(documentElement.$('/px:Entity'), mode == 'add' && { identity_value: null, primary_values: [null] } || { identity_value, primary_values, filters, page_size, page_index });
+            })
             //Response.documentElement.getAttributeNode('data:rows').set(value => value.replace(/\?(.*)#:=/, `?${filters || ''}&#:=`))
             return Response;
             /*
@@ -804,17 +778,15 @@ px.request = async function (request_or_entity_name, ...args) {
             //store.initialize();
             //xover.stores.active = store;
         }
-        let progress = await this.progress;
-        progress && progress.remove();
     } catch (e) {
-        let progress = await this.progress;
-        progress && progress.remove();
-        //current_store.state.busy = undefined;
         if (e.document instanceof HTMLDocument) {
             return Promise.reject(xover.dom.createDialog(e.document));
         } else {
             return Promise.reject(e);
         }
+    } finally {
+        progress = await progress || [];
+        progress.forEach(item => item.remove());
     }
 }
 
@@ -856,7 +828,8 @@ px.setAttributes = function (target, attribute, value) {
     target.setAttributes(Object.fromEntries(entries))
 }
 
-px.loadData = function (entity, keys) {
+px.loadData = async function (entity, keys) {
+    await xo.delay(300);
     let returnValue = [];
     if (!(entity instanceof Node)) return;
     if (entity.matches("/px:Entity")) {
@@ -902,7 +875,7 @@ px.loadData = function (entity, keys) {
     let formatKey = ((entity) => (key => key instanceof Attr && `[${key.value}]` || key.indexOf("`") != -1 && eval(key.replace(/\\/g, '\\\\')).replace(/\\b/g, '\\b') || `[${key}]`))({ schema: entity.getAttribute("Schema"), name: entity.getAttribute("Name") });
     constraints = constraints.concat([...filters]);
 
-    let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => (key instanceof Attr || value) && ['WHERE', `${formatKey(key)} IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})`] || key.indexOf("`") != -1 && formatKey(key) || key);
+    let predicate = constraints.filter(([, value]) => value !== undefined).map(([key, value]) => (key instanceof Attr || value) && ['WHERE', `${formatKey(key)} IN (${(value instanceof Array) ? value.map(item => formatValue(item)) : formatValue(value)})`] || key.indexOf("`") != -1 && formatKey(key) || [key, '']);
     let parent_row = entity.$('ancestor::xo:r[1]');
     if (parent_row) {
         let parent_relationship = entity.$('parent::px:Association[not(@Type="belongsTo")]/px:Mappings')

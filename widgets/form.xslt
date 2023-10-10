@@ -109,6 +109,8 @@
 		</div>
 	</xsl:template>
 
+	<xsl:key name="toggler" match="container:fieldSet/*[@Name=../@Name]" use="@Name"/>
+
 	<xsl:template mode="form:field" match="*[key('widget',concat('fieldset:',ancestor::px:Entity[1]/@xo:id,'::',@Name))]/@*">
 		<xsl:param name="dataset" select="../@xo:id"/>
 		<xsl:variable name="headerText">
@@ -118,10 +120,16 @@
 		</xsl:variable>
 		<div class="mb-3 row">
 			<fieldset class="container-{translate(../@Name,' ','-')}">
+				<xsl:variable name="toggler" select="key('toggler',../@Name)"/>
 				<xsl:if test="$headerText!=''">
 					<legend>
-						<xsl:value-of select="$headerText"/>
+						<xsl:value-of select="normalize-space($headerText)"/>
 						<xsl:text>: </xsl:text>
+						<xsl:if test="$toggler">
+							<xsl:apply-templates mode="form:fieldset-toggler" select="current()">
+								<xsl:with-param name="dataset" select="$dataset"/>
+							</xsl:apply-templates>
+						</xsl:if>
 					</legend>
 				</xsl:if>
 				<xsl:apply-templates mode="form:field-body" select="current()">
@@ -129,6 +137,16 @@
 				</xsl:apply-templates>
 			</fieldset>
 		</div>
+	</xsl:template>
+
+	<xsl:template mode="form:fieldset-toggler" match="@*">
+	</xsl:template>
+
+	<xsl:template mode="form:fieldset-toggler" match="container:fieldSet[key('toggler',@Name)]/@*">
+		<xsl:param name="dataset" select="../@xo:id"/>
+		<xsl:apply-templates mode="form:field-body" select="key('toggler',../@Name)/@Name">
+			<xsl:with-param name="dataset" select="$dataset"/>
+		</xsl:apply-templates>
 	</xsl:template>
 
 	<xsl:template mode="form:field-body-append" match="@*">
@@ -191,9 +209,24 @@
 
 	<xsl:template mode="form:field-body" match="container:*/@*">
 		<xsl:param name="dataset" select="../@xo:id"/>
-		<div class="input-group d-flex justify-content-between">
-			<xsl:for-each select="../*/@Name">
-				<div class="input-group-append">
+		<xsl:variable name="toggler" select="../*[key('toggler',@Name)]/@Name"/>
+		<xsl:variable name="class">
+			<xsl:choose>
+				<xsl:when test="not(key('field-ref',concat($dataset,'::',$toggler)) = 1)">collapse</xsl:when>
+				<xsl:otherwise></xsl:otherwise>
+			</xsl:choose>
+		</xsl:variable>
+		<label>
+	</label>
+		<style>
+			<![CDATA[
+			.collapse:not(.show) {
+				display: none !important;
+			}
+		]]></style>
+		<div class="input-group d-flex justify-content-between {$class}" id="{../@Name}">
+			<xsl:for-each select="../*[not(@Name=$toggler)]/@Name">
+				<div class="input-group">
 					<xsl:apply-templates mode="form:field-attributes" select="current()"/>
 					<xsl:apply-templates mode="form:field-body" select="current()">
 						<xsl:with-param name="dataset" select="$dataset"/>

@@ -31,7 +31,7 @@
 	<xsl:template mode="datagrid:widget" match="@*">
 		<xsl:param name="layout" select="key('layout',ancestor::px:Entity[1]/@xo:id)"/>
 		<xsl:variable name="dataset" select="key('dataset',ancestor::px:Entity[1]/@xo:id)"/>
-		<div class="">
+		<div class="w-100">
 			<xsl:apply-templates mode="datagrid:attributes" select="."/>
 			<style>
 				<![CDATA[

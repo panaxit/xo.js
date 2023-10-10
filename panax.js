@@ -6,8 +6,8 @@ xo.spaces["data"] = "http://panax.io/source";
 Object.defineProperty(xo.session, 'login', {
     value: async function (username, password, connection_id = window.location.hostname) {
         try {
-            let _username = username.value || username
-            let _password = password.value || password
+            let _username = (username.value || username).trimEnd()
+            let _password = (password.value || password).trimEnd()
             xover.session.user_login = _username
             xover.session.status = 'authorizing';
             let response = await xover.server.login(new URLSearchParams({ 'connection_id': connection_id }), { headers: { authorization: `Basic ${btoa(_username + ':' + _password)}` } });

@@ -24,9 +24,9 @@ exclude-result-prefixes="#default xsl px xo xsi route"
 	<xsl:key name="changed" match="px:Association[@DataType='junctionTable']/px:Entity/data:rows/xo:r/@state:checked[.='true']" use="../@xo:id"/>
 
 	<xsl:template match="/">
-		<ul id="shell_buttons" class="nav col-md-4 justify-content-end list-unstyled d-flex">
+		<menu id="shell_buttons" class="nav col-md-4 justify-content-end list-unstyled d-flex">
 			<xsl:apply-templates select="px:Entity/@xo:id" mode="shell:buttons"/>
-		</ul>
+		</menu>
 	</xsl:template>
 
 	<xsl:template match="text()|*[not(*)]" mode="shell:buttons"></xsl:template>

@@ -32,13 +32,21 @@
 					</xsl:apply-templates>
 				</div>
 				<xsl:apply-templates mode="form:footer" select="."/>
+				<xsl:apply-templates mode="form:menu" select="."/>
 			</form>
 			<hr/>
 		</xsl:for-each>
 	</xsl:template>
 
 	<xsl:template mode="form:header" match="@*"/>
+	
 	<xsl:template mode="form:footer" match="@*"/>
+	
+	<xsl:template mode="form:menu" match="@*">
+		<menu class="list-group list-group-horizontal justify-content-end">
+			<xsl:apply-templates mode="form:menu-content" select="."/>
+		</menu>
+	</xsl:template>
 
 	<xsl:template mode="form:field-header" match="@*">
 		<xsl:param name="dataset" select="node-expected"/>
@@ -217,13 +225,14 @@
 			</xsl:choose>
 		</xsl:variable>
 		<label>
-	</label>
+		</label>
 		<style>
 			<![CDATA[
 			.collapse:not(.show) {
 				display: none !important;
 			}
-		]]></style>
+		]]>
+		</style>
 		<div class="input-group d-flex justify-content-between {$class}" id="{../@Name}">
 			<xsl:for-each select="../*[not(@Name=$toggler)]/@Name">
 				<div class="input-group">

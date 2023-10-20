@@ -692,10 +692,10 @@ px.request = async function (request_or_entity_name, ...args) {
     let rebuild;
     let prev = xo.site.history[0] || {};
     let reference = prev.reference || {};
-    let prev_store = prev.store;
-    let ref_store = xo.stores[prev_store];
-    if (prev_store.replace(/^#/, '') !== request_or_entity_name.replace(/^#/, '')) {
-        ref_store && await ref_store.ready;
+    let prev_store = prev.store || '';
+    let ref_store = prev_store && xo.stores[prev_store];
+    if (ref_store && prev_store.replace(/^#/, '') !== request_or_entity_name.replace(/^#/, '')) {
+        await ref_store.ready;
     }
     let ref_node = ref_store && ref_store.findById(reference.id) || null;
     if (reference.id && !ref_node && reference.id == xo.QUERI(location.hash.substr(1))["ref_node"]) {

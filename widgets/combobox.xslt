@@ -60,7 +60,7 @@
 	</xsl:template>
 
 	<xsl:template mode="widget-attributes" match="px:Association/px:Entity/px:Routes/px:Route[@Method='edit']/@*">
-		<xsl:attribute name="onclick">px.editSelectedOption(selectSingleNode('ancestor::*[xhtml:select]/xhtml:select'))</xsl:attribute>
+		<xsl:attribute name="onclick">px.editSelectedOption(selectSingleNode('ancestor::*[.//xhtml:select][1]//xhtml:select'))</xsl:attribute>
 	</xsl:template>
 
 	<xsl:template match="px:Entity[@control:type='combobox:control']/px:Routes/px:Route[@Method='add']/@*">
@@ -174,9 +174,22 @@
 			.dropdown.form-input input[type=text]:focus {
 				color: silver !important
 			}
+
+			.combobox .dropdown-toggle:after {
+				border: solid !important;
+				border-width: 0 2px 2px 0 !important;
+				display: inline-block !important;
+				padding: 2px !important;
+				transform: rotate( 45deg ) !important;
+			}
+			
+			.combobox .dropdown-menu {
+				box-shadow: var(--combobox-menu-boxshadow, var(--menu-boxshadow, 5px 5px 10px 2px rgb(0,0,0,.5)))
+			}			
+			
 			]]>
 		</style>
-		<div class="dropdown form-input form-control" style="
+		<div class="dropdown form-input form-control combobox" style="
     min-width: 19ch;
     display: flex;
     position: relative;
@@ -187,7 +200,7 @@
     border: none !important;
 ">
 			<xsl:attribute name="onmouseover">scope.dispatch('downloadCatalog')</xsl:attribute>
-			<button class="btn btn-lg dropdown-toggle form-control xo-skip-compare" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="display:flex; padding: 0; background: transparent; padding-right: 2.5rem; position: absolute; top: 0;" tabindex="-1" onfocus="this.querySelector('input').focus()">
+			<button class="btn btn-lg dropdown-toggle form-control" xo-static="@*" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="display:flex; padding: 0; background: transparent; padding-right: 2.5rem; position: absolute; top: 0;" tabindex="-1" onfocus="this.querySelector('input').focus()">
 				<div class="form-group form-floating input-group" style="min-width: calc(19ch + 6rem);border: none;">
 					<input type="text" name="" class="form-control" autocomplete="off" aria-autocomplete="none" maxlength="" size="" value="{current()}" old-value="{current()}" style="border: 0 solid transparent !important; background: transparent;" xo-scope="none">
 						<xsl:attribute name="onkeyup">xo.components.combobox.keyup(event)</xsl:attribute>
@@ -196,8 +209,13 @@
 					</input>
 				</div>
 			</button>
-			<ul class="dropdown-menu xo-skip-compare" style="width: 100%;" aria-labelledby="dropdownMenuLink">
-				<select class="form-select xo-stop-compare xo-skip-compare" xo-scope="{../@xo:id}" xo-slot="{name()}" size="10" tabindex="-1" onchange="xo.components.combobox.change()">
+			<ul class="dropdown-menu" xo-static="@*" style="width: 100%;" aria-labelledby="dropdownMenuLink">
+				<select class="form-select data-option" xo-static="self::*" xo-scope="{../@xo:id}" xo-slot="{name()}" size="10" tabindex="-1" onchange="xo.components.combobox.change()">
+					<xsl:if test="count($dataset) &lt; 10">
+						<xsl:attribute name="size">
+							<xsl:value-of select="count($dataset) + 1"/>
+						</xsl:attribute>
+					</xsl:if>
 					<xsl:attribute name="style">
 						<xsl:text/>min-width:<xsl:value-of select="concat(string-length($selection)+1,'ch')"/>;<xsl:text/>
 					</xsl:attribute>
@@ -245,7 +263,7 @@
 					option.classList.remove("hidden");
 				} else if (option.classList.contains("disabled")) {
 					option.classList.add("hidden");
-				} else if (option.textContent.toLowerCase().includes(inputField.value.toLowerCase())) {
+				} else if (option.textContent.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(inputField.value.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase())) {
 					option.classList.remove("hidden");
 				} else {
 					option.classList.add("hidden");
@@ -253,10 +271,6 @@
 			}
 			optionsList.classList.add("filtered");
 		}
-		
-		xo.listener.on('show::.dropdown-toggle', function(){
-			
-		})
 
 		xo.components.combobox.change = function() {
 			let srcElement = event.srcElement;

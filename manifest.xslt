@@ -155,33 +155,37 @@
 		</div>
 	</xsl:template>
 
+	<xsl:template mode="value" match="@meta:text">
+		<xsl:apply-templates mode="value" select="../@meta:value"/>
+	</xsl:template>
+
 	<xsl:template mode="widget" match="@*[key('widget',concat('radiogroup:',ancestor::*[key('entity',@xo:id)][1]/@xo:id,'::',name()))]">
 		<xsl:param name="schema" select="node-expected"/>
-		<xsl:param name="dataset" select="node-expected"/>
-		<xsl:param name="data_set" select="$schema/px:Entity/data:rows"/>
+		<xsl:param name="dataset" select="key('dataset', concat(ancestor::px:Entity[1]/@xo:id,'::',name()))"/>
+		<!--<xsl:param name="data_set" select="$schema/px:Entity/data:rows"/>-->
 		<xsl:variable name="current" select="."/>
-
-		<xsl:for-each select="$data_set/xo:r">
-			<xsl:variable name="option" select="."/>
-			<xsl:variable name="checked">
-				<xsl:if test="$current = @value">checked</xsl:if>
-			</xsl:variable>
-			<div class="form-check form-check-inline" xo-scope="{$current/../@xo:id}">
-				<input class="form-check-input" type="radio" value="{@value}" id="{../@xo:id}_{position()}" xo-slot="{name($current)}">
-					<xsl:for-each select="$schema/px:Mappings/px:Mapping">
-						<xsl:attribute name="onclick">
-							<xsl:text/>scope.parentNode.set('<xsl:value-of select="@Referencer"/>','<xsl:value-of select="$option/@*[name()=current()/@Referencee]"/>');<xsl:text/>
-						</xsl:attribute>
-					</xsl:for-each>
-					<xsl:if test="$current = @value">
-						<xsl:attribute name="checked"/>
-					</xsl:if>
-				</input>
-				<label class="form-check-label" for="{../@xo:id}_{position()}">
-					<xsl:value-of select="@meta:text"/>
-				</label>
-			</div>
-		</xsl:for-each>
+		<div class="btn-group bg-body form-control" role="group" style="position:relative;" xo-scope="{$current/../@xo:id}" xo-slot="{name(.)}">
+			<xsl:for-each select="$dataset">
+				<xsl:variable name="option" select="."/>
+				<xsl:variable name="value"><xsl:apply-templates mode="value" select="."/></xsl:variable>
+				<div class="form-check form-check-inline data-option" xo-scope="{../@xo:id}" xo-slot="{name(.)}">
+					<input class="form-check-input" type="radio" value="{$value}" id="{../@xo:id}_{position()}" xo-scope="{$current/../@xo:id}" xo-slot="{name($current)}" name="{name($current)}" xo-swap="self::*">
+						<xsl:if test="string($current) = string($value)">
+							<xsl:attribute name="onclick">scope.set('')</xsl:attribute>
+							<xsl:attribute name="checked"/>
+						</xsl:if>
+						<xsl:for-each select="$schema/px:Mappings/px:Mapping">
+							<xsl:attribute name="onclick">
+								<xsl:text/>scope.parentNode.set('<xsl:value-of select="@Referencer"/>','<xsl:value-of select="$option/@*[name()=current()/@Referencee]"/>');<xsl:text/>
+							</xsl:attribute>
+						</xsl:for-each>
+					</input>
+					<label class="form-check-label" for="{../@xo:id}_{position()}">
+						<xsl:value-of select="."/>
+					</label>
+				</div>
+			</xsl:for-each>
+		</div>
 	</xsl:template>
 
 	<xsl:template mode="widget" match="@*[key('widget',concat('combobox:',ancestor::*[key('entity',@xo:id)][1]/@xo:id,'::',name()))]">
@@ -444,10 +448,12 @@
 	</xsl:template>-->
 
 	<xsl:template mode="widget" match="field:ref/@*|association:ref/@*">
+		<link rel="stylesheet" href="skeleton.css"/>
 		<div class="skeleton skeleton-text skeleton-text__body">&#160;</div>
 	</xsl:template>
 
 	<xsl:template mode="widget" match="field:ref/@*[key('widget',concat('textarea:',ancestor::*[key('entity',@xo:id)][1]/@xo:id,'::',../@Name))]">
+		<link rel="stylesheet" href="skeleton.css"/>
 		<div class="skeleton skeleton-textarea skeleton-text__body">&#160;</div>
 	</xsl:template>
 

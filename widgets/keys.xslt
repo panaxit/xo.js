@@ -28,7 +28,7 @@
 	<xsl:key name="entity" match="px:Entity[@control:type='form:control']" use="concat('form:',@Schema,'/',@Name)"/>
 
 	<!--Routes-->
-	<xsl:key name="routes" match="px:Association/px:Entity/px:Routes/px:Route/@Method" use="concat(ancestor::px:Entity[2]/@xo:id,'::meta:',ancestor::px:Association[1]/@AssociationName)"/>
+	<xsl:key name="routes" match="px:Association/px:Entity/px:Routes/px:Route/@Method" use="concat(ancestor::px:Entity[2]/@xo:id,'::meta:',ancestor::px:Association[1]/@Name)"/>
 	<xsl:key name="routes" match="px:Entity/px:Routes/px:Route/@Method" use="ancestor::px:Entity[1]/@xo:id"/>
 
 	<!--Datarows?-->
@@ -45,7 +45,7 @@
 	<xsl:key name="dataset" match="data:rows[not(@xsi:nil) and not(xo:r)]/@xo:id" use="concat(../../@xo:id,'::',../../@xo:id)"/>
 	<xsl:key name="dataset" match="data:rows/@xsi:nil" use="concat(../../@xo:id,'::',../../@xo:id)"/>
 	<xsl:key name="dataset" match="data:rows/xo:r/@xo:id" use="concat(../../../@xo:id,'::',../../../@xo:id)"/>
-	<xsl:key name="dataset" match="px:Association/px:Entity/data:rows/xo:r/@meta:text" use="concat(ancestor::px:Entity[2]/@xo:id,'::meta:',ancestor::px:Association[1]/@AssociationName)"/>
+	<xsl:key name="dataset" match="px:Association/px:Entity/data:rows/xo:r/@meta:text" use="concat(ancestor::px:Entity[2]/@xo:id,'::meta:',ancestor::px:Association[1]/@Name)"/>
 
 	<xsl:key name="dataset" match="xo:r/@xo:id" use="."/>
 	<xsl:key name="dataset" match="px:Association[@DataType='junctionTable']/px:Entity/px:Record/px:Association[@Name=../../*[local-name()='layout']/association:ref/@Name]/px:Entity/data:rows/xo:r/@xo:id" use="ancestor::px:Entity[2]/@xo:id"/>
@@ -53,13 +53,13 @@
 	<xsl:key name="dataset" match="data:rows[not(@xsi:nil) and not(xo:r)]/@xo:id" use="ancestor::px:Entity[1]/@xo:id"/>
 	<xsl:key name="dataset" match="data:rows/@xsi:nil" use="ancestor::px:Entity[1]/@xo:id"/>
 	<xsl:key name="dataset" match="data:rows/xo:r/@xo:id" use="ancestor::px:Entity[1]/@xo:id"/>
-	<xsl:key name="dataset" match="px:Association/px:Entity/data:rows/xo:r/@meta:text" use="concat(ancestor::px:Entity[2]/@xo:id,'::meta:',ancestor::px:Association[1]/@AssociationName)"/>
+	<xsl:key name="dataset" match="px:Association/px:Entity/data:rows/xo:r/@meta:text" use="concat(ancestor::px:Entity[2]/@xo:id,'::meta:',ancestor::px:Association[1]/@Name)"/>
 
 	<xsl:key name="field-ref" match="xo:r/@*" use="concat(../@xo:id,'::','xo:id')"/>
 	<xsl:key name="field-ref" match="xo:r/@*" use="concat(../@xo:id,'::',name())"/>
 	<xsl:key name="field-ref" match="xo:r/xo:f/@Name" use="concat(../@xo:id,'::',.)"/>
-	<!--<xsl:key name="field-ref" match="xo:r/px:Association/@AssociationName" use="concat(../../@xo:id,'::meta:',.)"/>-->
-	<xsl:key name="field-ref" match="xo:r/px:Association/px:Entity/@xo:id" use="concat(../../../@xo:id,'::meta:',../../@AssociationName)"/>
+	<!--<xsl:key name="field-ref" match="xo:r/px:Association/@Name" use="concat(../../@xo:id,'::meta:',.)"/>-->
+	<xsl:key name="field-ref" match="xo:r/px:Association/px:Entity/@xo:id" use="concat(../../../@xo:id,'::meta:',../../@Name)"/>
 	
 	<!--Schema-->
 	<xsl:key name="schema" match="px:Record/px:*/@Name" use="concat(ancestor::px:Entity[1]/@xo:id,'::',.)"/>
@@ -69,16 +69,16 @@
 	<xsl:key name="widget" match="*[@control:type]/@*" use="concat(substring-before(../@control:type,':'),':',ancestor::px:Entity[1]/@xo:id)"/>
 
 	<xsl:key name="widget" match="*[@control:type][@Schema]/@Name" use="concat(substring-before(../@control:type,':'),':',ancestor::px:Entity[1]/@xo:id,'::',../@Schema,'/',.)"/>
-	<xsl:key name="widget" match="*[@control:type][not(@Schema)][not(@AssociationName)]/@Name" use="concat(substring-before(../@control:type,':'),':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
-	<xsl:key name="widget" match="*[@control:type][not(@Schema)]/@AssociationName" use="concat(substring-before(../@control:type,':'),':',ancestor::px:Entity[1]/@xo:id,'::meta:',.)"/>
+	<xsl:key name="widget" match="*[@control:type][not(@Schema)][not(@Name)]/@Name" use="concat(substring-before(../@control:type,':'),':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
+	<xsl:key name="widget" match="*[@control:type][not(@Schema)]/@Name" use="concat(substring-before(../@control:type,':'),':',ancestor::px:Entity[1]/@xo:id,'::meta:',.)"/>
 
 	<xsl:key name="widget" match="*[@controlType][@Schema]/@Name" use="concat(../@controlType,':',ancestor::px:Entity[1]/@xo:id,'::',../@Schema,'/',.)"/>
-	<xsl:key name="widget" match="*[@controlType][not(@Schema)][not(@AssociationName)]/@Name" use="concat(../@controlType,':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
-	<xsl:key name="widget" match="*[@controlType][not(@Schema)]/@AssociationName" use="concat(../@controlType,':',ancestor::px:Entity[1]/@xo:id,'::meta:',.)"/>
+	<xsl:key name="widget" match="*[@controlType][not(@Schema)][not(@Name)]/@Name" use="concat(../@controlType,':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
+	<xsl:key name="widget" match="*[@controlType][not(@Schema)]/@Name" use="concat(../@controlType,':',ancestor::px:Entity[1]/@xo:id,'::meta:',.)"/>
 
 	<xsl:key name="widget" match="*[@DataType][@Schema]/@Name" use="concat(../@DataType,':',ancestor::px:Entity[1]/@xo:id,'::',../@Schema,'/',.)"/>
-	<xsl:key name="widget" match="*[@DataType][not(@Schema)][not(@AssociationName)]/@Name" use="concat(../@DataType,':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
-	<xsl:key name="widget" match="*[@DataType][not(@Schema)]/@AssociationName" use="concat(../@DataType,':',ancestor::px:Entity[1]/@xo:id,'::meta:',.)"/>
+	<xsl:key name="widget" match="*[@DataType][not(@Schema)][not(@Name)]/@Name" use="concat(../@DataType,':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
+	<xsl:key name="widget" match="*[@DataType][not(@Schema)]/@Name" use="concat(../@DataType,':',ancestor::px:Entity[1]/@xo:id,'::meta:',.)"/>
 	<xsl:key name="widget" match="px:Field[@DataType='filePath']/@Name" use="concat('file',':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
 	<xsl:key name="widget" match="px:Field[@DataType='files']/@Name" use="concat('dropzone',':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
 
@@ -88,15 +88,15 @@
 	<xsl:key name="widget" match="px:Field[starts-with(@control:type,'integer:')]/@Name" use="concat('number',':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
 
 	<xsl:key name="widget" match="px:Record/px:Field[@mode='readonly']/@Name" use="concat('readonly:',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
-	<xsl:key name="widget" match="px:Record/px:Association[@mode='readonly']/@AssociationName" use="concat('readonly:',ancestor::px:Entity[1]/@xo:id,'::meta:',.)"/>
+	<xsl:key name="widget" match="px:Record/px:Association[@mode='readonly']/@Name" use="concat('readonly:',ancestor::px:Entity[1]/@xo:id,'::meta:',.)"/>
 
-	<xsl:key name="widget" match="px:Record/px:Association[@Type='belongsTo'][not(@controlType)]/@AssociationName" use="concat('combobox:',ancestor::px:Entity[1]/@xo:id,'::meta:',.)"/>
+	<xsl:key name="widget" match="px:Record/px:Association[@Type='belongsTo'][not(@controlType)]/@Name" use="concat('combobox:',ancestor::px:Entity[1]/@xo:id,'::meta:',.)"/>
 
 	<xsl:key name="widget" match="container:fieldSet/@Name" use="concat('fieldset:',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
 
-	<xsl:key name="widget" match="px:Record/px:Association[@Type='hasMany']/@AssociationName" use="concat('fieldset:',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
+	<xsl:key name="widget" match="px:Record/px:Association[@Type='hasMany']/@Name" use="concat('fieldset:',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
 
-	<xsl:key name="widget" match="px:Record/px:Association[@Type='hasOne']/@AssociationName" use="concat('fieldset:',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
+	<xsl:key name="widget" match="px:Record/px:Association[@Type='hasOne']/@Name" use="concat('fieldset:',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
 
 	<xsl:key name="form:item" match="px:Entity[@control:type='form:control']/*[local-name()='layout']//*" use="@xo:id"/>
 

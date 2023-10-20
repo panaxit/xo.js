@@ -24,7 +24,7 @@
 		<xsl:param name="layout" select="key('layout',ancestor::px:Entity[1]/@xo:id)"/>
 		<xsl:for-each select="$dataset">
 			<xsl:variable name="row" select="current()"/>
-			<form class="form-view needs-validation col-12 g-3 fluid-container my-3 p-3 bg-body rounded shadow-sm" novalidate="">
+			<form class="form-view needs-validation col-12 g-3 fluid-container p-3 bg-body rounded shadow-sm" novalidate="">
 				<xsl:apply-templates mode="form:header" select="."/>
 				<div class="col-12 g-3">
 					<xsl:apply-templates mode="form:field" select="$layout">
@@ -39,9 +39,9 @@
 	</xsl:template>
 
 	<xsl:template mode="form:header" match="@*"/>
-	
+
 	<xsl:template mode="form:footer" match="@*"/>
-	
+
 	<xsl:template mode="form:menu" match="@*">
 		<menu class="list-group list-group-horizontal justify-content-end">
 			<xsl:apply-templates mode="form:menu-content" select="."/>
@@ -126,7 +126,7 @@
 				<xsl:with-param name="dataset" select="$dataset/ancestor::px:Entity[1]/@xo:id"/>
 			</xsl:apply-templates>
 		</xsl:variable>
-		<div class="mb-3 row">
+		<div class="mb-3 row data-field {translate(name(..),':','-')}">
 			<fieldset class="container-{translate(../@Name,' ','-')}">
 				<xsl:variable name="toggler" select="key('toggler',../@Name)"/>
 				<xsl:if test="$headerText!=''">
@@ -177,6 +177,20 @@
 
 	<xsl:template mode="form:field-body-attributes" match="@*"/>
 
+	<xsl:template mode="form:field-type" match="@*"/>
+	
+	<xsl:template mode="form:field-type" match="@association:ref|@field:ref">
+		<xsl:value-of select="translate(name(..),':','-')"/>
+	</xsl:template>
+
+	<xsl:template mode="form:field-type" match="xo:r/@*">
+		<xsl:text/>field-ref<xsl:text/>
+	</xsl:template>
+
+	<xsl:template mode="form:field-type" match="xo:r/@meta:*">
+		<xsl:text/>association-ref<xsl:text/>
+	</xsl:template>
+
 	<xsl:template mode="form:field-body" match="@*">
 		<xsl:variable name="label">
 			<xsl:apply-templates mode="headerText" select="."/>
@@ -184,7 +198,10 @@
 		<xsl:variable name="class">
 			<xsl:text>form-floating input-group</xsl:text>
 		</xsl:variable>
-		<div class="form-group {$class}">
+		<xsl:variable name="field-type">
+			<xsl:apply-templates mode="form:field-type" select="."/>
+		</xsl:variable>
+		<div class="form-group {$class} data-field {$field-type}">
 			<xsl:attribute name="style">
 				<xsl:text/>min-width: calc(<xsl:value-of select="concat(string-length($label)+1,'ch')"/> + 6rem);<xsl:text/>
 			</xsl:attribute>
@@ -224,6 +241,9 @@
 				<xsl:otherwise></xsl:otherwise>
 			</xsl:choose>
 		</xsl:variable>
+		<xsl:variable name="field-type">
+			<xsl:apply-templates mode="form:field-type" select="."/>
+		</xsl:variable>
 		<label>
 		</label>
 		<style>
@@ -233,7 +253,7 @@
 			}
 		]]>
 		</style>
-		<div class="input-group d-flex justify-content-between {$class}" id="{../@Name}">
+		<div class="input-group d-flex justify-content-between {$class} data-field {$field-type}" id="{../@Name}">
 			<xsl:for-each select="../*[not(@Name=$toggler)]/@Name">
 				<div class="input-group">
 					<xsl:apply-templates mode="form:field-attributes" select="current()"/>

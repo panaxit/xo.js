@@ -71,6 +71,7 @@ xo.listener.on(['render::px-Entity.xslt'], function ({ node, old }) {
     if (current_step && old_step != current_step) {
         node.closest('main').scrollTo(0, 0)
     }
+    node.querySelectorAll(`.association-ref`).toArray().map(ref => ref.scope).filter(scope => scope).forEach(scope => scope.dispatch("downloadCatalog"))
 })
 
 xo.listener.on(['removeFrom::data:rows'], function ({ }) {
@@ -198,15 +199,16 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
 //    }
 //})
 
-xo.listener.on(`change::html:select`, function ({ node, element, attribute, old, value }) {
+xo.listener.on(`change::select,input[type=checkbox],input[type=radio]`, function ({ node, element, attribute, old, value }) {
     let src_element = this;
     if (!src_element instanceof HTMLElement) return;
     let scope = src_element.scope;
-    let selected_record = src_element instanceof HTMLSelectElement && (src_element[src_element.selectedIndex].scope || src_element[src_element.selectedIndex].scope);
-    if (scope instanceof Attr) {
-        //px.selectRecord(selected_record instanceof Element && selected_record || null, scope);
-        scope.set(selected_record || "");
-    }
+    if (!(scope instanceof Attr)) return;
+    let option_source = src_element.closest(".data-option");
+    let selected_record = (option_source.options ? option_source[option_source.selectedIndex].scope : option_source.scope) || src_element.value;
+    selected_record = selected_record instanceof Node && selected_record.selectFirst('ancestor-or-self::xo:r[1]') || selected_record;
+    //px.selectRecord(selected_record instanceof Element && selected_record || null, scope);
+    scope.set(selected_record || "");
 })
 
 xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, value }) {
@@ -238,19 +240,19 @@ xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, valu
 //})
 
 xo.listener.on([`beforeSet::xo:r/@meta:*`], function ({ value, old }) {
-    if (!(value instanceof Node && value.matches && value.matches("xo:r"))) return;
+    if (value && !(value instanceof Node && value.matches && value.matches("xo:r"))) return;
     if (old == value) return value;
     let scope = this;
     let element = scope.ownerElement || scope;
     let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${scope.localName}"]/px:Mappings/px:Mapping/@Referencer`);
     let selected_record = value instanceof Node && value.matches("xo:r") && value || typeof (value) === 'string' && value && referencers[0].selectFirst(`ancestor::px:Association[1]/px:Entity/data:rows/xo:r[@meta:text="${value}"]`) || null;
-    if (selected_record === null) {
-        referencers = referencers.filter(referencer => referencer.parentNode.getAttribute("Referencee") == referencer.selectFirst(`ancestor::px:Association[1]/px:Entity/@IdentityKey`));
-    }
+    //if (selected_record === null) {
+    //    referencers = referencers.filter(referencer => referencer.parentNode.getAttribute("Referencee") == referencer.selectFirst(`ancestor::px:Association[1]/px:Entity/@IdentityKey`));
+    //}
     for (let referencer of referencers) {
         let new_value = selected_record instanceof Element && selected_record.getAttribute(referencer.parentNode.getAttribute("Referencee")) || "";
         if (element.getAttribute(referencer.value) != new_value) {
-            xo.delay(10).then(() => element.set(referencer.value, new_value));
+            element.set(referencer.value, new_value)
         }
     }
     selected_record = selected_record instanceof Node && selected_record.getAttributeNode("meta:text") || selected_record || "";
@@ -283,13 +285,12 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
         let attribs = Object.fromEntries(row.attributes.toArray().filter(attr => Object.keys(referencers).includes(attr.name)).map(attr => [attr.name, attr.value]));
         let data_rows = association.selectFirst(`px:Entity[1]/data:rows`);
         let options = data_rows && data_rows.select(`xo:r`).filter(_row => [...Object.entries(referencers)].every(([referencer, referencee]) => attribs[referencer] == _row.get(referencee))) || [];
-        if (!options.length) {
+        if (options.length <= 1) {
             meta_attribute.set(options.length == 1 ? options[0].getAttribute("meta:text") : "")
-        } else {
-            some_matches = true
+            //some_matches = true
         }
     }
-    if (some_matches === false && this.value) this.set("");
+    //if (some_matches === false && this.value) this.set("");
 
     let associated_references = row.$$(`px:Association[contains(@DataType,'Table')]/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`);
     for (let referencer of associated_references) {
@@ -598,16 +599,17 @@ xo.listener.on("update::@command", function () {
     return command.update();
 });
 
-xo.listener.on("downloadCatalog::xo:r/@meta:*", function () {
+xo.listener.on("downloadCatalog::xo:r/@meta:*|association:ref/@*|field:ref/@*", function () {
     let scope = this;
-    let association = scope.select(`ancestor::px:Entity[1]/px:Record/px:Association[@Type="belongsTo"][@AssociationName="${scope.localName}"]`)[0];
+    let association_name = scope.matches("@meta:*") && scope.localName || scope.value;
+    let association = scope.select(`ancestor::px:Entity[1]/px:Record/px:Association[@Type="belongsTo"][@AssociationName="${association_name}"]`)[0];
     if (!association) return;
     let commands = association.select("descendant::data:rows[not(xo:r)]/@command");
     let return_value;
     if (commands.length) {
         return_value = commands.map(command => command.dispatch('update'))
     } else {
-        return_value = px.loadData(scope.$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${scope.localName}"]/px:Entity`))
+        return_value = px.loadData(scope.$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${association_name}"]/px:Entity`))
     }
     return return_value
 });
@@ -619,7 +621,7 @@ Object.defineProperty(Attr.prototype, 'schema', {
         if (!scope) return null;
         if (scope.parentNode.matches("self::field:ref|self::association:ref")) {
             field_name = scope.value
-        } else if (!scope.filter('parent::xo:r').pop()) {
+        } else if (!scope.matches('xo:r/@*')) {
             return null
         } else if (scope.namespaceURI === 'http://panax.io/metadata') {
             field_name = scope.localName
@@ -690,7 +692,11 @@ px.request = async function (request_or_entity_name, ...args) {
     let rebuild;
     let prev = xo.site.history[0] || {};
     let reference = prev.reference || {};
-    let ref_store = xo.stores[prev.store];
+    let prev_store = prev.store;
+    let ref_store = xo.stores[prev_store];
+    if (prev_store.replace(/^#/, '') !== request_or_entity_name.replace(/^#/, '')) {
+        ref_store && await ref_store.ready;
+    }
     let ref_node = ref_store && ref_store.findById(reference.id) || null;
     if (reference.id && !ref_node && reference.id == xo.QUERI(location.hash.substr(1))["ref_node"]) {
         return Promise.reject("Se perdió la referencia.")
@@ -742,20 +748,27 @@ px.request = async function (request_or_entity_name, ...args) {
             , "x-Debugging": xover.debug.enabled
         });
         headers = Object.fromEntries([...headers].concat(Object.entries((this.settings || {}).headers || {})));
-        let Response = await xover.server.request.call(this, `command=[#entity].request @@user_id=NULL, @full_entity_name='[${schema}].[${entity_name}]', @mode=${(!mode ? 'DEFAULT' : `'${mode}'`)}, @page_index=${(page_index || 'DEFAULT')}, @page_size=${(page_size || 'DEFAULT')}, @max_records=DEFAULT, @control_type=DEFAULT, @Filters=DEFAULTS, @lang=es, @rebuild=${rebuild}, @column_list=DEFAULT, @output=HTML`, {
+        let { return_value: response, request, response: Response } = await xover.server.request.call(this, `command=[#entity].request @@user_id=NULL, @full_entity_name='[${schema}].[${entity_name}]', @mode=${(!mode ? 'DEFAULT' : `'${mode}'`)}, @page_index=${(page_index || 'DEFAULT')}, @page_size=${(page_size || 'DEFAULT')}, @max_records=DEFAULT, @control_type=DEFAULT, @Filters=DEFAULTS, @lang=es, @rebuild=${rebuild}, @column_list=DEFAULT, @output=HTML`, {
             headers: headers
-        });
+        }, (return_value, request, response) => { return { return_value, request, response } });
+
+        if (Response.status == 204) {
+            let params = new URLSearchParams((request.url.searchParams.get("command") || '').split(/\s*,\s*/g).join("&"));
+            let module = (params.get("@full_entity_name") || '').replace(/\[|\'|\]/g, '').replace(/\./g, ' ')
+            return Promise.reject(`204.2: El módulo ${(module ? '"' + module + '" ' : '')}no existe o usted no tiene permisos para acceder a él`)
+        }
+
         //Request.requester = ref;
-        if (!(Response instanceof xover.Store) && Response && Response.documentElement) {
-            Response.$$('//px:Entity').set("meta:type", "entity")
-            Response.documentElement.setAttributeNS(xover.spaces["xmlns"], "xmlns:data", "http://panax.io/source");
-            association_ref && Response.documentElement.$$(`*[local-name()="layout"]/association:*[@name="${association_ref.get("AssociationName")}"]`).remove()
-            let documentElement = Response.documentElement;
+        if (!(response instanceof xover.Store) && response && response.documentElement) {
+            response.$$('//px:Entity').set("meta:type", "entity")
+            response.documentElement.setAttributeNS(xover.spaces["xmlns"], "xmlns:data", "http://panax.io/source");
+            association_ref && response.documentElement.$$(`*[local-name()="layout"]/association:*[@name="${association_ref.get("AssociationName")}"]`).remove()
+            let documentElement = response.documentElement;
             xo.delay(100).then(() => {
                 px.loadData(documentElement.$('/px:Entity'), mode == 'add' && { identity_value: null, primary_values: [null] } || { identity_value, primary_values, filters, page_size, page_index });
             })
-            //Response.documentElement.getAttributeNode('data:rows').set(value => value.replace(/\?(.*)#:=/, `?${filters || ''}&#:=`))
-            return Response;
+            //response.documentElement.getAttributeNode('data:rows').set(value => value.replace(/\?(.*)#:=/, `?${filters || ''}&#:=`))
+            return response;
             /*
             <?xml-stylesheet type="text/xsl" href="form.xslt" target="@#shell main"?><?xml-stylesheet type="text/xsl" href="title.xslt" target="@#shell nav header h1"?><?xml-stylesheet type="text/xsl" href="shell_buttons.xslt" target="@#shell #shell_buttons" action="replace"?>
              */
@@ -833,7 +846,6 @@ px.setAttributes = function (target, attribute, value) {
 }
 
 px.loadData = async function (entity, keys) {
-    await xo.delay(300);
     let returnValue = [];
     if (!(entity instanceof Node)) return;
     if (entity.matches("/px:Entity")) {

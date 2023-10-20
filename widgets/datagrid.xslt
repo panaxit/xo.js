@@ -55,6 +55,10 @@
 				thead .field-container  {
 					text-align: center
 				}
+				
+				th {
+					white-space: nowrap;
+				}
 				]]>
 			</style>
 			<table class="table table-striped table-hover table-sm datagrid">

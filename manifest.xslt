@@ -9,7 +9,7 @@
   xmlns:data="http://panax.io/source"
   xmlns:height = "http://panax.io/state/height"
   xmlns:width = "http://panax.io/state/width"
-  xmlns:confirmation = "http://panax.io/state/confirmation"
+  xmlns:draft = "http://panax.io/state/draft"
   xmlns:px="http://panax.io/entity"
   xmlns:readonly="http://panax.io/state/readonly"
   xmlns:file="http://panax.io/widget/file"
@@ -35,7 +35,7 @@
   xmlns:container="http://panax.io/layout/container"
   xmlns:association="http://panax.io/datatypes/association"
   xmlns:cardview="http://panax.io/widget/cardview"
-  exclude-result-prefixes="xo state xsi control layout meta data height width confirmation px readonly file dropzone fileExplorer calendar percentage picture form widget datagrid combobox comboboxButton autocompleteBox autocompleteBoxButton field container association cardview modal tabPanel groupTabPanel"
+  exclude-result-prefixes="xo state xsi control layout meta data height width draft px readonly file dropzone fileExplorer calendar percentage picture form widget datagrid combobox comboboxButton autocompleteBox autocompleteBoxButton field container association cardview modal tabPanel groupTabPanel"
 >
 	<xsl:import href="values.xslt"/>
 	<xsl:import href="widgets/keys.xslt"/>
@@ -83,6 +83,9 @@
 		<xsl:param name="class"></xsl:param>
 		<xsl:variable name="current" select="."/>
 		<xsl:variable name="schema" select="key('reference',concat(ancestor::*[key('entity',@xo:id)][1]/@xo:id,'::header::field:ref::',name()))/.."/>
+		<xsl:if test="namespace-uri()!='http://panax.io/state/draft'">
+			<xsl:apply-templates mode="widget" select="../@draft:*[local-name()=local-name(current())]"/>
+		</xsl:if>
 		<input type="text" name="{name()}" class="form-control {$class}" id="{$schema/@xo:id}" placeholder="" required="" xo-scope="{ancestor-or-self::*[1]/@xo:id}" xo-slot="{name()}" onfocus="this.value=(scope &amp;&amp; scope.value || this.value)" autocomplete="off" aria-autocomplete="none">
 			<xsl:attribute name="maxlength">
 				<xsl:value-of select="$schema/@DataLength"/>
@@ -118,11 +121,17 @@
 			<xsl:attribute name="value">
 				<xsl:apply-templates select="."/>
 			</xsl:attribute>
+			<xsl:if test="not(../@draft:*[local-name()=local-name(current())]) and key('password',concat(ancestor::*[key('entity',@xo:id)][1]/@xo:id,'::',local-name()))">
+				<xsl:attribute name="xo-slot">
+					<xsl:value-of select="concat('draft:',local-name())"/>
+				</xsl:attribute>
+			</xsl:if>
 			<xsl:apply-templates mode="widget:attributes" select="."/>
+			<xsl:if test="../@draft:*[name()=concat('draft:',name(current()))]">
+				<xsl:attribute name="value"/>
+			</xsl:if>
 		</input>
-		<xsl:if test="namespace-uri()!='http://panax.io/state/confirmation'">
-			<xsl:apply-templates mode="widget" select="../@confirmation:*[local-name()=local-name(current())]"/>
-		</xsl:if>
+		<!--<xsl:value-of select="concat('draft:',name(current()))"/>-->
 	</xsl:template>
 
 	<xsl:template mode="widget" match="@*[key('widget',concat('textarea:',ancestor::*[key('entity',@xo:id)][1]/@xo:id,'::',name()))]">
@@ -167,7 +176,9 @@
 		<div class="btn-group bg-body form-control" role="group" style="position:relative;" xo-scope="{$current/../@xo:id}" xo-slot="{name(.)}">
 			<xsl:for-each select="$dataset">
 				<xsl:variable name="option" select="."/>
-				<xsl:variable name="value"><xsl:apply-templates mode="value" select="."/></xsl:variable>
+				<xsl:variable name="value">
+					<xsl:apply-templates mode="value" select="."/>
+				</xsl:variable>
 				<div class="form-check form-check-inline data-option" xo-scope="{../@xo:id}" xo-slot="{name(.)}">
 					<input class="form-check-input" type="radio" value="{$value}" id="{../@xo:id}_{position()}" xo-scope="{$current/../@xo:id}" xo-slot="{name($current)}" name="{name($current)}" xo-swap="self::*">
 						<xsl:if test="string($current) = string($value)">

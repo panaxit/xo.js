@@ -69,15 +69,15 @@
 	<xsl:key name="widget" match="*[@control:type]/@*" use="concat(substring-before(../@control:type,':'),':',ancestor::px:Entity[1]/@xo:id)"/>
 
 	<xsl:key name="widget" match="*[@control:type][@Schema]/@Name" use="concat(substring-before(../@control:type,':'),':',ancestor::px:Entity[1]/@xo:id,'::',../@Schema,'/',.)"/>
-	<xsl:key name="widget" match="*[@control:type][not(@Schema)][not(@Name)]/@Name" use="concat(substring-before(../@control:type,':'),':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
+	<xsl:key name="widget" match="*[@control:type][not(@Schema)]/@Name" use="concat(substring-before(../@control:type,':'),':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
 	<xsl:key name="widget" match="*[@control:type][not(@Schema)]/@Name" use="concat(substring-before(../@control:type,':'),':',ancestor::px:Entity[1]/@xo:id,'::meta:',.)"/>
 
 	<xsl:key name="widget" match="*[@controlType][@Schema]/@Name" use="concat(../@controlType,':',ancestor::px:Entity[1]/@xo:id,'::',../@Schema,'/',.)"/>
-	<xsl:key name="widget" match="*[@controlType][not(@Schema)][not(@Name)]/@Name" use="concat(../@controlType,':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
+	<xsl:key name="widget" match="*[@controlType][not(@Schema)]/@Name" use="concat(../@controlType,':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
 	<xsl:key name="widget" match="*[@controlType][not(@Schema)]/@Name" use="concat(../@controlType,':',ancestor::px:Entity[1]/@xo:id,'::meta:',.)"/>
 
 	<xsl:key name="widget" match="*[@DataType][@Schema]/@Name" use="concat(../@DataType,':',ancestor::px:Entity[1]/@xo:id,'::',../@Schema,'/',.)"/>
-	<xsl:key name="widget" match="*[@DataType][not(@Schema)][not(@Name)]/@Name" use="concat(../@DataType,':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
+	<xsl:key name="widget" match="*[@DataType][not(@Schema)]/@Name" use="concat(../@DataType,':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
 	<xsl:key name="widget" match="*[@DataType][not(@Schema)]/@Name" use="concat(../@DataType,':',ancestor::px:Entity[1]/@xo:id,'::meta:',.)"/>
 	<xsl:key name="widget" match="px:Field[@DataType='filePath']/@Name" use="concat('file',':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>
 	<xsl:key name="widget" match="px:Field[@DataType='files']/@Name" use="concat('dropzone',':',ancestor::px:Entity[1]/@xo:id,'::',.)"/>

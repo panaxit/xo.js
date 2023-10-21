@@ -158,6 +158,17 @@ xo.listener.on(['beforeTransform::px:Entity'], function ({ event }) {
     }
 })
 
+xo.listener.on([`change::xo:r/@draft:*`, `beforeSet::xo:r/@*[not(namespace-uri()) and local-name()=local-name(../@draft:*)]`], function ({ element: row, attribute, old, value }) {
+    let draft_value = row.getAttributeNode(`draft:${this.localName}`);
+    let real_value = row.getAttributeNode(this.localName);
+    if (draft_value && draft_value.value !== value) {
+        draft_value.remove()
+        real_value.set(row.getAttribute(`initial:${this.localName}`) || "");
+        event.preventDefault();
+        return Promise.reject("No coincide el valor")
+    }
+})
+
 xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state'))]`, function ({ element: row, attribute, old, value }) {
     let initial_value = row.getAttributeNodeNS('http://panax.io/state/initial', attribute.nodeName.replace(':', '-'));
     row.select(`@xsi:type[.="mock"]`).remove();

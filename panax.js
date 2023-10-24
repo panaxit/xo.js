@@ -3,6 +3,13 @@ xover.qrl = xover.QUERI;
 xover.QRL = xover.QUERI;
 xo.spaces["px"] = "http://panax.io/entity";
 xo.spaces["data"] = "http://panax.io/source";
+
+xover.listener.on('ErrorEvent', function () {
+    let args = { message: event.message, filename: event.filename, lineno: event.lineno, colno: event.colno };
+    xover.dom.alert(args);
+    event.stopPropagation();
+})
+
 Object.defineProperty(xo.session, 'login', {
     value: async function (username, password, connection_id = window.location.hostname) {
         try {
@@ -158,31 +165,71 @@ xo.listener.on(['beforeTransform::px:Entity'], function ({ event }) {
     }
 })
 
-xo.listener.on([`change::xo:r/@draft:*`, `beforeSet::xo:r/@*[not(namespace-uri()) and local-name()=local-name(../@draft:*)]`], function ({ element: row, attribute, old, value }) {
-    let draft_value = row.getAttributeNode(`draft:${this.localName}`);
-    let real_value = row.getAttributeNode(this.localName);
-    if (draft_value && draft_value.value !== value) {
-        draft_value.remove()
-        real_value.set(row.getAttribute(`initial:${this.localName}`) || "");
-        event.preventDefault();
-        return Promise.reject("No coincide el valor")
+xo.listener.on([`input::input[xo-slot^=draft]`], function () {
+    let scope = this.scope;
+    let row = scope && scope.selectFirst(`ancestor-or-self::xo:r[1]`);
+    if (!row) return;
+    let draft_value = row.getAttributeNodeOrMock(`draft:${scope.localName}`);
+    //if (['deleteContentBackward'].includes(event.inputType)) draft_value.remove();
+    let real_value = row.getAttributeNode(scope.localName);
+    real_value.set(row.getAttribute(`initial:${scope.localName}`) || real_value.value, { silent: true })
+    document.querySelectorAll(`input[xo-slot="${scope.localName}"]`).forEach(el => el.value = "");
+    if (event.data != undefined && this.value.length <= 1) {
+        //!draft_value.ownerElement && draft_value.set(this.value)
+        xo.delay(300).then(() => {
+            let draft_input = document.querySelector(`input[xo-slot^="${scope.name}"]`)
+            draft_input.selectionStart = draft_input.value.length;
+            draft_input.selectionEnd = draft_input.value.length;
+            draft_input && draft_input.focus();
+        })
     }
 })
 
-xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state'))]`, function ({ element: row, attribute, old, value }) {
-    let initial_value = row.getAttributeNodeNS('http://panax.io/state/initial', attribute.nodeName.replace(':', '-'));
-    row.select(`@xsi:type[.="mock"]`).remove();
-    if (initial_value && initial_value.value == this.value) {
-        row.removeAttribute(`state:dirty`)
-    } else {
-        row.set(`state:dirty`, 1);
+xo.listener.on([`change::xo:r/@draft:*`, `beforeSet::xo:r/@*[not(namespace-uri()) and local-name()=local-name(../@draft:*)]`], function ({ element: row, attribute, old = '', value = '' }) {
+    if (!value || this.namespaceURI && row.getAttribute(`initial:${this.localName}`) == null) return;
+    let draft = row.getAttributeNode(`draft:${this.localName}`);
+    let draft_value = draft.value;
+    //value = value.length == 32 ? value : xover.cryptography.encodeMD5(value);
+    //old = old.length == 32 ? old : xover.cryptography.encodeMD5(old);
+    //draft_value = draft_value.length == 32 ? draft_value : xover.cryptography.encodeMD5(draft_value);
+    let real_value = row.getAttributeNode(this.localName);
+    if (real_value == this && old != value && draft_value != value) {
+        draft.remove();
+        real_value.set(row.getAttribute(`initial:${this.localName}`) || real_value)
+        event.preventDefault();
+        return Promise.reject("No coincide el valor")
     }
+    return value;
+})
+
+//xover.listener.on(['focusin::input', 'focusin::textarea'], function () {
+//    let scope = this.scope;
+//    this.value = (scope && scope.value || this.value)
+//})
+
+xo.listener.on([`beforeSet::xo:r/@*[not(namespace-uri()) or contains(namespace-uri(),'http://panax.io/state/draft')][local-name()='Password']`], function ({ value = '' }) {
+    if (event.srcElement !== document.activeElement && value) {
+        value = value.length == 32 ? value : xover.cryptography.encodeMD5(value);
+    }
+    return value;
+})
+
+xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state'))]`, function ({ element: row, attribute, old, value }) {
+    row.select(`@xsi:type[.="mock"]`).remove();
+
+    let initial_value = row.getAttributeNodeNS('http://panax.io/state/initial', attribute.nodeName.replace(':', '-'));
     if (initial_value) {
         initial_value == value && initial_value.remove();
     } else if (value !== null) {
         row.set(`initial:${attribute.nodeName.replace(':', '-')}`, old);
     }
     row.set(`prev:${attribute.nodeName.replace(':', '-')}`, old);
+    let initial_attributes = row.select(".//@initial:*");
+    if (initial_attributes.some(el => el.value != el.parentNode.getAttribute(el.localName))) {
+        row.set(`state:dirty`, 1);
+    } else {
+        row.removeAttribute(`state:dirty`)
+    }
 })
 
 //xo.listener.on(`change::xo:r/@meta:*`, function ({ node, element, attribute, old, value }) {

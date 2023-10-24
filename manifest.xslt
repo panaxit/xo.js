@@ -86,7 +86,7 @@
 		<xsl:if test="namespace-uri()!='http://panax.io/state/draft'">
 			<xsl:apply-templates mode="widget" select="../@draft:*[local-name()=local-name(current())]"/>
 		</xsl:if>
-		<input type="text" name="{name()}" class="form-control {$class}" id="{$schema/@xo:id}" placeholder="" required="" xo-scope="{ancestor-or-self::*[1]/@xo:id}" xo-slot="{name()}" onfocus="this.value=(scope &amp;&amp; scope.value || this.value)" autocomplete="off" aria-autocomplete="none">
+		<input type="text" name="{name()}" class="form-control {$class}" id="{$schema/@xo:id}" placeholder="" required="" xo-scope="{ancestor-or-self::*[1]/@xo:id}" xo-slot="{name()}" autocomplete="off" aria-autocomplete="none">
 			<xsl:attribute name="maxlength">
 				<xsl:value-of select="$schema/@DataLength"/>
 			</xsl:attribute>
@@ -127,9 +127,9 @@
 				</xsl:attribute>
 			</xsl:if>
 			<xsl:apply-templates mode="widget:attributes" select="."/>
-			<xsl:if test="../@draft:*[name()=concat('draft:',name(current()))]">
+			<!--<xsl:if test="../@draft:*[name()=concat('draft:',name(current()))]">
 				<xsl:attribute name="value"/>
-			</xsl:if>
+			</xsl:if>-->
 		</input>
 		<!--<xsl:value-of select="concat('draft:',name(current()))"/>-->
 	</xsl:template>

@@ -49,7 +49,7 @@
 		<xsl:value-of select="format-number(translate(.,'$,',''),'$#,##0.00###;-$#,##0.00###')"/>
 	</xsl:template>
 
-	<xsl:template match="@*[key('password',concat(ancestor::px:Entity[1]/@xo:id,'::',name()))]">
+	<xsl:template match="@*[key('password',concat(ancestor::px:Entity[1]/@xo:id,'::',name()))][string-length(.)!='32']">
 		<xsl:text>**********</xsl:text>
 	</xsl:template>
 

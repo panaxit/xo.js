@@ -134,7 +134,6 @@
 		<xsl:param name="class"></xsl:param>
 		<xsl:variable name="schema" select="key('schema',concat(ancestor::px:Entity[1]/@xo:id,'::',name($selection)))/../px:Mappings/px:Mapping/@Referencee"/>
 		<xsl:variable name="current" select="."/>
-		<script language="JavaScript" src="combobox.js"/>
 		<style>
 			<![CDATA[
 			.dropdown.form-input > button.form-control {

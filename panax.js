@@ -165,7 +165,7 @@ xo.listener.on(['beforeTransform::px:Entity'], function ({ event }) {
     }
 })
 
-xo.listener.on(`set::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state'))]`, function ({ element: row, attribute, old, value }) {
+xo.listener.on(`set::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/state') or contains(namespace-uri(),'http://panax.io/metadata'))]`, function ({ element: row, attribute, old, value }) {
     row.select(`@xsi:type[.="mock"]`).remove();
 
     let initial_value = row.getAttributeNodeNS('http://panax.io/state/initial', attribute.nodeName.replace(':', '-'));

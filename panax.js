@@ -708,9 +708,9 @@ px.refreshCatalog = function (src_element) {
 }
 
 px.getEntityInfo = function (input_document) {
-    var current_document = (input_document || ((event || {}).target || {}).store || xover.stores[(window.location.hash || "#")]);
+    let current_document = (input_document || ((event || {}).target || {}).store || xover.stores[(window.location.hash || "#")]);
     if (!current_document) return undefined;
-    var entity;
+    let entity;
     current_document = (current_document.documentElement || current_document)
     if (current_document && current_document.getAttribute && current_document.getAttribute("mode") && current_document.getAttribute("Name")) {
         entity = {}
@@ -758,7 +758,7 @@ px.request = async function (request_or_entity_name, ...args) {
     if (!(xover.manifest.server["request"])) {
         throw ("Endpoint for request is not defined in the manifest");
     }
-    var on_success = function (xml_document) { xover.stores.active = xml_document; };
+    let on_success = function (xml_document) { xover.stores.active = xml_document; };
     let rebuild;
     let prev = xo.site.history[0] || {};
     let reference = prev.reference || {};
@@ -804,7 +804,7 @@ px.request = async function (request_or_entity_name, ...args) {
     //filters = [...Object.entries(filters), ...Object.entries(other_filters)].map(([key, value]) => `[${key}]='${value.replace(/'/g,"''")}'`).join(' AND ')+'&';
     ////filters = [filters, other_filters].filter(f => f).join(' AND ').replace(/'/g, "''");
 
-    ////var current_location = window.location.hash.match(/#(\w+):(\w+)/);
+    ////let current_location = window.location.hash.match(/#(\w+):(\w+)/);
     rebuild = ((xover.listener.keypress.altKey || xover.session.autoRebuild) ? '1' : [rebuild, 'DEFAULT'].coalesce());
     let current_store = xover.stores.active;
     //current_store.state.busy = true;
@@ -842,21 +842,21 @@ px.request = async function (request_or_entity_name, ...args) {
             /*
             <?xml-stylesheet type="text/xsl" href="form.xslt" target="@#shell main"?><?xml-stylesheet type="text/xsl" href="title.xslt" target="@#shell nav header h1"?><?xml-stylesheet type="text/xsl" href="shell_buttons.xslt" target="@#shell #shell_buttons" action="replace"?>
              */
-            //var manifest_stylesheets = xover.manifest.getSettings(xover.data.hashTagName(xml_document.documentElement), 'transforms').filter(t => !(t.role == 'init' || t.role == "binding"));
-            //var stylesheets = manifest_stylesheets.concat([{ href: (xml_document.documentElement.getAttribute('controlType') || "shell").toLowerCase() + '.xslt' }].filter(() => (manifest_stylesheets.length == 0))).reduce((stylesheets, transform) => { stylesheets.push({ "href": transform.href, target: (transform.target || '@#shell main'), role: transform.role }); return stylesheets; }, []);
+            //let manifest_stylesheets = xover.manifest.getSettings(xover.data.hashTagName(xml_document.documentElement), 'transforms').filter(t => !(t.role == 'init' || t.role == "binding"));
+            //let stylesheets = manifest_stylesheets.concat([{ href: (xml_document.documentElement.getAttribute('controlType') || "shell").toLowerCase() + '.xslt' }].filter(() => (manifest_stylesheets.length == 0))).reduce((stylesheets, transform) => { stylesheets.push({ "href": transform.href, target: (transform.target || '@#shell main'), role: transform.role }); return stylesheets; }, []);
             //stylesheets.forEach(stylesheet => xml_document.addStylesheet(stylesheet));
             //current_store.state.busy = undefined;
             //let store = new xover.Store(xml_document)
-            //var caller = xover.stores.find(Request.requester)[0];
+            //let caller = xover.stores.find(Request.requester)[0];
             //if (caller && caller.selectSingleNode('self::px:dataRow')) {
-            //    var new_datarow = store.document.selectSingleNode('*/px:data/px:dataRow')
+            //    let new_datarow = store.document.selectSingleNode('*/px:data/px:dataRow')
             //    if (new_datarow) {
             //        new_datarow.setAttribute('x:id', caller.getAttribute('x:id'))
             //    }
             //}
             //if (caller && caller.selectSingleNode('(ancestor-or-self::*[@Name and @Schema][1])[@foreignReference]')) {
             //    store.document.documentElement.setAttribute('x:reference', caller.getAttribute('x:id'), false)
-            //    var foreignReference = caller.selectSingleNode('ancestor-or-self::*[@foreignReference]');
+            //    let foreignReference = caller.selectSingleNode('ancestor-or-self::*[@foreignReference]');
             //    if (foreignReference) {
             //        store.documentElement.selectNodes('//px:layout//px:field[@fieldName="' + foreignReference.getAttribute('foreignReference') + '"]').remove(false);
             //    }
@@ -1484,6 +1484,17 @@ xover.listener.on('error', async function ({ event }) {
         }
     }
 })
+
+xo.server.ws = function (url, target) {
+    try {
+        const socket_io = io(url, { transports: ['websocket'] });
+        socket_io.on('message', function (data) {
+            xo.sources[target, target].documentElement.append(xo.xml.createNode(`<item/>`).set(data))
+        })
+    } catch (e) {
+        return Promise.reject(e);
+    }
+}
 
 //xover.listener.on('hashchange', function (new_hash, old_hash) {
 //    let dirty_entity = xover.site.get("dirty");

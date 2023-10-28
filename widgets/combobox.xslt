@@ -248,7 +248,7 @@
 				</select>
 			</ul>
 			<script>
-		<![CDATA[
+				<![CDATA[
 xo.components.combobox = xo.components.combobox || {};
 xo.listener.on('blur::.combobox [type=search]', function () {
     if (!(this instanceof HTMLInputElement)) return;
@@ -265,6 +265,21 @@ xo.listener.on('blur::.combobox [type=search]', function () {
             }
         }
     })
+});
+
+xo.listener.on('focusin::.combobox [type=search],body', function () {
+    let srcElement = this;
+	let opened_menus = [...document.querySelectorAll(`.combobox .dropdown-menu.show`)].filter(element => element.closest('.dropdown') != srcElement.closest('.dropdown'));
+    for (let menu of opened_menus) {
+		let dropdown = menu.closest('.dropdown')
+        let toggler = dropdown && dropdown.querySelector("[data-bs-toggle]");
+        if (toggler) {
+            try {
+                toggler = (bootstrap.Dropdown.getOrCreateInstance(toggler))
+                toggler.hide();
+            } catch (e) { }
+        }
+    }
 });
 
 xo.components.combobox.filter = function (event) {
@@ -359,7 +374,7 @@ xo.listener.on('click::.dropdown li', function () {
     optionsList.classList.remove('show');
 })
 		]]>
-		</script>
+			</script>
 		</div>
 		<xsl:apply-templates mode="combobox:following-siblings" select=".">
 			<xsl:with-param name="catalog" select="$dataset"/>

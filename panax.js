@@ -939,7 +939,7 @@ px.loadData = async function (entity, keys) {
     let page_index = keys["page_index"];
     constraints = [...id, ...pks]
 
-    let fields = Object.fromEntries(constraints.map(([key]) => key).concat(entity.$$('@custom:*|px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name')).map(field => field.prefix == 'custom' ? [`${field.nodeName}`, field.value] : [`${field.parentNode.nodeName == 'px:Association' && 'meta:' || ''}${field.value}`, `#panax.${field.parentNode.$("self::*[@DataType='nvarchar' or @DataType='varchar' or @DataType='foreignKey' or @DataType='files']") ? 'prepareString' : (field.parentNode.$("self::*[@DataType='xml']") ? 'prepareXML' : 'prepareValue')}(` + (field.parentNode.$("self::px:Association") && `(SELECT ${field.parentNode.$("px:Entity/@displayText|px:Entity[not(@displayText)]/@combobox:text").value} FROM [${field.parentNode.$("px:Entity/@Schema").value}].[${field.parentNode.$("px:Entity/@Name").value}] #foreign WHERE ${field.parentNode.$$('px:Mappings/px:Mapping').map(map => '[' + entity.get("Name") + '].[' + map.get("Referencer") + '] = #foreign.[' + map.get("Referencee") + ']').join(' AND ')})` || `[${field.value}]`) + ')']))
+    let fields = Object.fromEntries(constraints.map(([key]) => key).concat(entity.$$('@custom:*|px:Record/px:Field/@Name|px:Record/px:Association[@Type="belongsTo"]/px:Mappings/px:Mapping/@Referencer|px:Record/px:Association[@Type="belongsTo"]/@Name')).map(field => field.prefix == 'custom' ? [`${field.nodeName}`, field.value] : [`${field.parentNode.nodeName == 'px:Association' && 'meta:' || ''}${field.value}`, `#panax.${field.parentNode.$("self::*[@DataType='nvarchar' or @DataType='varchar' or @DataType='foreignKey' or @DataType='files']") ? 'prepareString' : (field.parentNode.$("self::*[@DataType='xml']") ? 'prepareXML' : 'prepareValue')}(` + (field.parentNode.$("self::px:Association") && `(SELECT ${field.parentNode.$("px:Entity/@displayText|px:Entity[not(@displayText)]/@combobox:text").value} FROM [${field.parentNode.$("px:Entity/@Schema").value}].[${field.parentNode.$("px:Entity/@Name").value}] #foreign WHERE ${field.parentNode.$$('px:Mappings/px:Mapping').map(map => `([${entity.get("Name")}].[${map.get("Referencer")}] = #foreign.[${map.get("Referencee")}]${field.parentNode.getAttribute("IsNullable") != 1 ? '' : ` OR [${entity.get("Name")}].[${map.get("Referencer")}] IS NULL AND #foreign.[${map.get("Referencee")}] IS NULL`})`).join(' AND ')})` || `[${field.value}]`) + ')']))
 
     function getText(entity, entity_name) {
         let text = entity.$$(`@displayText|self::*[not(@displayText)]/@combobox:text|px:Record/px:Field[not(@IsIdentity="1" or @DataType="xml")][1]/@Name|px:Record[not(*[2])]/px:Field[not(@DataType="xml")]/@Name`).shift();
@@ -1242,13 +1242,13 @@ px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data
             !entities.includes(entity) && entities.push(entity);
             return entities;
         }, []).forEach(entity => {
-            let id = entity.$(`px:Record/px:Field[@IsIdentity="1"]`)
+            let id = entity.$(`px:Record/px:Field[@IsIdentity="1"]`)//entity.$(`px:Record/px:Field[@IsIdentity="1" or @DataType="uniqueidentifier"]`) -- not reliable, there might be lots of uniqueidentifier
             let dataTable = xo.xml.createNode(`<dataTable xmlns="http://panax.io/persistence" name="[${entity.get("Schema")}].[${entity.get("Name")}]"${id ? ` identityKey="${id.get("Name")}"` : ''}/>`)
             target.append(dataTable)
         });
         for (let row of data_rows) {
             let entity = row.$('ancestor-or-self::px:Entity[1]');
-            let id = entity.get('IdentityKey');
+            let id = entity.get('IdentityKey');// || entity.selectFirst('px:Record/px:Field[@DataType="uniqueidentifier"]/@Name');
             let primary_fields = entity.select("px:PrimaryKeys/px:PrimaryKey/@Field_Name");
             let dataTable = target.selectFirst(`*[contains(@name,"[${entity.get("Schema")}].[${entity.get("Name")}]")]`);
             let mappings = row.$$("ancestor::px:Association[1]/px:Mappings/px:Mapping/@Referencer");
@@ -1261,15 +1261,18 @@ px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data
                     dataRow.append(field_node);
                 })
             } else {
-                let id_node = row.get(`${id}`)
+                let id_node = row.get(`${id}`);
+                let fields = entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula or @mode="readonly")]/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value));
+                let extra_fields = !id ? primary_fields.filter(field => !fields.some(pf => pf.value == field.value)) : [];
+                fields = extra_fields.concat(fields);
                 if (id_node ? id_node.value : primary_fields.filter(field => {
                     let initial = row.get(`initial:${field}`);
                     let value = row.getAttribute(field.value);
                     return value && initial == undefined || initial && initial.value && initial.value != value || false;
                 }).length) {
                     dataRow = xo.xml.createNode(`<updateRow xmlns="http://panax.io/persistence"${id ? ` identityValue="${row.get(id.value)}"` : ''}/>`);
-                    entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula or @mode="readonly")]/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {
-                        let isPK = field.$(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey[@Field_Name="${field}"]`)
+                    fields.filter(field => primary_fields.some(pf => pf.value == field.value) || ["add"].includes(entity.getAttribute("mode")) || ["edit"].includes(entity.getAttribute("mode")) && row.hasAttribute(`initial:${field.value}`) && row.getAttribute(`initial:${field.value}`) != row.getAttribute(field.value)).forEach(field => {
+                        let isPK = primary_fields.some(pf => pf.value == field.value);
                         let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}"${isPK ? ` isPK="true"` : ''}/>`);
                         let current_value = (row.get(`${field}`) || {}).value;
                         current_value = !isNaN(Number(current_value)) ? Number(current_value) : current_value;
@@ -1278,11 +1281,11 @@ px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data
                         initial_value = !isNaN(Number(current_value)) ? Number(initial_value) : initial_value;
                         let changed = initial_value != current_value;
                         if (isPK || changed) {
-                            let confirmation = row.get(`confirmation:${field}`);
-                            if (confirmation && confirmation != current_value) {
-                                field_node.set(`exception:message`, `El valor de ${field} debe ser confirmado`)
-                                row.set(`exception:${field}`, "")
-                            }
+                            //let confirmation = row.get(`confirmation:${field}`);
+                            //if (confirmation && confirmation != current_value) {
+                            //    field_node.set(`exception:message`, `El valor de ${field} debe ser confirmado`)
+                            //    row.set(`exception:${field}`, "")
+                            //}
                             field_node.set("currentValue", `'${row.get(`initial:${field}`) || row.get(field.value)}'`);
                             field_node.textContent = [row.get(field.value)].map(val => !val.value && (field.$("../@defaultValue") || 'null') || `'${val}'`);
                             dataRow.append(field_node);
@@ -1290,8 +1293,8 @@ px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data
                     })
                 } else {
                     dataRow = xo.xml.createNode(`<insertRow xmlns="http://panax.io/persistence"/>`);
-                    entity.$$('px:Record/px:Field[not(@IsIdentity="1" or @formula or @mode="readonly")]/@Name').filter(field => !mappings.find(mapping => mapping.value == field.value)).forEach(field => {
-                        let isPK = field.$(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey[@Field_Name="${field}"]`);
+                    fields.forEach(field => {
+                        let isPK = primary_fields.some(pf => pf.value == field.value);
                         let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}"${isPK ? ` isPK="true"` : ''}/>`);
                         field_node.textContent = [row.get(field.value)].map(val => !val.value && (field.$("../@defaultValue") || 'null') || `'${val}'`);
                         dataRow.append(field_node);
@@ -1453,6 +1456,10 @@ xo.listener.on(['failure::#server:submit', 'failure::#server:request'], function
         }
         return message.value;
     })
+})
+
+xover.listener.on('Response:failure?status=449', async function ({ statusText }) {
+    return Promise.reject(statusText)
 })
 
 xover.listener.on('error', async function ({ event }) {

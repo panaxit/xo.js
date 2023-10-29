@@ -16,8 +16,8 @@
 	<xsl:param name="globalization:headerText">#globalization</xsl:param>
 
 	<xsl:template mode="headerText" match="@*">
-		<xsl:param name="dataset" select="ancestor::px:Entity[1]/px:Record/px:Field/@Name|ancestor::px:Entity[1]/px:Record/px:Association/@AssociationName"/>
-		<xsl:variable name="ref_field" select="$dataset[.=current()]|$dataset[name()=current()[parent::field:ref]]|$dataset[name()=concat('meta:',current()[parent::association:ref])]"/>
+		<xsl:param name="context" select="ancestor::px:Entity[1]/px:Record/px:Field/@Name|ancestor::px:Entity[1]/px:Record/px:Association/@AssociationName"/>
+		<xsl:variable name="ref_field" select="$context[.=current()]|$context[name()=current()[parent::field:ref]]|$context[name()=concat('meta:',current()[parent::association:ref])]"/>
 		<xsl:choose>
 			<xsl:when test="count($ref_field|current())=1">
 				<xsl:apply-templates mode="globalization:headerText" select="."/>
@@ -33,8 +33,8 @@
 	</xsl:template>
 
 	<xsl:template mode="headerText" match="xo:r/@*">
-		<xsl:param name="dataset" select="ancestor::px:Entity[1]/px:Record/*/@Name"/>
-		<xsl:variable name="ref_field" select="$dataset[.=local-name(current())]"/>
+		<xsl:param name="context" select="ancestor::px:Entity[1]/px:Record/*/@Name"/>
+		<xsl:variable name="ref_field" select="$context[.=local-name(current())]"/>
 		<xsl:choose>
 			<xsl:when test="count($ref_field|current())=1">
 				<xsl:apply-templates mode="globalization:headerText" select="."/>

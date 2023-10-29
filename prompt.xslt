@@ -39,7 +39,7 @@
 	</xsl:template>
 
 	<xsl:template mode="widget" match="@*">
-		<xsl:param name="dataset" select="node-expected"/>
+		<xsl:param name="context" select="node-expected"/>
 		<xsl:param name="class"></xsl:param>
 		<xsl:variable name="current" select="."/>
 		<xsl:variable name="schema" select=".."/>
@@ -78,13 +78,13 @@
 
 	<xsl:template mode="widget" match="parameter[@controlType='combobox']/@value">
 		<xsl:apply-templates mode="combobox:widget" select=".">
-			<xsl:with-param name="dataset" select="../data:rows/xo:r/@meta:text"/>
+			<xsl:with-param name="context" select="../data:rows/xo:r/@meta:text"/>
 		</xsl:apply-templates>
 	</xsl:template>
 
 	<xsl:template mode="widget" match="parameter[@controlType='autocompleteBox']/@value">
 		<xsl:apply-templates mode="autocompleteBox:widget" select=".">
-			<xsl:with-param name="dataset" select="../data:rows/xo:r/@meta:text"/>
+			<xsl:with-param name="context" select="../data:rows/xo:r/@meta:text"/>
 		</xsl:apply-templates>
 	</xsl:template>
 

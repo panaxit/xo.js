@@ -67,7 +67,7 @@
 	<xsl:key name="referencee" match="px:Association/px:Mappings/px:Mapping/@Referencee" use="concat(ancestor::px:Association[1]/@xo:id,'::',.)"/>
 	<xsl:key name="mapping" match="px:Association/px:Mappings/px:Mapping" use="concat(ancestor::px:Association[1]/@xo:id,'::',@Referencer,'::',@Referencee)"/>
 	<xsl:template mode="autocompleteBox:widget" match="@*">
-		<xsl:param name="dataset" select="key('dataset', concat(ancestor::px:Entity[1]/@xo:id,'::',name()))"/>
+		<xsl:param name="context" select="key('dataset', concat(ancestor::px:Entity[1]/@xo:id,'::',name()))"/>
 		<xsl:param name="selection" select="."/>
 		<xsl:param name="target" select="."/>
 		<xsl:param name="class"></xsl:param>
@@ -85,15 +85,15 @@
 			</svg>
 			<ul id="datalist_{../@xo:id}_{local-name()}" class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuLink" data-bs-popper="none">
 				<xsl:choose>
-					<xsl:when test="$dataset[local-name()='nil' and namespace-uri()='http://www.w3.org/2001/XMLSchema-instance'] or not($dataset|$selection[not($dataset)])">
+					<xsl:when test="$context[local-name()='nil' and namespace-uri()='http://www.w3.org/2001/XMLSchema-instance'] or not($context|$selection[not($context)])">
 						<li value="" class="dropdown-item">Sin opciones</li>
 					</xsl:when>
-					<xsl:when test="$dataset">
+					<xsl:when test="$context">
 						<xsl:apply-templates mode="autocompleteBox:previous-options" select=".">
 							<xsl:sort select="../@meta:text"/>
 							<xsl:with-param name="selection" select="$selection"/>
 						</xsl:apply-templates>
-						<xsl:apply-templates mode="autocompleteBox:option" select="$dataset">
+						<xsl:apply-templates mode="autocompleteBox:option" select="$context">
 							<xsl:sort select="../@meta:text"/>
 							<xsl:with-param name="referencer" select="$selection"/>
 						</xsl:apply-templates>
@@ -106,7 +106,7 @@
 					</xsl:otherwise>
 				</xsl:choose>
 				<xsl:apply-templates mode="autocompleteBox:following-siblings" select=".">
-					<xsl:with-param name="catalog" select="$dataset"/>
+					<xsl:with-param name="catalog" select="$context"/>
 				</xsl:apply-templates>
 			</ul>
 			<script>

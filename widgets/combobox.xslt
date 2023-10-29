@@ -76,19 +76,19 @@
 	</xsl:template>
 
 	<xsl:template mode="comboboxButton:options" match="@*">
-		<xsl:param name="dataset" select="node-expected"/>
+		<xsl:param name="context" select="node-expected"/>
 		<xsl:param name="items" select="*"/>
 		<xsl:variable name="id" select="ancestor-or-self::*[@xo:id][1]/@xo:id"/>
 		<li onclick="px.refreshCatalog(this)">
 			<a class="dropdown-item" href="#">Actualizar</a>
 		</li>
 		<xsl:apply-templates mode="widget" select="key('routes',concat(ancestor::px:Entity[1]/@xo:id,'::',name()))">
-			<xsl:with-param name="dataset" select="."/>
+			<xsl:with-param name="context" select="."/>
 		</xsl:apply-templates>
 	</xsl:template>
 
 	<xsl:template mode="combobox:widget" match="@*">
-		<xsl:param name="dataset" select="key('dataset', concat(ancestor::px:Entity[1]/@xo:id,'::',name()))"/>
+		<xsl:param name="context" select="key('dataset', concat(ancestor::px:Entity[1]/@xo:id,'::',name()))"/>
 		<xsl:param name="selection" select="."/>
 		<xsl:param name="target" select="."/>
 		<xsl:param name="class"></xsl:param>
@@ -101,16 +101,16 @@
 			<xsl:attribute name="onmouseover">scope.dispatch('downloadCatalog')</xsl:attribute>
 			<xsl:apply-templates mode="combobox:attributes" select="."/>
 			<xsl:choose>
-				<xsl:when test="$dataset[local-name()='nil' and namespace-uri()='http://www.w3.org/2001/XMLSchema-instance'] or not($dataset|$selection[not($dataset)])">
+				<xsl:when test="$context[local-name()='nil' and namespace-uri()='http://www.w3.org/2001/XMLSchema-instance'] or not($context|$selection[not($context)])">
 					<option value="" xo-scope="none">Sin opciones</option>
 				</xsl:when>
-				<xsl:when test="$dataset">
+				<xsl:when test="$context">
 					<xsl:apply-templates mode="combobox:previous-options" select=".">
 						<xsl:sort select="../@meta:text"/>
 						<xsl:with-param name="selection" select="$selection"/>
 						<xsl:with-param name="schema" select="$schema"/>
 					</xsl:apply-templates>
-					<xsl:apply-templates mode="combobox:option" select="$dataset">
+					<xsl:apply-templates mode="combobox:option" select="$context">
 						<xsl:sort select="../@meta:text"/>
 						<xsl:with-param name="selection" select="$selection"/>
 						<xsl:with-param name="schema" select="$schema"/>
@@ -122,13 +122,10 @@
 				</xsl:otherwise>
 			</xsl:choose>
 		</select>
-		<xsl:apply-templates mode="combobox:following-siblings" select=".">
-			<xsl:with-param name="catalog" select="$dataset"/>
-		</xsl:apply-templates>
 	</xsl:template>
 
 	<xsl:template mode="combobox:widget" match="@*">
-		<xsl:param name="dataset" select="key('dataset', concat(ancestor::px:Entity[1]/@xo:id,'::',name()))"/>
+		<xsl:param name="context" select="key('dataset', concat(ancestor::px:Entity[1]/@xo:id,'::',name()))"/>
 		<xsl:param name="selection" select="."/>
 		<xsl:param name="target" select="."/>
 		<xsl:param name="class"></xsl:param>
@@ -215,9 +212,9 @@
 			</button>
 			<ul class="dropdown-menu" xo-static="@*" style="width: 100%;" aria-labelledby="dropdownMenuLink">
 				<select class="form-select data-option" xo-static="self::*" xo-scope="{../@xo:id}" xo-slot="{name()}" size="10" tabindex="-1" onchange="xo.components.combobox.change()">
-					<xsl:if test="count($dataset) &lt; 10">
+					<xsl:if test="count($context) &lt; 10">
 						<xsl:attribute name="size">
-							<xsl:value-of select="count($dataset) + 1"/>
+							<xsl:value-of select="count($context) + 1"/>
 						</xsl:attribute>
 					</xsl:if>
 					<xsl:attribute name="style">
@@ -225,16 +222,16 @@
 					</xsl:attribute>
 					<xsl:apply-templates mode="combobox:attributes" select="."/>
 					<xsl:choose>
-						<xsl:when test="$dataset[local-name()='nil' and namespace-uri()='http://www.w3.org/2001/XMLSchema-instance'] or not($dataset|$selection[not($dataset)])">
+						<xsl:when test="$context[local-name()='nil' and namespace-uri()='http://www.w3.org/2001/XMLSchema-instance'] or not($context|$selection[not($context)])">
 							<option value="" xo-scope="none">Sin opciones</option>
 						</xsl:when>
-						<xsl:when test="$dataset">
+						<xsl:when test="$context">
 							<xsl:apply-templates mode="combobox:previous-options" select=".">
 								<xsl:sort select="../@meta:text"/>
 								<xsl:with-param name="selection" select="$selection"/>
 								<xsl:with-param name="schema" select="$schema"/>
 							</xsl:apply-templates>
-							<xsl:apply-templates mode="combobox:option" select="$dataset">
+							<xsl:apply-templates mode="combobox:option" select="$context">
 								<xsl:sort select="../@meta:text"/>
 								<xsl:with-param name="selection" select="$selection"/>
 								<xsl:with-param name="schema" select="$schema"/>
@@ -376,9 +373,6 @@ xo.listener.on('click::.dropdown li', function () {
 		]]>
 			</script>
 		</div>
-		<xsl:apply-templates mode="combobox:following-siblings" select=".">
-			<xsl:with-param name="catalog" select="$dataset"/>
-		</xsl:apply-templates>
 	</xsl:template>
 
 	<xsl:template mode="combobox:previous-options" match="@*">

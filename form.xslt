@@ -22,13 +22,13 @@
 	<xsl:key name="form:widget" match="dummy" use="@xo:id"/>
 
 	<!--<xsl:template mode="widget" match="@*[key('form:widget',concat(ancestor-or-self::*[@meta:type='entity'][1]/@xo:id,'.',name()))]">
-		<xsl:param name="dataset" select="../data:rows/xo:r"/>
+		<xsl:param name="context" select="../data:rows/xo:r"/>
 		<xsl:param name="layout" select="../data:rows/xo:r[1]/@*"/>
 		<xsl:param name="selection" select="node-expected"/>
 		<div class="row g-5" style="margin-top:0px;">
 			<div class="col-md-9 col-lg-11">
 				<xsl:apply-templates mode="form:widget" select="current()">
-					<xsl:with-param name="dataset" select="$dataset"/>
+					<xsl:with-param name="context" select="$context"/>
 					<xsl:with-param name="layout" select="$layout"/>
 					<xsl:with-param name="selection" select="$selection"/>
 				</xsl:apply-templates>
@@ -39,11 +39,11 @@
 	<!-- layout -->
 
 	<xsl:template mode="form:field-header" match="@*">
-		<xsl:param name="dataset" select="node-expected"/>
+		<xsl:param name="context" select="node-expected"/>
 		<xsl:param name="field-name">
 			<xsl:apply-templates mode="form:field-name" select="."/>
 		</xsl:param>
-		<xsl:param name="ref_field" select="key('schema',concat($dataset,'::',$field-name))"/>
+		<xsl:param name="ref_field" select="key('schema',concat($context,'::',$field-name))"/>
 		
 		<xsl:attribute name="scope">col</xsl:attribute>
 		<xsl:attribute name="ondblclick">this.toggle('contenteditable','')</xsl:attribute>

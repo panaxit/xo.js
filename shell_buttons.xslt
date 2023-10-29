@@ -60,7 +60,7 @@ exclude-result-prefixes="#default xsl px xo xsi route"
 			<xsl:otherwise>
 				<li class="ms-3">
 					<xsl:apply-templates mode="route:widget" select="ancestor::px:Entity[1]/px:Routes/px:Route[@Method='add']/@xo:id">
-						<xsl:with-param name="dataset" select=".."/>
+						<xsl:with-param name="context" select=".."/>
 					</xsl:apply-templates>
 				</li>
 			</xsl:otherwise>

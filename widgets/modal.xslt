@@ -25,7 +25,7 @@
 	</xsl:template>
 
 	<xsl:template match="@*" mode="modal:widget" priority="-1">
-		<xsl:param name="dataset" select="key('dataset',ancestor::px:Entity[1]/@xo:id)"/>
+		<xsl:param name="context" select="key('dataset',ancestor::px:Entity[1]/@xo:id)"/>
 		<xsl:param name="layout" select="key('layout',ancestor::px:Entity[1]/@xo:id)"/>
 		<div role="alertdialog">
 			<div class="modal fade" id="modal_{@xo:id}" tabindex="-1" role="dialog" aria-labelledby="staticBackdropLabel_{@xo:id}" aria-hidden="true">
@@ -50,13 +50,13 @@
 						<div class="modal-body">
 							<xsl:apply-templates mode="modal:body" select=".">
 								<xsl:with-param name="layout" select="$layout"/>
-								<xsl:with-param name="dataset" select="$dataset"/>
+								<xsl:with-param name="context" select="$context"/>
 							</xsl:apply-templates>
 						</div>
 						<div class="modal-footer">
 							<xsl:apply-templates mode="modal:footer" select=".">
 								<xsl:with-param name="layout" select="$layout"/>
-								<xsl:with-param name="dataset" select="$dataset"/>
+								<xsl:with-param name="context" select="$context"/>
 							</xsl:apply-templates>
 						</div>
 					</div>

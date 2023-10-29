@@ -53,7 +53,7 @@
 
 	<xsl:template match="@*" mode="wizard:widget" priority="-1">
 		<xsl:param name="schema" select="ancestor::px:Entity[1]/px:Record/*[not(@AssociationName)]/@Name|ancestor::px:Entity[1]/px:Record/*/@AssociationName"/>
-		<xsl:param name="dataset" select="key('dataset',ancestor::px:Entity[1]/@xo:id)"/>
+		<xsl:param name="context" select="key('dataset',ancestor::px:Entity[1]/@xo:id)"/>
 		<xsl:param name="items" select="key('layout',ancestor::px:Entity[1]/@xo:id)"/>
 		<xsl:param name="active">
 			<xsl:apply-templates mode="wizard:active-step" select="$items[1]"/>
@@ -85,7 +85,7 @@ container.addEventListener('scroll', function() {
 					<xsl:apply-templates mode="wizard:nav" select=".">
 						<xsl:with-param name="steps" select="$steps"/>
 						<xsl:with-param name="active" select="$active"/>
-						<xsl:with-param name="dataset" select="$dataset"/>
+						<xsl:with-param name="context" select="$context"/>
 					</xsl:apply-templates>
 				</div>
 				<hr style="border-width: 4px; border-color: silver;; margin: 1rem 0 0;"/>
@@ -94,7 +94,7 @@ container.addEventListener('scroll', function() {
 				<xsl:apply-templates mode="wizard:step-panel" select="$steps[position()=$active]">
 					<xsl:with-param name="active" select="$active"/>
 					<xsl:with-param name="step" select="$active"/>
-					<xsl:with-param name="dataset" select="$dataset"/>
+					<xsl:with-param name="context" select="$context"/>
 				</xsl:apply-templates>
 			</div>
 		</div>
@@ -254,7 +254,7 @@ container.addEventListener('scroll', function() {
 	<xsl:template match="@*" mode="wizard:step-panel" priority="-1">
 		<xsl:param name="step" select="position()"/>
 		<xsl:param name="items" select="key('wizard:section',concat($step,'::',ancestor::px:Entity[1]/@xo:id))"/>
-		<xsl:param name="dataset" select="set-expected"/>
+		<xsl:param name="context" select="set-expected"/>
 		<xsl:variable name="step-class">wizard-step step-<xsl:value-of select="$step"/></xsl:variable>
 		<div id="container_{@xo:id}" class="{$step-class}" step="{$step}" data-position="{count(preceding-sibling::*|self::*)}" style="min-height: 400px; width: 100%; margin-left: 0px;" xo-scope="inherit">
 			<xsl:choose>
@@ -282,7 +282,7 @@ container.addEventListener('scroll', function() {
 				<xsl:apply-templates mode="wizard:step-panel-content" select="$items[1]">
 					<xsl:with-param name="step" select="$step"/>
 					<xsl:with-param name="items" select="$items"/>
-					<xsl:with-param name="dataset" select="$dataset"/>
+					<xsl:with-param name="context" select="$context"/>
 				</xsl:apply-templates>
 			</div>
 			<div class="wizard-buttons-wrapper" style="display: block; padding: 1rem 0 3rem 0;">

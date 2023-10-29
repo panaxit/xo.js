@@ -46,7 +46,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 
 	<xsl:template mode="fileExplorer:widget" match="@*">
 		<xsl:param name="schema" select="nodeset-expected"/>
-		<xsl:param name="dataset" select="nodeset-expected"/>
+		<xsl:param name="context" select="nodeset-expected"/>
 		<xsl:param name="layout" select="nodeset-expected"/>
 		<div class="flow-container file-explorer">
 			<div class="row">
@@ -190,9 +190,9 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 							transition: all .2s ease-out;
 							}]]>
 					</style>
-					<xsl:variable name="rows" select="$dataset/ancestor-or-self::data:rows[1]/xo:r/@xo:id|$dataset[not(self::*) and namespace-uri()='http://www.w3.org/2001/XMLSchema-instance' and local-name()='nil']"/>
+					<xsl:variable name="rows" select="$context/ancestor-or-self::data:rows[1]/xo:r/@xo:id|$context[not(self::*) and namespace-uri()='http://www.w3.org/2001/XMLSchema-instance' and local-name()='nil']"/>
 					<xsl:apply-templates mode="fileExplorer:header" select="$rows">
-						<xsl:with-param name="dataset" select="$dataset"/>
+						<xsl:with-param name="context" select="$context"/>
 						<xsl:with-param name="layout" select="$layout"/>
 					</xsl:apply-templates>
 					<xsl:variable name="files" select="$rows/..//*[key('active',@xo:id)]//*[key('File',@xo:id)]"/>
@@ -214,7 +214,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 								<aside class="col-sm-4 col-md-4 col-lg-3">
 									<ul class="sidebar-nav sidebar-dropdown" xo-scope="{../@xo:id}">
 										<xsl:apply-templates mode="fileExplorer:aside" select="$rows[1]/..//Folder[1]/*/@Name">
-											<xsl:with-param name="dataset" select="$dataset"/>
+											<xsl:with-param name="context" select="$context"/>
 											<xsl:with-param name="layout" select="$layout"/>
 										</xsl:apply-templates>
 									</ul>
@@ -222,7 +222,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 								<div class="col">
 									<div class="row">
 										<xsl:apply-templates mode="fileExplorer:body" select="$rows[1]">
-											<xsl:with-param name="dataset" select="$dataset"/>
+											<xsl:with-param name="context" select="$context"/>
 											<xsl:with-param name="layout" select="$layout"/>
 										</xsl:apply-templates>
 									</div>
@@ -298,8 +298,8 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 
 	<xsl:template mode="fileExplorer:body" match="@*">
 		<xsl:param name="layout" select="nodeset-expected"/>
-		<xsl:param name="dataset" select="nodeset-expected"/>
-		<xsl:variable name="rows" select="$dataset/ancestor-or-self::data:rows[1]/xo:r/@xo:id|$dataset[not(self::*) and namespace-uri()='http://www.w3.org/2001/XMLSchema-instance' and local-name()='nil']"/>
+		<xsl:param name="context" select="nodeset-expected"/>
+		<xsl:variable name="rows" select="$context/ancestor-or-self::data:rows[1]/xo:r/@xo:id|$context[not(self::*) and namespace-uri()='http://www.w3.org/2001/XMLSchema-instance' and local-name()='nil']"/>
 		<xsl:apply-templates mode="fileExplorer:body-item" select="..//*[key('active',@xo:id)]/*/@Name"/>
 	</xsl:template>
 

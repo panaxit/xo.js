@@ -29,7 +29,7 @@
 
 	<xsl:template match="@*" mode="groupTabPanel:widget" priority="-1">
 		<xsl:param name="schema" select="node-expected"/>
-		<xsl:param name="dataset" select="node-expected"/>
+		<xsl:param name="context" select="node-expected"/>
 		<xsl:variable name="current_panel" select="../container:groupTabPanel[key('active', @xo:id)]/container:subGroupTabPanel[key('active', @xo:id)]/container:panel/*"/>
 		<div class="row group-tab-pane align-top">
 			<div class="col-4 col-md-3 col-lg-2 col-xl-2 group-tab-nav">
@@ -50,7 +50,7 @@
 
 	<xsl:template mode="groupTabPanel:nav-item" match="container:groupTabPanel/@*">
 		<xsl:param name="schema" select="node-expected"/>
-		<xsl:param name="dataset" select="node-expected"/>
+		<xsl:param name="context" select="node-expected"/>
 		<xsl:variable name="active">
 			<xsl:choose>
 				<xsl:when test="key('active', ../@xo:id)">active</xsl:when>
@@ -94,7 +94,7 @@
 
 	<xsl:template mode="groupTabPanel:nav-item" match="container:subGroupTabPanel/@*">
 		<xsl:param name="schema" select="node-expected"/>
-		<xsl:param name="dataset" select="node-expected"/>
+		<xsl:param name="context" select="node-expected"/>
 		<xsl:variable name="active">
 			<xsl:choose>
 				<xsl:when test="key('active', ../@xo:id)">active</xsl:when>

@@ -20,6 +20,7 @@
   xmlns:picture="http://panax.io/widget/picture"
   xmlns:modal="http://panax.io/widget/modal"
   xmlns:tabPanel="http://panax.io/widget/tabPanel"
+  xmlns:gearButton="http://panax.io/widget/gearButton"
   xmlns:route="http://panax.io/routes"
   xmlns:groupTabPanel="http://panax.io/widget/groupTabPanel"
 
@@ -42,6 +43,7 @@
 	<xsl:import href="headers.xslt"/>
 	<xsl:import href="widgets/modal.xslt"/>
 	<xsl:import href="widgets/tabPanel.xslt"/>
+	<xsl:import href="widgets/gearButton.xslt"/>
 	<xsl:import href="widgets/groupTabPanel.xslt"/>
 	<xsl:import href="widgets/picture.xslt"/>
 	<xsl:import href="widgets/cardview.xslt"/>
@@ -224,8 +226,18 @@
 
 	<xsl:template mode="widget-routes" match="@*"/>
 
-	<xsl:template mode="widget-routes" match="@*[key('widget',concat('combobox:',ancestor::*[key('entity',@xo:id)][1]/@xo:id,'::',name()))]">
-		<xsl:apply-templates mode="comboboxButton:widget" select="."/>
+	<xsl:template mode="widget-routes" match="@*[key('widget',concat('combobox:',ancestor::*[key('entity',@xo:id)][1]/@xo:id,'::',name())) or key('widget',concat('radiogroup:',ancestor::*[key('entity',@xo:id)][1]/@xo:id,'::',name()))]">
+		<xsl:variable name="routes" select="key('routes',concat(ancestor::px:Entity[1]/@xo:id,'::',name()))"/>
+		<xsl:apply-templates mode="gearButton:widget" select=".">
+			<xsl:with-param name="items" select="$routes"/>
+		</xsl:apply-templates>
+	</xsl:template>
+
+	<xsl:template mode="gearButton:option-attributes" match="px:Route/@*">
+		<xsl:param name="context" select="."/>
+		<xsl:apply-templates mode="route:widget-attributes" select=".">
+			<xsl:with-param name="context" select="$context"/>
+		</xsl:apply-templates>
 	</xsl:template>
 
 	<xsl:template mode="widget" match="@*[key('widget',concat('autocompleteBox:',ancestor::*[key('entity',@xo:id)][1]/@xo:id,'::',name()))]">

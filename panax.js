@@ -274,8 +274,8 @@ xo.listener.on(`change::select,input[type=checkbox],input[type=radio]`, function
     if (!src_element instanceof HTMLElement) return;
     let scope = src_element.scope;
     if (!(scope instanceof Attr)) return;
-    let option_source = src_element.closest(".data-option");
-    let selected_record = (option_source.options ? option_source[option_source.selectedIndex].scope : option_source.scope) || src_element.value;
+    let selected_option = src_element;
+    let selected_record = (selected_option.options ? selected_option[selected_option.selectedIndex] : selected_option.closest('.data-row') || document.createElement("p")).scope;
     selected_record = selected_record instanceof Node && selected_record.selectFirst('ancestor-or-self::xo:r[1]') || selected_record;
     //px.selectRecord(selected_record instanceof Element && selected_record || null, scope);
     scope.set(selected_record || "");
@@ -310,12 +310,12 @@ xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, valu
 //})
 
 xo.listener.on([`beforeSet::xo:r/@meta:*`], function ({ value, old }) {
-    if (value && !(value instanceof Node && value.matches && value.matches("xo:r"))) return;
+    if (value && !(value instanceof Node && value.matches && value.matches("xo:r|@IsNullable"))) return;
     if (old == value) return value;
     let scope = this;
     let element = scope.ownerElement || scope;
     let referencers = element.$$(`ancestor::px:Entity[1]/px:Record/px:Association[@AssociationName="${scope.localName}"]/px:Mappings/px:Mapping/@Referencer`);
-    let selected_record = value instanceof Node && value.matches("xo:r") && value || typeof (value) === 'string' && value && referencers[0].selectFirst(`ancestor::px:Association[1]/px:Entity/data:rows/xo:r[@meta:text="${value}"]`) || null;
+    let selected_record = value instanceof Node && value.matches("xo:r") ? value : value instanceof Node && value.matches("@IsNullable[.=1]") ? '' : typeof (value) === 'string' && value ? referencers[0].selectFirst(`ancestor::px:Association[1]/px:Entity/data:rows/xo:r[@meta:text="${value}"]`) : null;
     //if (selected_record === null) {
     //    referencers = referencers.filter(referencer => referencer.parentNode.getAttribute("Referencee") == referencer.selectFirst(`ancestor::px:Association[1]/px:Entity/@IdentityKey`));
     //}
@@ -506,10 +506,8 @@ xo.listener.on(['append::data:rows[@command]', 'set::data:rows/@command', 'remov
         response.seed();
         let firstElementChild = response.cloneNode(true).firstElementChild;
         if (firstElementChild) {
-            targetNode.disconnect();
             firstElementChild.select('@xo:id').remove();
             firstElementChild.select('@*').forEach(attr => targetNode.setAttributeNS(attr.namespaceURI, attr.name, attr.value));
-            targetNode.connect();
             targetNode.replaceChildren(...firstElementChild.childNodes);
         } else {
             targetNode.replaceChildren()
@@ -658,6 +656,27 @@ px.editSelectedOption = async function (src_element) {
     }
     if (primary_value.substr(1)) {
         href = `#${foreign_entity.get("Schema")}/${foreign_entity.get("Name")}${primary_value}~edit`
+    } else {
+        return Promise.reject("No se puede editar el registro")
+    }
+    xo.site.seed = href
+}
+
+px.editSelectedOption = async function (src_element = this) {
+    if (event.cancelBubble || !src_element instanceof HTMLElement) return;
+    event.preventDefault(); event.stopPropagation();
+    let data_context = src_element.closest('.data-field,.data-row');
+    let selected_option = (data_context || document.createElement("p")).find('.data-row [checked],.data-row[selected],tr.data-row');
+    let selected_record = ((selected_option || document.createElement("p")).closest('.data-row') || {}).scope;
+    if (!selected_record) {
+        return Promise.reject("No hay ningún registro asociado")
+    }
+    selected_record = selected_record instanceof Node && selected_record.selectFirst('ancestor-or-self::xo:r[1]') || selected_record;
+    let selected_record_entity = selected_record.$(`ancestor::px:Entity[1]`);
+    primary_value = px.getPrimaryValue(selected_record, selected_record_entity) || '';
+    let entity = selected_record_entity;
+    if (primary_value.substr(1)) {
+        href = `#${entity.get("Schema")}/${entity.get("Name")}${primary_value}~edit`
     } else {
         return Promise.reject("No se puede editar el registro")
     }
@@ -1221,7 +1240,7 @@ px.navigateTo = function (hashtag, ref_id) {
         xo.site.next = hashtag;
         xo.site.seed = hashtag;
     }
-    xover.stores.active.render();
+    //xover.stores.active.render();
 }
 
 function saveConfiguration() {

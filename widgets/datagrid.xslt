@@ -458,7 +458,7 @@
 
 		<xsl:variable name="fields" select="$context[ancestor::xo:r[@xo:id=current()]]|$context[parent::*/parent::px:Record]|$context[$mode='footer']"/>
 		<xsl:variable name="row-content" select="$layout/..//field:ref|$layout/..//association:ref"/>
-		<tr xo-scope="{../@xo:id}">
+		<tr class="data-row" xo-scope="{../@xo:id}">
 			<xsl:attribute name="style">
 				<xsl:apply-templates mode="datagrid:row-style" select="."/>
 			</xsl:attribute>
@@ -482,7 +482,7 @@
 		<xsl:param name="mode">body</xsl:param>
 		<xsl:param name="context" select="node-expected"/>
 		<xsl:param name="layout" select="ancestor-or-self::*[1]/@xo:id"/>
-		<tr>
+		<tr class="data-row">
 			<td>&#160;</td>
 			<td colspan="{count($layout)}" style="text-align: center;">
 				<label>
@@ -509,7 +509,7 @@
 		<xsl:param name="mode">body</xsl:param>
 		<xsl:param name="context" select="../@*"/>
 		<xsl:param name="layout" select="node-expected"/>
-		<tr xo-scope="{../@xo:id}" style="height:15px !important; background-color: #dc3545 !important;">
+		<tr class="data-row" xo-scope="{../@xo:id}" style="height:15px !important; background-color: #dc3545 !important;">
 			<td colspan="{count($layout)+3}" style="text-align:center;">
 				<div xo-slot="state:delete">
 					<span class="badge-delete p-1 badge-danger-light" onclick="scope.remove()">
@@ -692,8 +692,8 @@
 				</xsl:when>
 			</xsl:choose>
 		</xsl:variable>
-		<xsl:apply-templates mode="route:widget" select="ancestor::px:Entity[1]/px:Routes/px:Route[@Method='add']/@xo:id">
-			<xsl:with-param name="context" select=".."/>
+		<xsl:apply-templates mode="route:widget" select="ancestor::px:Entity[1]/px:Routes/px:Route/@Method[.='add']">
+			<xsl:with-param name="xo:context" select=".."/>
 		</xsl:apply-templates>
 	</xsl:template>
 

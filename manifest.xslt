@@ -57,6 +57,7 @@
 	<xsl:import href="widgets/wizard.xslt"/>
 	<xsl:import href="form.xslt"/>
 	<xsl:import href="datagrid.xslt"/>
+	<xsl:import href="routes.xslt"/>
 
 	<xsl:key name="styles" match="@height:*" use="concat(../@xo:id,'::',local-name())"/>
 	<xsl:key name="styles" match="@width:*" use="concat(../@xo:id,'::',local-name())"/>
@@ -181,7 +182,7 @@
 				<xsl:variable name="value">
 					<xsl:apply-templates mode="value" select="."/>
 				</xsl:variable>
-				<div class="form-check form-check-inline data-option" xo-scope="{../@xo:id}" xo-slot="{name(.)}">
+				<div class="form-check form-check-inline data-row" xo-scope="{../@xo:id}" xo-slot="{name(.)}">
 					<input class="form-check-input" type="radio" value="{$value}" id="{../@xo:id}_{position()}" xo-scope="{$current/../@xo:id}" xo-slot="{name($current)}" name="{name($current)}" xo-swap="self::*">
 						<xsl:if test="string($current) = string($value)">
 							<xsl:attribute name="onclick">scope.set('')</xsl:attribute>
@@ -230,6 +231,7 @@
 		<xsl:variable name="routes" select="key('routes',concat(ancestor::px:Entity[1]/@xo:id,'::',name()))"/>
 		<xsl:apply-templates mode="gearButton:widget" select=".">
 			<xsl:with-param name="items" select="$routes"/>
+			<xsl:with-param name="xo:context" select="key('dataset',concat(ancestor::*[key('entity',@xo:id)][1]/@xo:id,'::',name()))/ancestor-or-self::data:rows[1]/@xo:id"/>
 		</xsl:apply-templates>
 	</xsl:template>
 
@@ -315,6 +317,7 @@
 		<xsl:param name="layout" select="key('layout',ancestor::px:Entity[1]/@xo:id)"/>
 		<xsl:apply-templates mode="form:widget" select="current()">
 			<xsl:with-param name="context" select="$context"/>
+			<xsl:with-param name="xo:context" select="$context"/>
 			<xsl:with-param name="layout" select="$layout"/>
 		</xsl:apply-templates>
 	</xsl:template>
@@ -492,7 +495,7 @@
 
 	<xsl:template mode="modal:footer" match="@*">
 		<xsl:for-each select="../data:rows[not(xo:r[2])]/xo:r">
-			<a class="text-muted" href="#" xo-scope="{@xo:id}" onclick="px.submit(scope)">
+			<a class="text-muted" href="#" onclick="px.submit(scope)">
 				<button class="btn btn-success">Guardar</button>
 			</a>
 		</xsl:for-each>
@@ -500,7 +503,7 @@
 
 	<xsl:template mode="modal:body" match="@*">
 		<xsl:param name="context" select="key('dataset',ancestor::px:Entity[1]/@xo:id)"/>
-		<div class="input-group d-flex justify-content-between col-8" xo-scope="{../@xo:id}">
+		<div class="input-group d-flex justify-content-between col-8">
 			<xsl:apply-templates mode="form:widget" select="current()">
 				<xsl:with-param name="context" select="$context"/>
 			</xsl:apply-templates>
@@ -605,5 +608,9 @@
 		<xsl:comment>
 			hidden <xsl:value-of select="../@xo:id"/>: <xsl:value-of select="."/>
 		</xsl:comment>
+	</xsl:template>
+
+	<xsl:template mode="title" match="@*">
+		<xsl:apply-templates mode="headerText" select="."/>	
 	</xsl:template>
 </xsl:stylesheet>

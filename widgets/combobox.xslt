@@ -102,7 +102,7 @@
 			<xsl:apply-templates mode="combobox:attributes" select="."/>
 			<xsl:choose>
 				<xsl:when test="$context[local-name()='nil' and namespace-uri()='http://www.w3.org/2001/XMLSchema-instance'] or not($context|$selection[not($context)])">
-					<option value="" xo-scope="none">Sin opciones</option>
+					<option class="data-row" value="" xo-scope="none">Sin opciones</option>
 				</xsl:when>
 				<xsl:when test="$context">
 					<xsl:apply-templates mode="combobox:previous-options" select=".">
@@ -210,11 +210,12 @@
 					</input>
 				</div>
 			</button>
+			<xsl:variable name="options" select="$context|$schema/ancestor::px:Association[1]/@IsNullable[.=1]"/>
 			<ul class="dropdown-menu" xo-static="@*" style="width: 100%;" aria-labelledby="dropdownMenuLink">
-				<select class="form-select data-option" xo-static="self::*" xo-scope="{../@xo:id}" xo-slot="{name()}" size="10" tabindex="-1" onchange="xo.components.combobox.change()">
-					<xsl:if test="count($context) &lt; 10">
+				<select class="form-select data-rows" xo-static="self::*" xo-scope="{../@xo:id}" xo-slot="{name()}" size="10" tabindex="-1" onchange="xo.components.combobox.change()">
+					<xsl:if test="count($options) &lt; 10">
 						<xsl:attribute name="size">
-							<xsl:value-of select="count($context) + 1"/>
+							<xsl:value-of select="count($options) + 1"/>
 						</xsl:attribute>
 					</xsl:if>
 					<xsl:attribute name="style">
@@ -222,16 +223,16 @@
 					</xsl:attribute>
 					<xsl:apply-templates mode="combobox:attributes" select="."/>
 					<xsl:choose>
-						<xsl:when test="$context[local-name()='nil' and namespace-uri()='http://www.w3.org/2001/XMLSchema-instance'] or not($context|$selection[not($context)])">
-							<option value="" xo-scope="none">Sin opciones</option>
+						<xsl:when test="$options[local-name()='nil' and namespace-uri()='http://www.w3.org/2001/XMLSchema-instance'] or not($options|$selection[not($options)])">
+							<option class="data-row" value="" xo-scope="none">Sin opciones</option>
 						</xsl:when>
-						<xsl:when test="$context">
+						<xsl:when test="$options">
 							<xsl:apply-templates mode="combobox:previous-options" select=".">
 								<xsl:sort select="../@meta:text"/>
 								<xsl:with-param name="selection" select="$selection"/>
 								<xsl:with-param name="schema" select="$schema"/>
 							</xsl:apply-templates>
-							<xsl:apply-templates mode="combobox:option" select="$context">
+							<xsl:apply-templates mode="combobox:option" select="$options">
 								<xsl:sort select="../@meta:text"/>
 								<xsl:with-param name="selection" select="$selection"/>
 								<xsl:with-param name="schema" select="$schema"/>
@@ -376,7 +377,7 @@ xo.listener.on('click::.dropdown li', function () {
 	</xsl:template>
 
 	<xsl:template mode="combobox:previous-options" match="@*">
-		<option value="" xo-scope="none" class="disabled">
+		<option value="" xo-scope="none" class="disabled data-row">
 			Selecciona...
 		</option>
 	</xsl:template>
@@ -389,16 +390,32 @@ xo.listener.on('click::.dropdown li', function () {
 		<xsl:text/>Sin opciones...<xsl:text/>
 	</xsl:template>
 
+	<xsl:template mode="combobox:option-text" match="@IsNullable[.=1]">
+		<xsl:text/>Sin asignar<xsl:text/>
+	</xsl:template>
+
+	<xsl:template mode="combobox:option-value" match="@IsNullable[.=1]">
+		<xsl:text/>null<xsl:text/>
+	</xsl:template>
+
 	<xsl:template mode="combobox:option" match="@*">
 		<xsl:param name="selection" select="node-expected|current()"/>
 		<xsl:param name="schema" select="current()"/>
 		<xsl:variable name="current" select="current()"/>
-		<option value="{.}" xo-scope="{../@xo:id}">
+		<option class="data-row" xo-scope="{../@xo:id}">
 			<xsl:variable name="differences">
 				<xsl:for-each select="$schema">
 					<xsl:if test="$current/../@*[name()=current()]!=$selection/../@*[name()=current()/../@Referencer]">1</xsl:if>
 				</xsl:for-each>
 			</xsl:variable>
+			<xsl:if test="not(parent::xo:r)">
+				<xsl:attribute name="xo-slot">
+					<xsl:value-of select="name()"/>
+				</xsl:attribute>
+			</xsl:if>
+			<xsl:attribute name="value">
+				<xsl:apply-templates mode="combobox:option-value" select="."/>
+			</xsl:attribute>
 			<xsl:if test="$differences = ''">
 				<xsl:attribute name="selected"/>
 			</xsl:if>

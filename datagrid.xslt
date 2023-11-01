@@ -55,6 +55,7 @@
 		<th>
 			<xsl:apply-templates mode="widget" select="key('datagrid:row-header-element',ancestor::px:Entity[1]/@xo:id)">
 				<xsl:with-param name="context" select="parent::xo:r"/>
+				<xsl:with-param name="xo:context" select="parent::xo:r"/>
 			</xsl:apply-templates>
 		</th>
 	</xsl:template>
@@ -82,6 +83,7 @@
 		<th style="text-align: right;">
 			<xsl:apply-templates mode="route:widget" select="key('datagrid:row-footer-element',ancestor::px:Entity[1]/@xo:id)">
 				<xsl:with-param name="context" select="parent::xo:r"/>
+				<xsl:with-param name="xo:context" select="parent::xo:r"/>
 			</xsl:apply-templates>
 		</th>
 	</xsl:template>

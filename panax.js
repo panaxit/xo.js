@@ -1310,7 +1310,7 @@ px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data
                     fields.forEach(field => {
                         let isPK = primary_fields.some(pf => pf.value == field.value);
                         let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}"${isPK ? ` isPK="true"` : ''}/>`);
-                        field_node.textContent = [row.get(field.value)].map(val => val ? val.value : (field.$("../@defaultValue") || 'null') || `'${val}'`);
+                        field_node.textContent = [row.get(field.value)].map(val => xover.xml.formatValue(val && val.value || field.$("../@defaultValue") || 'null')).map(value => typeof (value) == 'string' ? `'${value}'` : value).join();
                         dataRow.append(field_node);
                     })
                 }

@@ -1220,12 +1220,12 @@ px.createEmptyRow = function (entity) {
     return xo.xml.createNode(`<xo:r xmlns:xo="http://panax.io/xover" xmlns:state="http://panax.io/state" xsi:type="mock" state:new="true" ${fields}/>`).seed();
 }
 
-xover.listener.on('click::a', async function (event) {
-    let href = this.getAttribute("href") || '';
-    if (href.length > 1 && href.indexOf("#") != -1) {
-        event.preventDefault();
-        px.navigateTo(href, this.scope);
-    }
+xover.listener.on(`click::self::*[ancestor-or-self::a[starts-with(@href,"#") and string-length(@href) > 1]]`, async function (event) {
+    if (event.defaultPrevented) return;
+    let a = this.closest("a");
+    let href = a.getAttribute("href") || '';
+    event.preventDefault();
+    px.navigateTo(href, this.scope);
 })
 
 px.navigateTo = function (hashtag, ref_id) {
@@ -1234,12 +1234,7 @@ px.navigateTo = function (hashtag, ref_id) {
     hashtag = (hashtag || "").replace(/^([^#])/, '#$1');
     let store = xo.stores[hashtag];
     store && store.remove();
-    if ([xo.site.seed, ...(xo.site.activeTags() || [])].includes(hashtag) || xover.stores[hashtag].isRendered) { //TODO: Revisar si isRendered siempre 
-        xo.site.active = hashtag;
-    } else {
-        xo.site.next = hashtag;
-        xo.site.seed = hashtag;
-    }
+    xover.site.navigate(hashtag);
     //xover.stores.active.render();
 }
 

@@ -32,13 +32,34 @@
 	</xsl:template>
 
 	<xsl:template name="route:link-attribute" mode="route:link-attribute" match="px:Route/@*" priority="-1">
+		<xsl:param name="xo:context" select="."/>
+		<xsl:variable name="fields" select="$xo:context/self::xo:r/@*"/>
+		<xsl:variable name="entity" select="ancestor-or-self::px:Entity[1]"/>
+		<xsl:variable name="reference">
+			<xsl:choose>
+				<xsl:when test="$xo:context/self::xo:r[@state:new]">
+					<xsl:value-of select="concat('@',$xo:context/self::xo:r/@xo:id)"/>
+				</xsl:when>
+				<xsl:when test="$fields and $entity/@IdentityKey">
+					<xsl:value-of select="concat(':',$fields[name()=$entity/@IdentityKey])"/>
+				</xsl:when>
+				<xsl:when test="$fields and $entity/px:PrimaryKeys/px:PrimaryKey/@Field_Name">
+					<xsl:for-each select="$entity/px:PrimaryKeys/px:PrimaryKey/@Field_Name">
+						<xsl:value-of select="concat('/',$fields[name()=current()])"/>
+					</xsl:for-each>
+				</xsl:when>
+				<xsl:when test="$xo:context/parent::px:Association">
+					<xsl:value-of select="concat('@',$xo:context/data:rows/@xo:id)"/>
+				</xsl:when>
+			</xsl:choose>
+		</xsl:variable>
 		<xsl:variable name="route" select="current()"/>
 		<xsl:attribute name="href">
-			<xsl:value-of select="concat('#',ancestor-or-self::px:Entity[1]/@Schema,'/',ancestor-or-self::px:Entity[1]/@Name,'~',$route/../@Method)"/>
+			<xsl:value-of select="concat('#',$entity/@Schema,'/',$entity/@Name,$reference,'~',$route/../@Method)"/>
 		</xsl:attribute>
 	</xsl:template>
 
-	<xsl:template mode="route:link-attribute" match="px:Route[@Method='edit']/@*" priority="-1">
+	<xsl:template mode="menu:link-attribute" match="px:Route[@Method='edit']/@*" priority="-1">
 		<xsl:call-template name="route:link-attribute"/>
 		<!--<xsl:attribute name="href">javascript:void(0)</xsl:attribute>-->
 		<xsl:attribute name="onclick">px.editSelectedOption(this)</xsl:attribute>

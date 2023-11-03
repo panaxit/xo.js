@@ -59,7 +59,15 @@
 		</xsl:attribute>
 	</xsl:template>
 
-	<xsl:template mode="menu:link-attribute" match="px:Route[@Method='edit']/@*" priority="-1">
+	<xsl:template mode="menu:item-icon" match="px:Route/@*" priority="-1">
+		<xsl:apply-templates mode="route:item-icon" select="."/>
+	</xsl:template>
+
+	<xsl:template mode="menu:item-link-attribute" match="px:Route/@*" priority="-1">
+		<xsl:apply-templates mode="route:link-attribute" select="."/>
+	</xsl:template>
+
+	<xsl:template mode="menu:item-link-attribute" match="px:Route[@Method='edit']/@*" priority="-1">
 		<xsl:call-template name="route:link-attribute"/>
 		<!--<xsl:attribute name="href">javascript:void(0)</xsl:attribute>-->
 		<xsl:attribute name="onclick">px.editSelectedOption(this)</xsl:attribute>
@@ -235,14 +243,6 @@
 
 	<xsl:template mode="label" match="px:Route/@*" priority="-1">
 		label
-	</xsl:template>
-
-	<xsl:template mode="menu:item-link-attribute" match="px:Route/@*">
-		<xsl:apply-templates mode="route:link-attribute" select="."/>
-	</xsl:template>
-
-	<xsl:template mode="menu:item-icon" match="px:Route/@*" priority="-1">
-		<xsl:apply-templates mode="route:item-icon" select="."/>
 	</xsl:template>
 
 	<xsl:template mode="title" match="px:Route/@Method">

@@ -72,7 +72,7 @@ xo.listener.on(['transform::*[//button[not(@type)]]'], function () {
     this.selectNodes("//button[not(@type)]").forEach(el => el.set("type", "button")) //default behavior
 })
 
-xo.listener.on(['render::px-Entity.xslt'], function ({ node, old }) {
+xo.listener.on(['render::#px-Entity.xslt'], function ({ node, old }) {
     let current_step = (node.querySelector(".wizard li.active") || document.createElement("p")).getAttribute("data-position")
     let old_step = (old.querySelector(".wizard li.active") || document.createElement("p")).getAttribute("data-position");
     if (current_step && old_step != current_step) {
@@ -129,7 +129,7 @@ xo.listener.on(['change::@meta:pageIndex', 'change::@meta:pageSize'], function (
     }
 })*/
 
-xo.listener.on(['beforeTransform::px:Entity'], function ({ event }) {
+xo.listener.on(['beforeTransform::px:Entity'], function (event) {
     let node = this;
 
     for (let association_ref of node.select(`//px:Association[@DataType='junctionTable']/px:Entity/px:Record/px:Association[@Name=../../*[local-name()='layout']/association:ref/@Name][px:Entity/data:rows/xo:r]`)) {
@@ -506,8 +506,10 @@ xo.listener.on(['append::data:rows[@command]', 'set::data:rows/@command', 'remov
         response.seed();
         let firstElementChild = response.cloneNode(true).firstElementChild;
         if (firstElementChild) {
+            targetNode.ownerDocument.disconnect()
             firstElementChild.select('@xo:id').remove();
             firstElementChild.select('@*').forEach(attr => targetNode.setAttributeNS(attr.namespaceURI, attr.name, attr.value));
+            targetNode.ownerDocument.connect()
             targetNode.replaceChildren(...firstElementChild.childNodes);
         } else {
             targetNode.replaceChildren()
@@ -784,6 +786,7 @@ px.request = async function (request_or_entity_name, ...args) {
     let prev_store = prev.store || '';
     let ref_store = prev_store && xo.stores[prev_store];
     if (ref_store && prev_store.replace(/^#/, '') !== request_or_entity_name.replace(/^#/, '')) {
+        ref_store.document.firstChild && ref_store.save()
         await ref_store.ready;
     }
     let ref_node = ref_store && ref_store.findById(reference.id) || null;

@@ -5,6 +5,7 @@
   xmlns="http://www.w3.org/1999/xhtml"
   xmlns:custom="http://panax.io/custom"
   xmlns:data="http://panax.io/source"
+  xmlns:state="http://panax.io/state"
   xmlns:filter="http://panax.io/state/filter"
   xmlns:meta="http://panax.io/metadata"
   xmlns:combobox="http://panax.io/widget/combobox"
@@ -203,16 +204,15 @@
 			<xsl:attribute name="onmouseover">scope.dispatch('downloadCatalog')</xsl:attribute>
 			<button class="btn btn-lg dropdown-toggle form-control" xo-static="@*" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="display:flex; padding: 0; background: transparent; padding-right: 2.5rem; position: absolute; top: 0;" tabindex="-1" onfocus="this.querySelector('input').focus()">
 				<div class="form-group form-floating input-group" style="min-width: calc(19ch + 6rem);border: none;">
-					<input type="search" name="" class="form-control" autocomplete="off" aria-autocomplete="none" maxlength="" size="" value="{current()}" old-value="{current()}" style="border: 0 solid transparent !important; background: transparent;">
-						<xsl:attribute name="onkeyup">xo.components.combobox.keyup(event)</xsl:attribute>
-						<xsl:attribute name="oninput">xo.components.combobox.filter(event)</xsl:attribute>
+					<xsl:variable name="data_rows" select="$context/ancestor-or-self::data:rows[1]"/>
+					<input type="search" name="" class="form-control" autocomplete="off" aria-autocomplete="none" maxlength="" size="" value="{current()}" style="border: 0 solid transparent !important; background: transparent;" xo-scope="{$data_rows/@xo:id}" xo-slot="state:filter">
 						<xsl:attribute name="onfocus">this.select(); parentNode.scope.dispatch('downloadCatalog')</xsl:attribute>
 					</input>
 				</div>
 			</button>
 			<xsl:variable name="options" select="$context|$schema/ancestor::px:Association[1]/@IsNullable[.=1]"/>
 			<ul class="dropdown-menu" xo-static="@*" style="width: 100%;" aria-labelledby="dropdownMenuLink">
-				<select class="form-select data-rows" xo-static="self::*" xo-scope="{../@xo:id}" xo-slot="{name()}" size="10" tabindex="-1" onchange="xo.components.combobox.change()">
+				<select class="form-select data-rows" xo-static="@*" xo-scope="{../@xo:id}" xo-slot="{name()}" size="10" tabindex="-1" onchange="xo.components.combobox.change()">
 					<xsl:if test="count($options) &lt; 10">
 						<xsl:attribute name="size">
 							<xsl:value-of select="count($options) + 1"/>
@@ -265,7 +265,7 @@ xo.listener.on('blur::.combobox [type=search]', function () {
     })
 });
 
-xo.listener.on('focusin::.combobox [type=search],body', function () {
+xo.components.combobox.focusin = function() {
     let srcElement = this;
 	let opened_menus = [...document.querySelectorAll(`.combobox .dropdown-menu.show`)].filter(element => element.closest('.dropdown') != srcElement.closest('.dropdown'));
     for (let menu of opened_menus) {
@@ -278,7 +278,8 @@ xo.listener.on('focusin::.combobox [type=search],body', function () {
             } catch (e) { }
         }
     }
-});
+}
+xo.listener.on('focusin::.combobox [type=search],body', xo.components.combobox.focusin)
 
 xo.components.combobox.filter = function (event) {
     let self = event.srcElement;
@@ -304,6 +305,8 @@ xo.components.combobox.filter = function (event) {
     }
     optionsList.classList.add("filtered");
 }
+
+xo.listener.on(`input::.combobox [type=search]`, xo.components.combobox.filter);
 
 xo.components.combobox.change = function () {
     let srcElement = event.srcElement;
@@ -350,8 +353,9 @@ xo.components.combobox.keyup = function (event) {
     //	optionsList.classList.remove('show');
     //}
 };
+xo.listener.on('input::.combobox [type=search]', xo.components.combobox.keyup)
 
-xo.listener.on('keydown::.dropdown-toggle input', function (event) {
+xo.listener.on('input::.combobox [type=search]', function (event) {
     if (!['Tab', 'Enter'].includes(event.key)) return;
     let srcElement = event.srcElement;
     let dropdown = srcElement.closest('.dropdown');

@@ -1,0 +1,19 @@
+img {
+    font-style: italic;
+    background-repeat: no-repeat;
+    background-size: cover;
+    shape-margin: 1rem;
+    max-width: 100%;
+    height: auto;
+    vertical-align: middle;
+}
+
+.required label.form-label::after {
+    content: " *";
+    color: red;
+}
+/*
+input[required] {
+    background-color: #ffcccc;
+}
+*/

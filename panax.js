@@ -485,7 +485,7 @@ xo.listener.on('set::@data:rows', function ({ value, old: prev }) {
     }
 })
 
-xo.listener.on(['append::data:rows[@command]', 'set::data:rows/@command', 'remove::data:rows[not(xo:r)]/@xsi:nil'], async function ({ value, old: prev }) {
+xo.listener.on(['append::data:rows[@command][not(xo:r) and not(@xsi:nil)]', 'set::data:rows/@command', 'remove::data:rows[not(xo:r)]/@xsi:nil'], async function ({ value, old: prev }) {
     let node = this.selectFirst(`ancestor-or-self::data:rows[1]`);
     let targetNode = node
     let command = node.get("command");
@@ -668,7 +668,7 @@ px.editSelectedOption = async function (src_element = this) {
     if (event.cancelBubble || !src_element instanceof HTMLElement) return;
     event.preventDefault(); event.stopPropagation();
     let data_context = src_element.closest('.data-field,.data-row');
-    let selected_option = (data_context || document.createElement("p")).find('.data-row [checked],.data-row[selected],tr.data-row');
+    let selected_option = (data_context || document.createElement("p")).contains('.data-row [checked],.data-row[selected],tr.data-row');
     let selected_record = ((selected_option || document.createElement("p")).closest('.data-row') || {}).scope;
     if (!selected_record) {
         return Promise.reject("No hay ningún registro asociado")
@@ -695,7 +695,7 @@ xo.listener.on("downloadCatalog::xo:r/@meta:*|association:ref/@*|field:ref/@*", 
     let association_name = scope.matches("@meta:*") && scope.localName || scope.value;
     let association = scope.select(`ancestor::px:Entity[1]/px:Record/px:Association[@Type="belongsTo"][@AssociationName="${association_name}"]`)[0];
     if (!association) return;
-    let commands = association.select("descendant::data:rows[not(xo:r)]/@command");
+    let commands = association.select("descendant::data:rows[not(xo:r) and not(@xsi:nil)]/@command");
     let return_value;
     if (commands.length) {
         return_value = commands.map(command => command.dispatch('update'))
@@ -714,7 +714,7 @@ Object.defineProperty(Attr.prototype, 'schema', {
             field_name = scope.value
         } else if (!scope.matches('xo:r/@*')) {
             return null
-        } else if (scope.namespaceURI === 'http://panax.io/metadata') {
+        } else if (['http://panax.io/metadata', 'http://panax.io/state/search'].includes(scope.namespaceURI)) {
             field_name = scope.localName
         } else {
             field_name = scope.name
@@ -991,10 +991,10 @@ px.loadData = async function (entity, keys) {
         predicate = predicate.concat(mappings)
     }
     data_rows = xo.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
+    let command = xo.QUERI(`${entity.get("Schema")}/${entity.get("Name")}?${new URLSearchParams(predicate || {})}#&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '300')}&orderBy=${order_by}&fields=${encodeURIComponent(Object.entries(fields).filter(([, value]) => value).sort((first, second) => first[1].indexOf("XML") - second[1].indexOf("XML")).map(([key, value]) => `[${value.indexOf("prepareXML") == -1 ? '@' + key : "x:f/@Name]='" + key + "', [x:f"}]=${value.replace(/#panax\.prepareXML/, '')}`).join('&'))}`).toString();
+    data_rows.setAttribute("command", command);
     returnValue.push(data_rows);
     entity.append(data_rows);
-    let command = xo.QUERI(`${entity.get("Schema")}/${entity.get("Name")}?${new URLSearchParams(predicate || {})}#&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '3000')}&orderBy=${order_by}&fields=${encodeURIComponent(Object.entries(fields).filter(([, value]) => value).sort((first, second) => first[1].indexOf("XML") - second[1].indexOf("XML")).map(([key, value]) => `[${value.indexOf("prepareXML") == -1 ? '@' + key : "x:f/@Name]='" + key + "', [x:f"}]=${value.replace(/#panax\.prepareXML/, '')}`).join('&'))}`).toString();
-    data_rows.setAttribute("command", command);
     let junction_association = entity.select(`self::px:Entity[parent::px:Association[@DataType="junctionTable"]]/px:Record/px:Association`).filter(fks => {
         let pks = fks.select(`ancestor::px:Entity[1]/px:PrimaryKeys/px:PrimaryKey/@Field_Name`).map(pk => pk.value);
         return fks.select(`px:Mappings/px:Mapping/@Referencer`).every(referencer => pks.includes(referencer.value))
@@ -1100,15 +1100,27 @@ xo.listener.on(`filter::@*`, function ({ event }) {
     }
 })
 
+xo.listener.on('input::input[type=search][xo-slot="state:filter"]', function (event) {
+    event.stopPropagation();
+    let self = this;
+    xover.manager.delay.set(this, xover.manager.delay.get(this) || xover.delay(1000).then(async () => {
+        let scope = self.scope;
+        scope && scope.set(this.value)
+    }).finally(() => xover.manager.delay.delete(this)));
+})
+
 xo.listener.on('change::@state:filter', function ({ target, stylesheet }) {
     function formatName(node, quoteChar = '"') {
-        let str = node.select("../@Name|../self::data:rows").map(name => name.matches("data:rows") ? '@meta:text' : name.matches("px:Association/@Name") && `@meta:${name}` || `@${name}`).pop();
+        let str = node.matches("@search:*") && `@meta:text` || node.select("../@Name|../self::data:rows").map(name => name.matches("data:rows") ? '@meta:text' : name.matches("px:Association/@Name") && `@meta:${name}` || `@${name}`).pop();
         return quoteChar + str.replace(quoteChar, quoteChar + quoteChar) + quoteChar;
     }
 
     let commands;
     if (this.matches(`px:Association[@DataType="junctionTable"]/px:Entity/px:Record/px:Association/@*`)) {
         commands = this.parentNode.select(`px:Entity[1]/data:rows/@command`)
+    } else if (this.matches("@search:*")) {
+        let schema = this.schema;
+        commands = schema && schema.select(`px:Entity[1]/data:rows/@command`)
     } else {
         commands = this.parentNode.select(`ancestor-or-self::px:Entity[1]/data:rows/@command`)
     }
@@ -1117,7 +1129,7 @@ xo.listener.on('change::@state:filter', function ({ target, stylesheet }) {
         qri = xo.QUERI(command)
         let predicate = qri.predicate;
         predicate.delete('AND');
-        for (let filter of command.parentNode.select('@state:filter|ancestor-or-self::px:Entity[1]/px:Record/*/@state:filter')) {
+        for (let filter of command.parentNode.select('@state:filter|ancestor-or-self::px:Entity[1]/px:Record/*/@state:filter').concat(this.matches("@search:*") ? this : [])) {
             predicate.append('AND', `${formatName(filter)} LIKE '%${(filter.value || '').replace(/'/g, "''")}%' COLLATE Latin1_General_CI_AI`);
         }
         qri.headers.set("pageIndex", 1);
@@ -1139,6 +1151,7 @@ px.getData = async function (...args) {
             } = xo.QUERI(parameters));
             page_size = url_settings.get("pageSize");
             page_index = url_settings.get("pageIndex");
+            max_records = url_settings.get("maxRecords");
             order_by = url_settings.get("orderBy");
             if (name) {
                 request = `[${name}]`
@@ -1182,6 +1195,7 @@ px.getData = async function (...args) {
             , "x-Root-Node": root_node
             , "x-Page-Index": (page_index || '')
             , "x-Page-Size": (page_size || '')
+            , "x-Max-Records": (max_records || '')
             , "x-Detect-Missing-Variables": "false"
             , "x-Debugging": xover.debug.enabled
             , "x-data-text": encodeURIComponent(node.getAttribute('source_text:' + attribute_base_name) || node.getAttribute('dataText') || "")
@@ -1198,8 +1212,12 @@ px.getData = async function (...args) {
         if (!(node && node.parentElement)) return;
         let entity = node.parentElement.$('self::px:Entity[ancestor-or-self::*[@mode="add"] and not(parent::px:Association[@Type="hasMany"]) or parent::px:Association[@Type="hasOne"]]');
         //let entity = node.$('parent::px:Entity[//px:Entity[@mode="add"]]')
-        if (entity && !(response.documentElement.firstElementChild)) {
-            response.documentElement.append(px.createEmptyRow(entity))
+        if (!(response.documentElement.firstElementChild)) {
+            if (entity) {
+                response.documentElement.append(px.createEmptyRow(entity))
+            } else {
+                response.documentElement.setAttribute("xsi:nil", true)
+            }
         }
         if (node.$('self::*[not(@xsi:type="mock")]/parent::px:Entity/parent::px:Association[@DataType="junctionTable"]')) {
             response.documentElement.select(`xo:r`).forEach(row => row.set("state:checked", "true"))

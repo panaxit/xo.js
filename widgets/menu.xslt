@@ -38,7 +38,7 @@ xmlns="http://www.w3.org/1999/xhtml"
 
 	<xsl:template match="@*|*" mode="menu:item-icon" priority="-1"/>
 	
-	<xsl:template match="@*|*" mode="menu:item-link-attribute"/>
+	<xsl:template match="@*|*" mode="menu:item-link-attribute" priority="-1"/>
 
 	<xsl:template match="*[@href]|*[@href]/@*" mode="menu:item-link-attribute">
 		<xsl:copy-of select="ancestor-or-self::*[1]/@href"/>

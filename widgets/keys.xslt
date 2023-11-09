@@ -46,6 +46,7 @@
 	<xsl:key name="dataset" match="data:rows/@xsi:nil" use="concat(../../@xo:id,'::',../../@xo:id)"/>
 	<xsl:key name="dataset" match="data:rows/xo:r/@xo:id" use="concat(../../../@xo:id,'::',../../../@xo:id)"/>
 	<xsl:key name="dataset" match="px:Association/px:Entity/data:rows/xo:r/@meta:text" use="concat(ancestor::px:Entity[2]/@xo:id,'::meta:',ancestor::px:Association[1]/@Name)"/>
+	<xsl:key name="dataset" match="px:Association/px:Entity/data:rows/@xsi:nil" use="concat(ancestor::px:Entity[2]/@xo:id,'::meta:',ancestor::px:Association[1]/@Name)"/>
 
 	<xsl:key name="dataset" match="xo:r/@xo:id" use="."/>
 	<xsl:key name="dataset" match="px:Association[@DataType='junctionTable']/px:Entity/px:Record/px:Association[@Name=../../*[local-name()='layout']/association:ref/@Name]/px:Entity/data:rows/xo:r/@xo:id" use="ancestor::px:Entity[2]/@xo:id"/>

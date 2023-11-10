@@ -206,11 +206,13 @@
 			<button class="btn btn-lg dropdown-toggle form-control" xo-static="@*" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="display:flex; padding: 0; background: transparent; padding-right: 2.5rem; position: absolute; top: 0;" tabindex="-1" onfocus="this.querySelector('input').focus()" >
 				<div class="form-group form-floating input-group" style="min-width: calc(19ch + 6rem);border: none;">
 					<input type="search" name="" class="form-control" autocomplete="off" aria-autocomplete="none" maxlength="" size="" value="{current()}" style="border: 0 solid transparent !important; background: transparent;" xo-scope="{$data_rows/@xo:id}" xo-slot="state:filter">
-						<xsl:attribute name="onfocus">console.log('focus', event);this.select();new Error().stack;</xsl:attribute>
+						<xsl:attribute name="onfocus">
+							<xsl:text/>this.value = <xsl:value-of select="concat(&quot;'&quot;,$data_rows/@state:filter,&quot;'&quot;)"/>
+						</xsl:attribute>
 					</input>
 				</div>
 			</button>
-			<ul class="dropdown-menu context" style="width: 100%;" aria-labelledby="dropdownMenuLink" xo-scope="{$data_rows/@xo:id}" xo-static="@*">
+			<ul class="dropdown-menu context" style="width: 100%;" aria-labelledby="dropdownMenuLink" xo-scope="{$data_rows/@xo:id}" xo-static="@* -@xo-scope">
 				<select class="form-select data-rows" xo-static="@*" xo-scope="{../@xo:id}" xo-slot="{name()}" size="10" tabindex="-1" onchange="xo.components.combobox.change()">
 					<xsl:if test="count($options) &lt; 10 and not($data_rows/@meta:totalCount) &gt; 10">
 						<xsl:attribute name="size">
@@ -242,6 +244,11 @@
 							<xsl:apply-templates mode="combobox:option" select="$selection"/>
 						</xsl:otherwise>
 					</xsl:choose>
+					<xsl:if test="$data_rows/@meta:resultCount &gt; $data_rows/@meta:pageSize">
+						<option value="" xo-scope="none" class="disabled data-row">
+							hay <xsl:value-of select="$data_rows/@meta:resultCount - count($data_rows/../data:rows/xo:r)"/> opciones más...
+						</option>
+					</xsl:if>
 				</select>
 			</ul>
 			<script>
@@ -339,7 +346,7 @@ xo.components.combobox.keyup = function (event) {
 			event.preventDefault()
 			event.stopImmediatePropagation();
 	}
-    if ((event.ctrlKey || event.altKey) || !['ArrowDown', 'ArrowUp', 'Tab', 'Escape'].includes(event.key)) return;
+    if ((event.ctrlKey || event.altKey) || !['ArrowDown', 'ArrowUp', 'Escape'].includes(event.key)) return;
     let self = event.srcElement;
     let wrapper = self.closest('.dropdown');
     let optionsList = self.optionsList || wrapper.querySelector('.dropdown-menu');

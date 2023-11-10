@@ -33,7 +33,7 @@ exclude-result-prefixes="#default xsl px xsi xo data site"
 			<ul class="pagination justify-content-center">
 				<xsl:variable name="pageIndex" select="@meta:pageIndex"/>
 				<xsl:variable name="pageSize" select="@meta:pageSize"/>
-				<xsl:variable name="totalRows" select="*/@meta:totalCount"/>
+				<xsl:variable name="totalRows" select="*/@meta:resultCount"/>
 				<xsl:if test="$totalRows &gt; $pageSize or $pageIndex &gt; 1">
 					<li class="page-item" xo-scope="{$scope/@xo:id}" xo-slot="meta:pageIndex">
 						<xsl:if test="$pageIndex = 1">

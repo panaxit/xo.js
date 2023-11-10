@@ -1110,6 +1110,13 @@ xo.listener.on('input::input[type=search][xo-slot="state:filter"]', function (ev
 })
 
 xo.listener.on('change::@state:filter', function ({ target, stylesheet }) {
+    event.preventDefault();
+    let scope = this;
+    let page_size = +scope.selectFirst("parent::data:rows/@meta:pageSize");
+    let totalCount = +scope.selectFirst("parent::data:rows/@meta:totalCount");
+    if (totalCount < page_size) {
+        return
+    }
     function formatName(node, quoteChar = '"') {
         let str = node.matches("@search:*") && `@meta:text` || node.select("../@Name|../self::data:rows").map(name => name.matches("data:rows") ? '@meta:text' : name.matches("px:Association/@Name") && `@meta:${name}` || `@${name}`).pop();
         return quoteChar + str.replace(quoteChar, quoteChar + quoteChar) + quoteChar;

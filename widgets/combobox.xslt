@@ -167,7 +167,11 @@
 			
 			.combobox input[type=search]::-webkit-search-cancel-button {
 				display: none;
-			}			
+			}
+			
+			.combobox [data-bs-toggle] [type=search]:focus {
+				color: darkgray;
+			}
 			]]>
 		</style>
 		<div class="dropdown form-input form-control combobox" style="
@@ -187,7 +191,7 @@
 				<div class="form-group form-floating input-group" style="min-width: calc(19ch + 6rem);border: none;">
 					<input type="search" name="" class="form-control" autocomplete="off" aria-autocomplete="none" maxlength="" size="" value="{current()}" style="border: 0 solid transparent !important; background: transparent;" xo-scope="{$data_rows/@xo:id}" xo-slot="state:filter">
 						<xsl:attribute name="onfocus">
-							<xsl:text/>this.value = <xsl:value-of select="concat(&quot;'&quot;,$data_rows/@state:filter,&quot;'&quot;)"/>
+							<xsl:text/>this.value = scope.value || '';
 						</xsl:attribute>
 					</input>
 				</div>
@@ -268,36 +272,39 @@ xo.components.combobox.focusin = function() {
 xo.listener.on('focusin::.combobox [type=search],body', xo.components.combobox.focusin)
 
 xo.components.combobox.filter = function (event) {
-    let self = event.srcElement;
+    let self = this;
+    let inputField = self;
+	let searchText = (event.type == 'focus' ? inputField.scope.value : inputField.value) || '';
     let dropdown = self.closest('.dropdown');
     let toggler = dropdown.querySelector("[data-bs-toggle]");
     try {
         if (toggler && !toggler.matches(".show")) {
+			xo.listener.turnOff('focusin');
 			let focus_attr = self.getAttributeNode("onfocus");
             focus_attr && focus_attr.remove()
             toggler = (bootstrap.Dropdown.getOrCreateInstance(toggler))
             toggler.show();
+			self.value = searchText;
             focus_attr && self.setAttributeNode(focus_attr)
+			xo.listener.on('focusin');
 			toggler.addEventListener('hide.bs.dropdown', event => {
 			  debugger
 			})
-
         }
     } catch (e) { }
     let optionsList = self.ownerDocument.contains(self.optionsList) && self.optionsList || dropdown.querySelector('.dropdown-menu');
     self.optionsList = optionsList;
 
-    let inputField = event.srcElement;
     let options = optionsList.querySelectorAll("li,option");
 	optionsList.classList.remove("filtered");
 	let filtered = false;
     for (let option of options) {
-        if (!inputField.value || option.classList.contains("hint")) {
+        if (!searchText || option.classList.contains("hint")) {
             option.classList.remove("hidden");
         } else if (option.classList.contains("disabled")) {
             option.classList.add("hidden");
 			filtered = true
-        } else if (option.textContent.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(inputField.value.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase())) {
+        } else if (option.textContent.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(searchText.normalize('NFD').replace(/[\u0300-\u036f]|_|%/g, "").toLowerCase())) {
             option.classList.remove("hidden");
         } else {
 			filtered = true
@@ -308,6 +315,7 @@ xo.components.combobox.filter = function (event) {
 }
 
 xo.listener.on(`input::.combobox [type=search]`, xo.components.combobox.filter);
+xo.listener.on('focusin::.combobox [data-bs-toggle]:not(.show) [type=search]', xo.components.combobox.filter);
 
 xo.components.combobox.change = function () {
     let srcElement = event.srcElement;

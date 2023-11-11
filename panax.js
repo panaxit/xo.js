@@ -151,9 +151,11 @@ xo.listener.on(['beforeTransform::px:Entity'], function (event) {
 
     for (let association_ref of node.select(`//px:Entity/px:Record/px:Association[@Type="belongsTo"][px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Entity[1]/@IdentityKey)][2]]`)) {
         if (!xo.site.sections[event.detail.stylesheet.href].find(section => section.querySelector(`[xo-slot="meta:${association_ref.getAttribute("Name")}"]`))) continue;
-        let referencers = Object.fromEntries(association_ref.select('px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Association[1]/px:Entity/@IdentityKey)]/@Referencer').map(referencer => [referencer.value, referencer.parentNode.getAttribute("Referencee")]));
+        let referencers = association_ref.select('px:Association[px:Entity/@IdentityKey]/px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Association[1]/px:Entity/@IdentityKey)]/@Referencer').concat(association_ref.select(`self::px:Association[not(px:Entity/@IdentityKey)]/px:Mappings/px:Mapping[not(position()=last())]/@Referencer`)).map(referencer => [referencer.value, referencer.parentNode.getAttribute("Referencee")]);
+        if (!referencers.length) continue;
+        referencers = Object.fromEntries(referencers);
         let row = Object.fromEntries(association_ref.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*`).filter(attr => Object.keys(referencers).includes(attr.name)).map(attr => [attr.name, attr.value]));
-        let data_rows = association_ref.selectFirst(`px:Entity[@IdentityKey]/data:rows`);
+        let data_rows = association_ref.selectFirst(`px:Entity/data:rows`);
         let rows = data_rows && data_rows.select(`xo:r`).filter(_row => ![...Object.entries(referencers)].every(([referencer, referencee]) => row[referencer] === _row.getAttribute(referencee))) || [];
         if (rows.length) {
             rows.removeAll({ silent: true });
@@ -310,7 +312,7 @@ xo.listener.on(`click::html:li`, function ({ node, element, attribute, old, valu
 //})
 
 xo.listener.on([`beforeSet::xo:r/@meta:*`], function ({ value, old }) {
-    if (value && !(value instanceof Node && value.matches && value.matches("xo:r|@IsNullable"))) return;
+    if (!(value instanceof Node && value.matches && value.matches("xo:r|@IsNullable"))) return;
     if (old == value) return value;
     let scope = this;
     let element = scope.ownerElement || scope;
@@ -347,20 +349,50 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
     let field = (node.schema || {});
     if (!field) return;
     let some_matches;
-    for (let association of row.select(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo'][px:Mappings/px:Mapping/@Referencer="${node.name}"]`)) {
+    let attribs = {};
+    for (let association of row.select(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo'][px:Mappings/px:Mapping/@Referencer="${node.name}"]`).sort((node1, node2) => node2.select(`px:Mappings/px:Mapping`).length - node1.select(`px:Mappings/px:Mapping`).length)) {
         some_matches = some_matches || false;
         let meta_attribute = row.getAttributeNode(`meta:${association.attributes.Name}`);
         if (!(meta_attribute.value || this.value)) continue;
         let referencers = Object.fromEntries(association.select('px:Mappings/px:Mapping/@Referencer').map(referencer => [referencer.value, referencer.parentNode.getAttribute("Referencee")]));
-        let attribs = Object.fromEntries(row.attributes.toArray().filter(attr => Object.keys(referencers).includes(attr.name)).map(attr => [attr.name, attr.value]));
+        attribs = Object.fromEntries(Object.entries(attribs).concat(row.attributes.toArray().filter(attr => Object.keys(referencers).includes(attr.name)).map(attr => [attr.name, attr.value])))
         let data_rows = association.selectFirst(`px:Entity[1]/data:rows`);
-        let options = data_rows && data_rows.select(`xo:r`).filter(_row => [...Object.entries(referencers)].every(([referencer, referencee]) => attribs[referencer] == _row.get(referencee))) || [];
+        let options = data_rows && data_rows.select(`xo:r`).filter(_row => [...Object.entries(referencers)].every(([referencer, referencee]) => row.getAttribute(referencer) == _row.get(referencee))) || [];
         if (options.length <= 1) {
-            meta_attribute.set(options.length == 1 ? options[0].getAttribute("meta:text") : "")
-            //some_matches = true
+            [...Object.entries(referencers)].forEach(([referencer, referencee]) => attribs[referencer] = options.length == 1 ? options[0].getAttribute(referencee) : "");
+            attribs[meta_attribute.name] = options.length == 1 ? options[0].getAttribute("meta:text") : "";
+        }
+
+        let dependencies = association.select('self::px:Association[px:Entity/@IdentityKey]/px:Mappings[px:Mapping[2]]/px:Mapping[not(@Referencee=ancestor::px:Association[1]/px:Entity/@IdentityKey)]/@Referencer').concat(association.select(`self::px:Association[not(px:Entity/@IdentityKey)]/px:Mappings[px:Mapping[2]]/px:Mapping[not(position()=last())]/@Referencer`)).map(referencer => [referencer.value, referencer.parentNode.getAttribute("Referencee")]);
+        if (!dependencies.length) continue;
+        dependencies = Object.fromEntries(dependencies);
+        if (data_rows) {
+            let qri = xo.QUERI(data_rows.get("command"));
+            qri.searchParams.delete("WHERE")
+            let predicate = [...Object.entries(dependencies)].filter(([referencer]) => row.getAttribute(referencer)).map(([referencer, referencee]) => ["WHERE", `"${referencee}"='${row.getAttribute(referencer)}'`]);
+            predicate.forEach(([key, value]) => qri.searchParams.append(key, value));
+            qri.update();
         }
     }
-    //if (some_matches === false && this.value) this.set("");
+
+    for (let [key, value] of Object.entries(attribs)) {
+        row.setAttribute(key, value)
+    }
+
+    /*for (let association_ref of row.select(`ancestor::px:Entity[1]/px:Record/px:Association[@Type="belongsTo"][px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Entity[1]/@IdentityKey)][2]]`)) {
+        let dependencies = association_ref.select('px:Association[px:Entity/@IdentityKey]/px:Mappings/px:Mapping[not(@Referencee=ancestor::px:Association[1]/px:Entity/@IdentityKey)]/@Referencer').concat(association_ref.select(`self::px:Association[not(px:Entity/@IdentityKey)]/px:Mappings/px:Mapping[not(position()=last())]/@Referencer`)).map(referencer => [referencer.value, referencer.parentNode.getAttribute("Referencee")]);
+        if (!dependencies.length) continue;
+        dependencies = Object.fromEntries(dependencies);
+        let row = Object.fromEntries(association_ref.select(`ancestor::px:Entity[1]/data:rows/xo:r/@*`).filter(attr => Object.keys(dependencies).includes(attr.name)).map(attr => [attr.name, attr.value]));
+        let data_rows = association_ref.selectFirst(`px:Entity/data:rows`);
+        let rows = data_rows && data_rows.select(`xo:r`).filter(_row => ![...Object.entries(dependencies)].every(([referencer, referencee]) => row[referencer] === _row.getAttribute(referencee))) || [];
+        if (data_rows) {
+            let qri = xo.QUERI(data_rows.get("command"));
+            let predicate = [...Object.entries(dependencies)].filter(([referencer]) => row[referencer]).map(([referencer, referencee]) => ["WHERE", `"${referencee}"='${row[referencer]}'`])
+            predicate.forEach(([key, value]) => qri.searchParams.append(key, value));
+            qri.update();
+        }
+    }*/
 
     let associated_references = row.$$(`px:Association[contains(@DataType,'Table')]/px:Mappings/px:Mapping/@Referencer[.="${node.name}"]`);
     for (let referencer of associated_references) {
@@ -1219,7 +1251,7 @@ px.getData = async function (...args) {
         if (!(node && node.parentElement)) return;
         let entity = node.parentElement.$('self::px:Entity[ancestor-or-self::*[@mode="add"] and not(parent::px:Association[@Type="hasMany"]) or parent::px:Association[@Type="hasOne"]]');
         //let entity = node.$('parent::px:Entity[//px:Entity[@mode="add"]]')
-        if (!(response.documentElement.firstElementChild)) {
+        if (response.documentElement && !(response.documentElement.firstElementChild)) {
             if (entity) {
                 response.documentElement.append(px.createEmptyRow(entity))
             } else {

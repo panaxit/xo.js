@@ -132,15 +132,6 @@ exclude-result-prefixes="#default session sitemap shell"
 	menu.settings .accordion-body menu { margin-top: 0; }
 			]]>
 			</style>
-			<script>
-				<![CDATA[ 
-    xover.listener.on('click', function (event) {
-        let settings = window.top.document.querySelector('.settings');
-        if(!event.target.closest('.settings') && settings) { 
-            settings.classList.remove('open'); 
-        }
-	}); ]]>
-			</script>
 			<button type="button" class="settings-toggle toggle-settings" data-bs-toggle="offcanvas" data-bs-target="#settings-offcanvas" tabindex="-1">
 				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-settings align-middle">
 					<circle cx="12" cy="12" r="3"></circle>

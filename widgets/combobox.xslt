@@ -190,9 +190,7 @@
 			<button class="btn btn-lg dropdown-toggle form-control" xo-static="@*" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="display:flex; padding: 0; background: transparent; padding-right: 2.5rem; position: absolute; top: 0;" tabindex="-1" onfocus="this.querySelector('input').focus()" >
 				<div class="form-group form-floating input-group" style="min-width: calc(19ch + 6rem);border: none;">
 					<input type="search" name="" class="form-control" autocomplete="off" aria-autocomplete="none" maxlength="" size="" value="{current()}" style="border: 0 solid transparent !important; background: transparent;" xo-scope="{$data_rows/@xo:id}" xo-slot="state:filter">
-						<xsl:attribute name="onfocus">
-							<xsl:text/>this.value = scope.value || '';
-						</xsl:attribute>
+						<xsl:attribute name="onfocus">this.value = scope.value || `<xsl:value-of select="current()"/>` || '';</xsl:attribute>
 					</input>
 				</div>
 			</button>
@@ -238,22 +236,6 @@
 			<script>
 				<![CDATA[
 xo.components.combobox = xo.components.combobox || {};
-xo.listener.on('blur::.combobox [type=search]', function () {
-    if (!(this instanceof HTMLInputElement)) return;
-    let srcElement = this;
-    xo.delay(500).then(() => {
-        if (document.activeElement instanceof HTMLInputElement && document.activeElement.closest('.dropdown') !== srcElement.closest('.dropdown')) {
-            let dropdown = srcElement.closest('.dropdown');
-            let toggler = dropdown && dropdown.querySelector("[data-bs-toggle]");
-            if (toggler) {
-                try {
-                    toggler = (bootstrap.Dropdown.getOrCreateInstance(toggler))
-                    toggler.hide();
-                } catch (e) { }
-            }
-        }
-    })
-});
 
 xo.components.combobox.focusin = function() {
     let srcElement = this;
@@ -269,29 +251,32 @@ xo.components.combobox.focusin = function() {
         }
     }
 }
-xo.listener.on('focusin::.combobox [type=search],body', xo.components.combobox.focusin)
+xo.listener.on('focusin::.combobox [data-bs-toggle]:not(.show) [type=search],body', xo.components.combobox.focusin)
 
 xo.components.combobox.filter = function (event) {
     let self = this;
     let inputField = self;
 	let searchText = (event.type == 'focus' ? inputField.scope.value : inputField.value) || '';
     let dropdown = self.closest('.dropdown');
-    let toggler = dropdown.querySelector("[data-bs-toggle]");
-    try {
-        if (toggler && !toggler.matches(".show")) {
-			xo.listener.turnOff('focusin');
+	let showDropdown = function() {
+		let toggler = dropdown.querySelector("[data-bs-toggle]");
+		if (toggler && !toggler.matches(".show")) {
 			let focus_attr = self.getAttributeNode("onfocus");
-            focus_attr && focus_attr.remove()
-            toggler = (bootstrap.Dropdown.getOrCreateInstance(toggler))
-            toggler.show();
-			self.value = searchText;
-            focus_attr && self.setAttributeNode(focus_attr)
-			xo.listener.on('focusin');
-			toggler.addEventListener('hide.bs.dropdown', event => {
-			  debugger
-			})
-        }
-    } catch (e) { }
+			focus_attr && focus_attr.remove()
+			toggler = (bootstrap.Dropdown.getOrCreateInstance(toggler))
+			xo.listener.turnOff()
+			toggler.show();
+			xo.listener.on()
+			focus_attr && self.setAttributeNode(focus_attr)
+		}
+	}
+	if (event instanceof FocusEvent) {
+		xo.delay(100).then(()=>{
+			showDropdown()
+		})
+	} else {
+		showDropdown()
+	}
     let optionsList = self.ownerDocument.contains(self.optionsList) && self.optionsList || dropdown.querySelector('.dropdown-menu');
     self.optionsList = optionsList;
 
@@ -336,8 +321,8 @@ xo.components.combobox.keyup = function (event) {
 	}
     if ((event.ctrlKey || event.altKey) || !['ArrowDown', 'ArrowUp', 'Escape'].includes(event.key)) return;
     let self = event.srcElement;
-    let wrapper = self.closest('.dropdown');
-    let optionsList = self.optionsList || wrapper.querySelector('.dropdown-menu');
+    let dropdown = self.closest('.dropdown');
+    let optionsList = self.optionsList || dropdown.querySelector('.dropdown-menu');
     self.optionsList = optionsList;
 
     filtered_options = optionsList.querySelectorAll("li, option").toArray().filter(option => !(option.style.display == 'none' || option.matches('.hidden')));

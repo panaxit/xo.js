@@ -12,6 +12,16 @@
   "sources": {
     "^#(.+)": "$1.xml",
     "^data:(.*)": { "px.getData": [] },
+    "^@command::(.*)": {
+      "px.getData": [
+        "${xover.json.tryParse(tag.value)}",
+        {
+          "source": "${tag.parentNode}",
+          "method": "GET",
+          "headers": { "Accept": "text/xml" }
+        }
+      ]
+    },
     "^#([^\\/]+\\/.+)$": { "px.request": [ "{$1}" ] },
     "#sitemap": { "server:sitemap": [] },
     "#shell": null,

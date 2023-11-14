@@ -77,12 +77,12 @@ xmlns:shell="http://xover.dev/shell"
 				#shell > header {
 					padding:.6rem 1.25rem 0px; 
 					position: sticky;
-					/*z-index: var(--layer-4)*/
+					z-index: var(--layer-4)
 				}
 				
 				#shell > nav {
 					padding-left: 97px;
-					/*z-index: var(--layer-3)*/
+					z-index: var(--layer-3)
 				}
 				
 				button[disabled] {

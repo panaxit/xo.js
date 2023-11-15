@@ -12,6 +12,11 @@ img {
     content: " *";
     color: red;
 }
+
+input[xo-scope=''], textarea[xo-scope=''] {
+    background-color: lightgray !important;
+    cursor: wait
+}
 /*
 input[required] {
     background-color: #ffcccc;

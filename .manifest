@@ -18,8 +18,7 @@
         {
           "source": "${tag.parentNode}",
           "method": "GET",
-          "headers": { "Accept": "text/xml" },
-          "Cache-Control": "max-age=8000"
+          "headers": { "Accept": "text/xml" }
         }
       ]
     },

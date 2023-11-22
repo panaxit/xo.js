@@ -86,12 +86,20 @@
 					<option class="data-row" value="" xo-scope="none">Sin opciones</option>
 				</xsl:when>
 				<xsl:when test="$context">
-					<xsl:apply-templates mode="combobox:previous-options" select=".">
+					<xsl:apply-templates mode="combobox:options-previous" select=".">
 						<xsl:sort select="../@meta:text"/>
 						<xsl:with-param name="selection" select="$selection"/>
 						<xsl:with-param name="schema" select="$schema"/>
 					</xsl:apply-templates>
-					<xsl:apply-templates mode="combobox:option" select="$context">
+					<optgroup label="Selecciona">
+						<xsl:apply-templates mode="combobox:select-attributes" select="$context/ancestor::data:rows/@state:filter"/>
+						<xsl:apply-templates mode="combobox:option" select="$context">
+							<xsl:sort select="../@meta:text"/>
+							<xsl:with-param name="selection" select="$selection"/>
+							<xsl:with-param name="schema" select="$schema"/>
+						</xsl:apply-templates>
+					</optgroup>
+					<xsl:apply-templates mode="combobox:options-following" select=".">
 						<xsl:sort select="../@meta:text"/>
 						<xsl:with-param name="selection" select="$selection"/>
 						<xsl:with-param name="schema" select="$schema"/>
@@ -190,7 +198,9 @@
 			<button class="btn btn-lg dropdown-toggle form-control" xo-static="@*" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="display:flex; padding: 0; background: transparent; padding-right: 2.5rem; position: absolute; top: 0;" tabindex="-1" onfocus="this.querySelector('input').focus()" >
 				<div class="form-group form-floating input-group" style="min-width: calc(19ch + 6rem);border: none;">
 					<input type="search" name="" class="form-control" autocomplete="off" aria-autocomplete="none" maxlength="" size="" value="{current()}" style="border: 0 solid transparent !important; background: transparent;" xo-scope="{$data_rows/@xo:id}" xo-slot="state:filter">
-						<xsl:attribute name="onfocus">this.value = scope.value || `<xsl:value-of select="current()"/>` || '';</xsl:attribute>
+						<xsl:attribute name="onfocus">
+							<xsl:text/>this.value = scope.value || `<xsl:value-of select="current()"/>` || '';<xsl:text/>
+						</xsl:attribute>
 					</input>
 				</div>
 			</button>
@@ -210,12 +220,20 @@
 							<option class="data-row" value="" xo-scope="none">Sin opciones</option>
 						</xsl:when>
 						<xsl:when test="$options">
-							<xsl:apply-templates mode="combobox:previous-options" select=".">
+							<xsl:apply-templates mode="combobox:options-previous" select=".">
 								<xsl:sort select="../@meta:text"/>
 								<xsl:with-param name="selection" select="$selection"/>
 								<xsl:with-param name="schema" select="$schema"/>
 							</xsl:apply-templates>
-							<xsl:apply-templates mode="combobox:option" select="$options">
+							<optgroup class="filterable" label="Selecciona">
+								<xsl:apply-templates mode="combobox:select-attributes" select="$options/ancestor::data:rows/@state:filter"/>
+								<xsl:apply-templates mode="combobox:option" select="$options">
+									<xsl:sort select="../@meta:text"/>
+									<xsl:with-param name="selection" select="$selection"/>
+									<xsl:with-param name="schema" select="$schema"/>
+								</xsl:apply-templates>
+							</optgroup>
+							<xsl:apply-templates mode="combobox:options-following" select=".">
 								<xsl:sort select="../@meta:text"/>
 								<xsl:with-param name="selection" select="$selection"/>
 								<xsl:with-param name="schema" select="$schema"/>
@@ -256,7 +274,7 @@ xo.listener.on('focusin::.combobox [data-bs-toggle]:not(.show) [type=search],bod
 xo.components.combobox.filter = function (event) {
     let self = this;
     let inputField = self;
-	let searchText = (event.type == 'focus' ? inputField.scope.value : inputField.value) || '';
+	let searchText = (['focus','focusin'].includes(event.type) ? inputField.scope.value : inputField.value) || '';
     let dropdown = self.closest('.dropdown');
 	let showDropdown = function() {
 		let toggler = dropdown.querySelector("[data-bs-toggle]");
@@ -280,8 +298,10 @@ xo.components.combobox.filter = function (event) {
     let optionsList = self.ownerDocument.contains(self.optionsList) && self.optionsList || dropdown.querySelector('.dropdown-menu');
     self.optionsList = optionsList;
 
-    let options = optionsList.querySelectorAll("li,option");
+    let options = optionsList.querySelectorAll(".filterable li,.filterable option");
 	optionsList.classList.remove("filtered");
+    let option_group = optionsList.querySelector("optgroup");
+	option_group && option_group.setAttribute("label", searchText && `Resultados para "${searchText}"` || "Selecciona")
 	let filtered = false;
     for (let option of options) {
         if (!searchText || option.classList.contains("hint")) {
@@ -379,11 +399,15 @@ xo.listener.on('click::.dropdown li', function () {
 		</div>
 	</xsl:template>
 
-	<xsl:template mode="combobox:previous-options" match="@*">
-		<option value="" xo-scope="none" class="disabled hint data-row">
-			Selecciona...
+	<xsl:template mode="combobox:options-previous" match="@*|*"/>
+
+	<xsl:template mode="combobox:options-previous" match="@*[.!='']">
+		<option class="data-row hint" value="" xo-scope="none">
+			Quitar selección "<xsl:value-of select="."/>"
 		</option>
 	</xsl:template>
+
+	<xsl:template mode="combobox:options-following" match="@*|*"/>
 
 	<xsl:template mode="combobox:option-text" match="@*">
 		<xsl:apply-templates select="."/>
@@ -399,6 +423,14 @@ xo.listener.on('click::.dropdown li', function () {
 
 	<xsl:template mode="combobox:option-value" match="@IsNullable[.=1]">
 		<xsl:text/>null<xsl:text/>
+	</xsl:template>
+
+	<xsl:template mode="combobox:select-attributes" match="@*|*"/>
+
+	<xsl:template mode="combobox:select-attributes" match="@state:filter[.!='']">
+		<xsl:attribute name="label">
+			<xsl:text/>Resultados para "<xsl:value-of select="."/>"<xsl:text/>
+		</xsl:attribute>
 	</xsl:template>
 
 	<xsl:template mode="combobox:option" match="@*">

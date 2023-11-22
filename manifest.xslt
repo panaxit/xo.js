@@ -177,7 +177,7 @@
 		<!--<xsl:param name="data_set" select="$schema/px:Entity/data:rows"/>-->
 		<xsl:variable name="current" select="."/>
 		<div class="btn-group bg-body form-control" role="group" style="position:relative;" xo-scope="{$current/../@xo:id}" xo-slot="{name(.)}">
-			<xsl:for-each select="$context">
+			<xsl:for-each select="$context[ancestor-or-self::xo:r[1]]">
 				<xsl:variable name="option" select="."/>
 				<xsl:variable name="value">
 					<xsl:apply-templates mode="value" select="."/>

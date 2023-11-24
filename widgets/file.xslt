@@ -73,6 +73,7 @@ exclude-result-prefixes="#default xo session sitemap login widget state source j
 
 		<xsl:variable name="display_name">
 			<xsl:choose>
+				<xsl:when test="starts-with($current_file,'blob:')"></xsl:when>
 				<xsl:when test="contains($current_file,'?name=')">
 					<xsl:value-of select="substring-before(substring-after(concat($current_file,'&amp;'),'?name='),'&amp;')"/>
 				</xsl:when>

@@ -54,8 +54,16 @@
 			</xsl:choose>
 		</xsl:variable>
 		<xsl:variable name="route" select="current()"/>
+		<xsl:variable name="method">
+			<xsl:choose>
+				<xsl:when test="$xo:context/ancestor-or-self::xo:r[1]/@state:new">add</xsl:when>
+				<xsl:otherwise>
+					<xsl:value-of select="$route/../@Method"/>
+				</xsl:otherwise>
+			</xsl:choose>
+		</xsl:variable>
 		<xsl:attribute name="href">
-			<xsl:value-of select="concat('#',$entity/@Schema,'/',$entity/@Name,$reference,'~',$route/../@Method)"/>
+			<xsl:value-of select="concat('#',$entity/@Schema,'/',$entity/@Name,$reference,'~',$method)"/>
 		</xsl:attribute>
 	</xsl:template>
 

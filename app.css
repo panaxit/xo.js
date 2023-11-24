@@ -17,6 +17,10 @@ input[xo-scope=''], textarea[xo-scope=''] {
     background-color: lightgray !important;
     cursor: wait
 }
+
+.btn-outline-success:hover, .btn-outline-danger:hover, .btn-outline-success:active, .btn-outline-danger:active, .btn-outline-success:focus-visible, .btn-outline-danger:focus-visible {
+    filter: opacity(0.5);
+}
 /*
 input[required] {
     background-color: #ffcccc;

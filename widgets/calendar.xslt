@@ -23,6 +23,7 @@ exclude-result-prefixes="#default xsl state data"
 	<xsl:output method="xml" omit-xml-declaration="yes" indent="yes" standalone="no"/>
 
 	<xsl:template mode="calendar:widget" match="@*">
+		<script src="calendar.js"/>
 		<xsl:variable name="month_days" select="key('month_days',concat('',../dias/@state:current_month))"/>
 		<div class="container-fluid">
 			<style>

@@ -206,7 +206,7 @@
 		<xsl:apply-templates mode="combobox:widget" select="."/>
 	</xsl:template>
 
-	<xsl:template mode="widget" match="px:Entity/px:Routes/px:Route/@*">
+	<xsl:template mode="widget" match="px:Entity/px:Routes/px:Route/@*|px:Entity/px:Routes/@*">
 		<xsl:param name="context" select="node-expected"/>
 		<xsl:apply-templates mode="route:widget" select=".">
 			<xsl:with-param name="context" select="$context"/>

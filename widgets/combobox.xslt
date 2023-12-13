@@ -451,7 +451,7 @@ xo.listener.on('click::.dropdown li', function () {
 			<xsl:attribute name="value">
 				<xsl:apply-templates mode="combobox:option-value" select="."/>
 			</xsl:attribute>
-			<xsl:if test="$differences = ''">
+			<xsl:if test="parent::xo:r and $differences = ''">
 				<xsl:attribute name="selected"/>
 			</xsl:if>
 			<xsl:apply-templates mode="combobox:option-text" select="."/>

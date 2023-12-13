@@ -401,7 +401,7 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
         qri.predicate.delete('AND')
 
         let referencers = association.select('px:Mappings/px:Mapping/@Referencer').map(referencer => [referencer.value, referencer.parentNode.getAttribute("Referencee")]);
-        let options = data_rows && data_rows.select(`xo:r`).filter(_row => referencers.every(([referencer, referencee]) => (row.getAttribute(referencer) || row.getAttribute(`prev:${referencer}`)) == _row.get(referencee))) || [];
+        let options = data_rows && data_rows.select(`xo:r`).filter(_row => referencers.every(([referencer, referencee]) => (row.getAttribute(referencer) /*|| row.getAttribute(`prev:${referencer}`)*/) == _row.get(referencee))) || [];
 
         if (options.length <= 1) {
             attribs[meta_attribute_name] = options.length == 1 && options[0].get("meta:text") || "";
@@ -418,7 +418,8 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
                             qri.predicate.delete(referencer);
                         }
                     } else {
-                        if (changes.has(row.getAttributeNode(referencer))/*qri.predicate.has(referencer)*/) {
+                        let attr = row.getAttributeNode(referencer);
+                        if ((changes[attr.namespaceURI] || {}).hasOwnProperty(attr.localName)/*qri.predicate.has(referencer) disabled because it prevents empty value to be selected*/) {
                             //data_rows.select(`xo:r`).some(_row => row.getAttribute(referencer) == _row.get(referencer))
                             //qri.predicate.set(referencer, row.getAttribute(referencer))
                             if (row.getAttribute(referencer)) {
@@ -511,8 +512,8 @@ xo.listener.on(`change::px:Entity[px:Record/px:Field/@formula]/data:rows/xo:r/@*
     const datediff = function (intervalType, first_date, last_date) {
         // Parse the input dates
         if (!(first_date && last_date)) return undefined;
-        const first = new Date(first_date);
-        const last = last_date.parseDate();
+        const first = first_date instanceof Date ? first_date : first_date.parseDate();
+        const last = last_date instanceof Date ? last_date : last_date.parseDate();
 
         // Calculate the difference in milliseconds
         const diffMs = last - first;

@@ -21,6 +21,18 @@ input[xo-scope=''], textarea[xo-scope=''] {
 .btn-outline-success:hover, .btn-outline-danger:hover, .btn-outline-success:active, .btn-outline-danger:active, .btn-outline-success:focus-visible, .btn-outline-danger:focus-visible {
     filter: opacity(0.5);
 }
+
+dialog > * {
+    margin: 0 0 0.5rem 0;
+}
+
+dialog::-webkit-backdrop {
+    background: rgba(0, 0, 0, 0.4);
+}
+
+dialog::backdrop {
+    background: rgba(0, 0, 0, 0.4);
+}
 /*
 input[required] {
     background-color: #ffcccc;

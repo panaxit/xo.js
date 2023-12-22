@@ -59,6 +59,8 @@
 	<xsl:import href="datagrid.xslt"/>
 	<xsl:import href="routes.xslt"/>
 
+	<xsl:key name="hasDraft" match="@draft:*" use="concat(../@xo:id,'::',local-name())"/>
+
 	<xsl:key name="styles" match="@height:*" use="concat(../@xo:id,'::',local-name())"/>
 	<xsl:key name="styles" match="@width:*" use="concat(../@xo:id,'::',local-name())"/>
 
@@ -135,6 +137,10 @@
 			</xsl:if>-->
 		</input>
 		<!--<xsl:value-of select="concat('draft:',name(current()))"/>-->
+	</xsl:template>
+
+	<xsl:template match="@*[key('hasDraft',concat(../@xo:id,'::',name()))]">
+		<xsl:text/>
 	</xsl:template>
 
 	<xsl:template mode="widget" match="@*[key('widget',concat('textarea:',ancestor::*[key('entity',@xo:id)][1]/@xo:id,'::',name()))]">

@@ -669,7 +669,7 @@
 	</xsl:template>
 
 	<xsl:template mode="datagrid:field" match="field:ref/@*">
-		<div>&#160;</div>
+		<div class="skeleton skeleton-text">&#160;</div>
 	</xsl:template>
 
 	<xsl:template mode="datagrid:field" match="xo:r[@state:edit='true']/@*">

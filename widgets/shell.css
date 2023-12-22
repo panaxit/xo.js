@@ -246,6 +246,20 @@ li.sidebar-item.menu > a {
     animation: fa-spin 2s linear infinite;
 }
 
+@keyframes blink {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: .3;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
 .xo-working {
     animation: blink 1s linear infinite;
 }

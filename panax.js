@@ -49,8 +49,8 @@ Object.defineProperty(xo.session, 'logout', {
     }, writable: true, configurable: true
 })
 
-xo.listener.on(['beforeRender::#shell.xslt', 'beforeAppendTo::html:main', 'beforeAppendTo::html:body'], function ({ target, event }) {
-    if (!(event.detail.args || []).filter(el => !(el instanceof Comment || el instanceof HTMLStyleElement || el instanceof HTMLScriptElement || el.matches("dialog,[role=alertdialog],[role=alert],[role=dialog],[role=status],[role=progressbar]"))).length) return;
+xo.listener.on(['beforeRender::#shell.xslt', 'beforeAppendTo::html:main', 'beforeAppendTo::html:body'], function ({ target }) {
+    if (!(event.detail.args || []).filter(el => !(el instanceof Comment || el instanceof HTMLStyleElement || el instanceof HTMLScriptElement || el.matches("dialog,.modal-backdrop,[role=alertdialog],[role=alert],[role=dialog],[role=status],[role=progressbar]"))).length) return;
     [...target.childNodes].filter(el => el.matches && !el.matches(`script,dialog,[role=alertdialog],[role=alert],[role=dialog],[role=status],[role=progressbar]`)).removeAll()
 })
 
@@ -129,7 +129,7 @@ xo.listener.on(['change::@meta:pageIndex', 'change::@meta:pageSize'], function (
     }
 })*/
 
-xo.listener.on(['beforeTransform::px:Entity'], function (event) {
+xo.listener.on(['beforeTransform::px:Entity'], function () {
     let node = this;
 
     for (let association_ref of node.select(`//px:Association[@DataType='junctionTable']/px:Entity/px:Record/px:Association[@Name=../../*[local-name()='layout']/association:ref/@Name][px:Entity/data:rows/xo:r]`)) {
@@ -185,27 +185,34 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
     }
 })
 
+xo.listener.on([`blur::input[xo-slot^=draft]`], function () {
+    let scope = this.scope;
+    if (!document.querySelector(`input[xo-slot="${scope.localName}"]`)) {
+        xo.delay(300).then(() => document.querySelectorAll(`input[xo-slot="${scope.localName}"]`).forEach(el => el.focus()));
+    }
+})
+
 xo.listener.on([`input::input[xo-slot^=draft]`], function () {
     let scope = this.scope;
     let row = scope && scope.selectFirst(`ancestor-or-self::xo:r[1]`);
     if (!row) return;
-    let draft_value = row.getAttributeNodeOrMock(`draft:${scope.localName}`);
-    //if (['deleteContentBackward'].includes(event.inputType)) draft_value.remove();
-    let real_value = row.getAttributeNode(scope.localName);
-    let initial_value = row.getAttributeNode(`initial:${scope.localName}`);
-    if (initial_value && real_value.value !== initial_value.value) {
-        real_value.set(initial_value.value, { silent: true })
-    }
+    //let draft_value = row.getAttributeNodeOrMock(`draft:${scope.localName}`);
+    ////if (['deleteContentBackward'].includes(event.inputType)) draft_value.remove();
+    //let real_value = row.getAttributeNode(scope.localName);
+    //let initial_value = row.getAttributeNode(`initial:${scope.localName}`);
+    //if (initial_value && real_value.value !== initial_value.value) {
+    //    real_value.set(initial_value.value, { silent: true })
+    //}
     document.querySelectorAll(`input[xo-slot="${scope.localName}"]`).forEach(el => el.value = "");
-    if (event.data != undefined && this.value.length <= 1) {
-        //!draft_value.ownerElement && draft_value.set(this.value)
-        xo.delay(300).then(() => {
-            let draft_input = document.querySelector(`input[xo-slot^="${scope.name}"]`)
-            draft_input.selectionStart = draft_input.value.length;
-            draft_input.selectionEnd = draft_input.value.length;
-            draft_input && draft_input.focus();
-        })
-    }
+    //if (event.data != undefined && this.value.length <= 1) {
+    //    //!draft_value.ownerElement && draft_value.set(this.value)
+    //    xo.delay(300).then(() => {
+    //        let draft_input = document.querySelector(`input[xo-slot^="${scope.name}"]`)
+    //        draft_input.selectionStart = draft_input.value.length;
+    //        draft_input.selectionEnd = draft_input.value.length;
+    //        draft_input && draft_input.focus();
+    //    })
+    //}
 })
 
 xo.listener.on([`change::xo:r/@draft:*`, `set::xo:r/@*[not(namespace-uri()) and local-name()=local-name(../@draft:*)]`], function ({ element: row, attribute, old = '', value = '' }) {
@@ -216,11 +223,13 @@ xo.listener.on([`change::xo:r/@draft:*`, `set::xo:r/@*[not(namespace-uri()) and 
     //old = old.length == 32 ? old : xover.cryptography.encodeMD5(old);
     //draft_value = draft_value.length == 32 ? draft_value : xover.cryptography.encodeMD5(draft_value);
     let real_value = row.getAttributeNode(this.localName);
-    if (real_value == this && old != value && draft_value != value) {
+    if (real_value == this && old != value) {
         draft.remove();
-        real_value.set(row.getAttribute(`initial:${this.localName}`) || real_value);
-        event.preventDefault();
-        return Promise.reject("No coincide el valor")
+        if (draft_value != value) {
+           real_value.set(row.getAttribute(`initial:${this.localName}`) || real_value);
+           event.preventDefault();
+           return Promise.reject("No coincide el valor")
+        } 
     }
     return value;
 })
@@ -659,7 +668,7 @@ xo.listener.on('appendTo::data:rows', function ({ addedNodes }) {
         let row = addedNodes[0];
         let ref_node = px.getAssociatedRef()
         let ref_record = ref_node && ref_node.selectFirst(`ancestor::px:Association[1]/parent::xo:r`);
-        let referencees = ref_node && ref_node.select(`ancestor::px:Association[1][not(@DataType="belongsTo")]/px:Mappings/px:Mapping/@Referencee`).map(referencee => [referencee.value, referencee.parentNode.getAttribute("Referencer")]) || [];
+        let referencees = ref_node && ref_node.select(`ancestor::px:Association[1][not(@DataType="belongsTo" or @DataType="foreignKey")]/px:Mappings/px:Mapping/@Referencee`).map(referencee => [referencee.value, referencee.parentNode.getAttribute("Referencer")]) || [];
         for (let [referencee, referencer] of referencees) {
             let current_value = row.getAttribute(referencee);
             let new_value = current_value || ref_record && ref_record.getAttribute(referencer);
@@ -718,13 +727,13 @@ xo.listener.on('appendTo::data:rows', function ({ addedNodes }) {
                 px.loadData(entity);
             }
         };
-        let store = this.ownerDocument.store;
-        if (store && !this.selectFirst("px:Association")) {
-            store.render()
-        }
-        //if (this.parentNode instanceof Document) {
-        //    console.log(this)
+        //let store = this.ownerDocument.store;
+        //if (store && !this.selectFirst("px:Association")) {
+        //    store.render()
         //}
+        ////if (this.parentNode instanceof Document) {
+        ////    console.log(this)
+        ////}
     }
 })
 
@@ -1585,6 +1594,15 @@ px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data
 xo.listener.on(['reject::xo:prompt'], function ({ document }) {
     new xo.Store(document, { tag: "#prompt" });
     xo.site.active = "#prompt";
+})
+
+xo.listener.on(['append::.modal'], function () {
+    bootstrap.Modal.getOrCreateInstance(this).show()
+})
+
+xo.listener.on(['append::dialog[open]'], function () {
+    this.close()
+    this.showModal()
 })
 
 xo.listener.on('success::#server:submit', function ({ request, payload }) {

@@ -239,15 +239,13 @@
 		<xsl:variable name="toggler" select="../*[key('toggler',@Name)]/@Name"/>
 		<xsl:variable name="class">
 			<xsl:choose>
-				<xsl:when test="not(key('field-ref',concat($xo:context,'::',$toggler)) = 1)">collapse</xsl:when>
+				<xsl:when test="parent::container:fieldSet and key('field-ref',concat($xo:context,'::',$toggler)) &gt; 1">collapse</xsl:when>
 				<xsl:otherwise></xsl:otherwise>
 			</xsl:choose>
 		</xsl:variable>
 		<xsl:variable name="field-type">
 			<xsl:apply-templates mode="form:field-type" select="."/>
 		</xsl:variable>
-		<label>
-		</label>
 		<style>
 			<![CDATA[
 			.collapse:not(.show) {
@@ -255,9 +253,9 @@
 			}
 		]]>
 		</style>
-		<div class="input-group d-flex justify-content-between {$class} data-field {$field-type}" id="{../@Name}">
+		<div class="row {$class} data-field {$field-type}" id="{../@Name}">
 			<xsl:for-each select="../*[not(@Name=$toggler)]/@Name">
-				<div class="input-group">
+				<div class="col">
 					<xsl:apply-templates mode="form:field-attributes" select="current()"/>
 					<xsl:apply-templates mode="form:field-body" select="current()">
 						<xsl:with-param name="xo:context" select="$xo:context"/>

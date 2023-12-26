@@ -130,10 +130,6 @@ aside [aria-expanded=true]:before, aside [data-toggle=collapse]:not(.collapsed):
     top: 1.4rem;
 }
 
-.datagrid thead tr th.field-container {
-    opacity: 85%
-}
-
 aside [data-toggle=collapse]:before {
     content: " ";
     border: solid;

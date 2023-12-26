@@ -52,12 +52,20 @@
 					opacity: .5;
 				}
 				
-				thead .field-container  {
+				thead .fieldContainer  {
 					text-align: center
 				}
 				
 				th {
 					white-space: nowrap;
+				}
+				
+				.datagrid .fieldContainer .input-group {
+					column-gap: 5px;
+				}
+				
+				.datagrid th {
+					text-align: center;
 				}
 				]]>
 			</style>
@@ -103,8 +111,11 @@
 		</div>
 	</xsl:template>-->
 
+	<xsl:key name="non-atomic" match="container:fieldContainer//*" use="generate-id()"/>
+
 	<xsl:key name="atomic-ref" match="field:ref/@Name" use="generate-id()"/>
 	<xsl:key name="atomic-ref" match="association:ref/@Name" use="generate-id()"/>
+	<xsl:key name="atomic-ref" match="container:*[not(ancestor-or-self::container:fieldContainer)]/*/@Name" use="generate-id()"/>
 	<xsl:key name="atomic-ref" match="container:fieldContainer/@Name" use="generate-id()"/>
 	<xsl:key name="atomic-ref" match="container:fieldContainer[not(@Name)]/@xo:id" use="generate-id()"/>
 
@@ -140,7 +151,8 @@
 				<col width="150px">
 					<xsl:apply-templates mode="datagrid:header-colgroup-column-attributes" select="."/>
 					<xsl:attribute name="style">
-						<xsl:text></xsl:text><xsl:apply-templates mode="datagrid:header-colgroup-column--style" select="."/>
+						<xsl:text></xsl:text>
+						<xsl:apply-templates mode="datagrid:header-colgroup-column--style" select="."/>
 					</xsl:attribute>
 				</col>
 			</xsl:when>
@@ -189,7 +201,7 @@
 		<xsl:variable name="scope" select="current()"/>
 		<xsl:variable name="row-content" select="$layout/ancestor-or-self::*[1]/self::field:ref|$layout/ancestor-or-self::*[1]/self::association:ref|$layout/ancestor-or-self::*[1]/self::container:fieldContainer|$layout/ancestor-or-self::*[1]/self::container:tab[key('active', @xo:id)]|$layout/ancestor-or-self::*[1]/self::container:panel/*|$layout/ancestor-or-self::*[1]/self::container:tabPanel/container:tab[key('active', @xo:id)]|$layout/ancestor-or-self::*[1]/self::container:subGroupTabPanel|$layout/ancestor-or-self::*[1]/self::container:fieldSet|$layout/ancestor-or-self::*[1]/self::px:Field|$layout/ancestor-or-self::*[1]/self::px:Association"/>
 		<xsl:variable name="row-elements" select="$layout[not(../@xo:id=$row-content/../@xo:id)]"/>
-		<xsl:variable name="next-level" select="$row-content/*"/>
+		<xsl:variable name="next-level" select="$row-content/*[not(key('non-atomic',generate-id()))]"/>
 		<tr class="freeze">
 			<xsl:apply-templates mode="datagrid:row-header" select="."/>
 			<xsl:apply-templates mode="datagrid:header" select="$row-content[* or not($next-level)]/@Name|$row-content[* or not($next-level)][not(@Name)]/@xo:id|$row-content[$next-level and not(*)]/@Id">
@@ -215,7 +227,7 @@
 	<xsl:template mode="datagrid:header" match="container:*/@*">
 		<xsl:param name="layout" select="node-expected"/>
 		<xsl:variable name="colspan">
-			<xsl:value-of select="count(..//field:ref|..//association:ref)"/>
+			<xsl:value-of select="count((..//field:ref|..//association:ref)[not(key('non-atomic',generate-id()))])"/>
 		</xsl:variable>
 		<th colspan="{$colspan}" class="field-container container-{local-name(..)} container-{translate(../@Name,' ','-')}">
 			<xsl:apply-templates mode="headerText" select="."/>
@@ -243,7 +255,7 @@
 			<path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2zm1 .5v1.308l4.372 4.858A.5.5 0 0 1 7 8.5v5.306l2-.666V8.5a.5.5 0 0 1 .128-.334L13.5 3.308V2h-11z"/>
 		</svg>
 	</xsl:template>
-	
+
 	<xsl:template mode="datagrid:header-filters-attributes" match="@*"/>
 
 	<xsl:template mode="datagrid:header-sorter" match="@*">
@@ -271,14 +283,23 @@
 		</svg>
 	</xsl:template>
 
+	<xsl:template mode="datagrid:class-name" match="@*">
+		<xsl:value-of select="translate(concat(local-name(parent::container:*),substring-before(name(parent::field:ref|parent::association:ref),':')),' :_','---')"/>
+		<xsl:text> </xsl:text>
+		<xsl:value-of select="translate(concat(substring-before(name(parent::field:ref|parent::association:ref|parent::container:*),':'),'-',../@Name),' :_','---')"/>
+	</xsl:template>
+
 	<xsl:template mode="datagrid:header" match="field:ref/@*|association:ref/@*|container:fieldContainer/@*">
 		<xsl:param name="layout" select="node-expected"/>
 		<xsl:variable name="schema" select="key('schema',concat(ancestor::px:Entity[1]/@xo:id,'::',../@Name))"/>
 		<xsl:variable name="colspan">
-			<xsl:value-of select="count(..//field:ref|..//association:ref)"/>
+			<xsl:value-of select="count((..//field:ref|..//association:ref)[not(key('non-atomic',generate-id()))])"/>
 		</xsl:variable>
 		<xsl:variable name="fk_layout" select="ancestor::px:Entity[1]/px:Record/px:Association[not(@Type='belongsTo')][@AssociationName=current()]/px:Entity/*[local-name()='layout']/*/@Name"/>
-		<th colspan="{$colspan}">
+		<xsl:variable name="class">
+			<xsl:apply-templates mode="datagrid:class-name" select="."/>
+		</xsl:variable>
+		<th colspan="{$colspan}" class="{$class}">
 			<!--<xsl:if test="key('atomic-ref',generate-id()) and not($layout[not(key('atomic-ref',generate-id()))]) or not(key('atomic-ref',generate-id()))">
 				<xsl:choose>
 					<xsl:when test="$fk_layout">
@@ -419,10 +440,13 @@
 				<xsl:with-param name="layout" select="$layout"/>
 			</xsl:apply-templates>
 			<tr xo-scope="{ancestor-or-self::*[@meta:type='entity'][1]/@xo:id}">
-				<td colspan="{count($layout[key('atomic-ref',generate-id())]|$layout/../*//@*[key('atomic-ref',generate-id())])+3}" style="text-align:center">
+				<th>
+				</th>
+				<td colspan="{count($layout)}" style="text-align:center">
 					<xsl:apply-templates mode="datagrid:footer-row" select=".">
 					</xsl:apply-templates>
 				</td>
+				<th></th>
 			</tr>
 		</tfoot>
 	</xsl:template>
@@ -467,7 +491,7 @@
 				<xsl:with-param name="mode" select="$mode"/>
 				<xsl:with-param name="context" select="$fields"/>
 			</xsl:apply-templates>
-			<xsl:apply-templates mode="datagrid:row-body" select="$layout[key('atomic-ref',generate-id())]|$layout/../*//@*[key('atomic-ref',generate-id())]">
+			<xsl:apply-templates mode="datagrid:row-body" select="$layout[not(key('non-atomic',generate-id()))]">
 				<xsl:with-param name="mode" select="$mode"/>
 				<xsl:with-param name="context" select="$fields"/>
 			</xsl:apply-templates>
@@ -498,7 +522,7 @@
 		<xsl:param name="context" select="node-expected"/>
 		<xsl:param name="layout" select="ancestor-or-self::*[1]/@xo:id"/>
 		<xsl:comment>No records</xsl:comment>
-	
+
 	</xsl:template>
 
 	<xsl:template match="@xsi:nil">No hay registros</xsl:template>
@@ -551,14 +575,19 @@
 			<xsl:if test="$mode='header'">
 				<xsl:attribute name="scope">col</xsl:attribute>
 			</xsl:if>
+			<xsl:attribute name="class">
+				<xsl:apply-templates mode="datagrid:class-name" select="."/>
+			</xsl:attribute>
 			<xsl:attribute name="style">
 				<xsl:apply-templates mode="datagrid:cell-style" select="current()"/>
 			</xsl:attribute>
 			<xsl:apply-templates mode="datagrid:cell-attributes" select="current()"/>
-			<xsl:apply-templates mode="datagrid:cell-content" select="current()">
-				<xsl:with-param name="mode" select="$mode"/>
-				<xsl:with-param name="context" select="$row[not(self::*)]|$row/@*|$row/xo:f/@Name|$row/px:Association/@AssociationName"/>
-			</xsl:apply-templates>
+			<div class="input-group">
+				<xsl:apply-templates mode="datagrid:cell-content" select="current()">
+					<xsl:with-param name="mode" select="$mode"/>
+					<xsl:with-param name="context" select="$row[not(self::*)]|$row/@*|$row/xo:f/@Name|$row/px:Association/@AssociationName"/>
+				</xsl:apply-templates>
+			</div>
 		</xsl:element>
 	</xsl:template>
 

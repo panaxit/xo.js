@@ -94,7 +94,7 @@ aside [aria-expanded=true]:before, aside [data-toggle=collapse]:not(.collapsed):
     top: 1.4rem;
 }
 
-.datagrid thead tr th.field-container {
+.datagrid thead tr th.fieldSet {
     opacity: 85%
 }
 

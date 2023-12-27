@@ -239,7 +239,7 @@
 		<xsl:variable name="toggler" select="../*[key('toggler',@Name)]/@Name"/>
 		<xsl:variable name="class">
 			<xsl:choose>
-				<xsl:when test="parent::container:fieldSet and key('field-ref',concat($xo:context,'::',$toggler)) &gt; 1">collapse</xsl:when>
+				<xsl:when test="parent::container:fieldSet and key('field-ref',concat($xo:context,'::',$toggler))[not(.=1)]">collapse</xsl:when>
 				<xsl:otherwise></xsl:otherwise>
 			</xsl:choose>
 		</xsl:variable>

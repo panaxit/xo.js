@@ -53,7 +53,7 @@ exclude-result-prefixes="#default xsl px xo xsi route"
 			<xsl:when test="$deleting_rows">
 				<li class="ms-3" xo-scope="{../@xo:id}">
 					<a class="text-muted" href="#" onclick="px.submit(scope.$$('data:rows/*[@state:delete]'))">
-						<button class="btn btn-danger">Eliminar </button>
+						<button class="btn btn-danger">Eliminar selección</button>
 					</a>
 				</li>
 			</xsl:when>

@@ -43,7 +43,7 @@ aside.sidebar a {
     transition: 0.3s;
 }
 
-aside.sidebar ul {
+aside.sidebar menu {
 	height:100%; 
 	overflow-y:scroll;
 	overflow-x: clip;
@@ -115,12 +115,12 @@ aside .menu li.sidebar-item li {
     border-right: 5px solid var(--border-right-sidebar);
 }
 
-aside .menu ul {
+aside .menu menu {
     position: relative;
     margin-left: 25px;
 }
 
-aside li.sidebar-item.menu:has(:scope > ul:not(.collapse)) a {
+aside li.sidebar-item.menu:has(:scope > menu:not(.collapse)) a {
     border-right: 5px solid var(--border-right-sidebar);
 }
 
@@ -236,14 +236,14 @@ aside.offcanvas > div {
     padding-right: .2rem;
 }
 
-.sidebar ul {
+.sidebar menu {
     margin: 0; 
 }
 ]]>
 			</style>
-			<ul class="sidebar-nav sidebar-dropdown">
+			<menu class="sidebar-nav sidebar-dropdown">
 				<xsl:apply-templates mode="sitemap:body" select="ancestor-or-self::*[1]/*"/>
-			</ul>
+			</menu>
 		</div>
 	</xsl:template>
 
@@ -255,7 +255,7 @@ aside.offcanvas > div {
 			<xsl:if test="1=1">collapsed</xsl:if>
 		</xsl:variable>
 		<li class="sidebar-item {$type}">
-			<a href="javascript:void(0)" class="sidebar-link {$collapsed_status}" onclick="classList.toggle('collapsed'); parentElement.querySelector(':scope > ul').classList.toggle('show')">
+			<a href="javascript:void(0)" class="sidebar-link {$collapsed_status}" onclick="classList.toggle('collapsed'); parentElement.querySelector(':scope > menu').classList.toggle('show')">
 				<xsl:apply-templates mode="sitemap:target-href" select="."/>
 				<xsl:if test="$type='menu'">
 					<xsl:attribute name="data-toggle">collapse</xsl:attribute>
@@ -273,9 +273,9 @@ aside.offcanvas > div {
 			<xsl:variable name="show_status">
 				<xsl:if test="$collapsed_status!='collapsed'">show</xsl:if>
 			</xsl:variable>
-			<ul id="{generate-id()}" class="sidebar-dropdown list-unstyled collapse {$show_status}">
+			<menu id="{generate-id()}" class="sidebar-dropdown list-unstyled collapse {$show_status}">
 				<xsl:apply-templates mode="sitemap:body" select="ancestor-or-self::*[1]/*"/>
-			</ul>
+			</menu>
 		</li>
 	</xsl:template>
 

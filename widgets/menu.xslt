@@ -22,6 +22,7 @@ xmlns="http://www.w3.org/1999/xhtml"
 
 	<xsl:template match="@*|*" mode="menu:widget">
 		<xsl:param name="items" select="ancestor-or-self::*[1]/*"/>
+		<link rel="stylesheet" href="menu.css" />
 		<menu xo:use-attribute-sets="menu:dropdown">
 			<xsl:apply-templates mode="menu:item" select="$items"/>
 		</menu>

@@ -64,7 +64,7 @@
 					column-gap: 5px;
 				}
 				
-				.datagrid th {
+				.datagrid thead th {
 					text-align: center;
 				}
 				]]>

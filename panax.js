@@ -112,11 +112,11 @@ xo.listener.on(['change::px:Association[@DataType="junctionTable"]/px:Entity/dat
     element.set("state:delete", "true");
 })
 
-xo.listener.on(['change::@meta:pageIndex', 'change::@meta:pageSize'], function ({ element, value }) {
+xo.listener.on(['change::@meta:pageIndex', 'change::@meta:pageSize', 'downloadCatalog::data:rows'], function ({ element, value }) {
     let command = element.get(`command`);
     if (command) {
         command = xo.QUERI(command)
-        command.headers.set(this.localName, value);
+        this instanceof Attr && command.headers.set(this.localName, value);
     }
     command.update()
 })
@@ -226,10 +226,10 @@ xo.listener.on([`change::xo:r/@draft:*`, `set::xo:r/@*[not(namespace-uri()) and 
     if (real_value == this && old != value) {
         draft.remove();
         if (draft_value != value) {
-           real_value.set(row.getAttribute(`initial:${this.localName}`) || real_value);
-           event.preventDefault();
-           return Promise.reject("No coincide el valor")
-        } 
+            real_value.set(row.getAttribute(`initial:${this.localName}`) || real_value);
+            event.preventDefault();
+            return Promise.reject("No coincide el valor")
+        }
     }
     return value;
 })
@@ -737,12 +737,12 @@ xo.listener.on('appendTo::data:rows', function ({ addedNodes }) {
     }
 })
 
-xo.listener.on(['beforeChange::@headerText', 'beforeChange::@container:*'], function ({ element, attribute, value, old }) {
+xo.listener.on(['beforeChange::@headerText', 'change::px:Record/px:*/@*'], function ({ element, attribute, value, old }) {
     if (!element.has(`initial:${attribute.prefix && attribute.prefix + '-' || ''}${attribute.localName}`)) {
-        element.set(`initial:${attribute.prefix && attribute.prefix + '-' || ''}${attribute.localName}`, old)
+        element.set(`initial:${attribute.prefix && attribute.prefix + '-' || ''}${attribute.localName}`, `${old}`)
     }
-    element.set(`prev:${attribute.prefix && attribute.prefix + '-' || ''}${attribute.localName}`, old)
-    this.value = value.replace(/:/g, '').trim()
+    //element.set(`prev:${attribute.prefix && attribute.prefix + '-' || ''}${attribute.localName}`, old)
+    return value.replace(/:/g, '').trim()
 })
 
 xo.listener.on(['set::xo:r/@state:delete'], function ({ element, attribute, value, old, event }) {
@@ -1437,7 +1437,7 @@ px.navigateTo = function (hashtag, ref_id) {
 }
 
 function saveConfiguration() {
-    xo.stores.active.documentElement.$$('//px:Record/*/@prev:*').map(attr => [`[${attr.parentNode.$('ancestor::px:Entity[1]').get('Schema')}].[${attr.parentNode.$('ancestor::px:Entity[1]').get('Name')}]`, (attr.parentNode.get("AssociationName") || attr.parentNode.get("Name")), `@${attr.localName.replace('-', ':')}`, attr.parentNode.get(attr.localName.replace('-', ':'))]).map(el => el.map(item => `'${item}'`)).forEach(config => xo.server.request({ command: "[#entity].[config]", parameters: config }, {}).then(response => response.render && response.render()))
+    xo.stores.active.documentElement.$$('//px:Record/*/@initial:*').map(attr => [`[${attr.parentNode.$('ancestor::px:Entity[1]').get('Schema')}].[${attr.parentNode.$('ancestor::px:Entity[1]').get('Name')}]`, (attr.parentNode.get("AssociationName") || attr.parentNode.get("Name")), `@${attr.localName.replace('-', ':')}`, attr.parentNode.get(attr.localName.replace('-', ':'))]).map(el => el.map(item => `'${item}'`)).forEach(config => xo.server.request({ command: "[#entity].[config]", parameters: config }, {}).then(response => response.render && response.render()))
 }
 
 xo.spaces["post"] = "http://panax.io/persistence";
@@ -1467,7 +1467,7 @@ px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data
             let dataRow;
             if (row.$('self::*[@state:delete]')) {
                 dataRow = xo.xml.createNode(`<deleteRow xmlns="http://panax.io/persistence"${id ? ` identityValue="${row.get(id.value)}"` : ''}/>`);
-                !id && entity.$$('px:Record/px:Field/@Name').filter(field => primary_fields.find(el => el.value == field.value))/*.filter(field => !mappings.find(mapping => mapping.value == field.value))*/.forEach(field => {
+                !id && primary_fields/*.filter(field => !mappings.find(mapping => mapping.value == field.value))*/.forEach(field => {
                     let current_value = row.get(`${field}`);
                     let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}" currentValue="'${row.get(`initial:${field}`) || current_value}'" isPK="true"/>`);
                     dataRow.append(field_node);
@@ -1598,6 +1598,22 @@ xo.listener.on(['reject::xo:prompt'], function ({ document }) {
 
 xo.listener.on(['append::.modal'], function () {
     bootstrap.Modal.getOrCreateInstance(this).show()
+})
+
+xo.listener.on(['reallocate'], function () {
+    let scope = this.scope;
+    let schema = scope && scope.schema;
+    if (!(scope && schema)) return;
+    let previous_scope = this.previousElementSibling && this.previousElementSibling.scope;
+    let next_scope = this.nextElementSibling && this.nextElementSibling.scope;
+    let attribute_set = false;
+    if (!attribute_set && previous_scope instanceof Attr && previous_scope.parentNode.matches("field:ref|associaton:ref")) {
+        schema.setAttribute("position", `after::${previous_scope.value}`);
+
+    }
+    if (!attribute_set && next_scope instanceof Attr && next_scope.parentNode.matches("field:ref|associaton:ref")) {
+        schema.setAttribute("position", `before::${next_scope.value}`);
+    }
 })
 
 xo.listener.on(['append::dialog[open]'], function () {

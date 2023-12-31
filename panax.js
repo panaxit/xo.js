@@ -1,4 +1,15 @@
 px = {}
+//px.configurations = {};
+//px.configurations.nodes = new Map();
+
+//Object.defineProperty(px.configurations, 'add', {
+//    value: function (node, action, config = {}) {
+//        px.configurations.nodes.set(node, px.configurations.nodes.get(node) || new Map());
+//        px.configurations.nodes.get(node).set(config.mode || '', action);
+//        ...
+//    }, writable: true, configurable: true
+//})
+
 xover.qrl = xover.QUERI;
 xover.QRL = xover.QUERI;
 xo.spaces["px"] = "http://panax.io/entity";
@@ -1598,6 +1609,17 @@ xo.listener.on(['reject::xo:prompt'], function ({ document }) {
 
 xo.listener.on(['append::.modal'], function () {
     bootstrap.Modal.getOrCreateInstance(this).show()
+})
+
+xo.listener.on(['remove?designMode::association:ref|field:ref'], function ({ node }) {
+    let entity = (this.parentNode || this.formerParentNode).$('ancestor::px:Entity[1]');
+    [`'[${entity.get('Schema')}].[${entity.get('Name')}]', '${node.nodeName==`association:ref` ? 'fk::' : ''}${(node.ownerElement || node).get("Name")}', '@mode', 'none'`].forEach(config => xo.server.request({ command: "[#entity].[config]", parameters: config }, {}).then(response => response.render && response.render()))
+})
+
+xo.listener.on(['remove?designMode::[xo-slot]'], function () {
+    if (this.scope instanceof Attr && this.scope.parentNode.matches(`association:ref|field:ref`)) {
+        this.scope.parentNode.remove()
+    }
 })
 
 xo.listener.on(['reallocate'], function () {

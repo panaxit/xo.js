@@ -64,6 +64,16 @@
 	<xsl:key name="styles" match="@height:*" use="concat(../@xo:id,'::',local-name())"/>
 	<xsl:key name="styles" match="@width:*" use="concat(../@xo:id,'::',local-name())"/>
 
+	<xsl:template mode="attribute" match="@*">
+		<xsl:copy-of select="."/>
+	</xsl:template>
+
+	<xsl:template mode="attribute" match="@minValue|@maxValue">
+		<xsl:attribute name="{substring(local-name(),1,3)}">
+			<xsl:value-of select="substring(.,1,10)"/>
+		</xsl:attribute>
+	</xsl:template>
+
 	<xsl:template mode="style" match="@width:*|@height:*">
 		<xsl:value-of select="concat(substring-before(name(),':'),':',current(),'px;')"/>
 	</xsl:template>
@@ -86,8 +96,8 @@
 	<xsl:template mode="widget" match="@*">
 		<xsl:param name="context" select="node-expected"/>
 		<xsl:param name="class"></xsl:param>
+		<xsl:variable name="schema" select="key('schema',concat(ancestor::*[key('entity',@xo:id)][1]/@xo:id,'::',name()))/ancestor-or-self::*[1]"/>
 		<xsl:variable name="current" select="."/>
-		<xsl:variable name="schema" select="key('reference',concat(ancestor::*[key('entity',@xo:id)][1]/@xo:id,'::header::field:ref::',name()))/.."/>
 		<xsl:if test="namespace-uri()!='http://panax.io/state/draft'">
 			<xsl:apply-templates mode="widget" select="../@draft:*[local-name()=local-name(current())]"/>
 		</xsl:if>
@@ -117,6 +127,7 @@
 					<xsl:attribute name="step">1</xsl:attribute>
 				</xsl:when>
 			</xsl:choose>
+			<xsl:apply-templates mode="attribute" select="$schema/@minValue|$schema/@maxValue"/>
 			<!--<xsl:attribute name="pattern">
 				<xsl:choose>
 					<xsl:when test="key('money',concat(ancestor::*[key('entity',@xo:id)][1]/@xo:id,'::',name()))">\${\d}{1,3}.00</xsl:when>

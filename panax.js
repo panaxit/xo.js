@@ -1075,6 +1075,10 @@ xo.listener.on('fetch::px:Entity', function () {
 
     entity.$$('px:Entity/px:Record/px:Field[@mode="hidden"]').map(el => entity.$(`px:Entity/*[local-name()="layout"]/field:ref[@Name="${el.get("Name")}"]`)).forEach(el => el && el.remove())
 
+    for (let attr of entity.$$("//@*[contains(.,'${')]")) {
+        attr.value = eval('`' + attr.value + '`');
+    }
+
     // Quitamos rutas de los datagrids hijos de datagrids
     entity.select(`//px:Entity[@control:type="datagrid:control"]/px:Record/px:Association/px:Entity[@control:type="datagrid:control"]/px:Routes/px:Route`).remove()
 
@@ -1324,6 +1328,10 @@ xo.listener.on('change::@state:filter', function ({ target, stylesheet }) {
         qri.update()
     }
 })
+
+GETDATE = function () {
+    return new Date().toISOString()
+}
 
 px.getData = async function (...args) {
     let settings = args.pop() || {};

@@ -3,6 +3,7 @@ xmlns:xo="http://panax.io/xover"
 xmlns:session="http://panax.io/session"
 xmlns:sitemap="http://panax.io/sitemap"
 xmlns:widget="http://panax.io/widget"
+xmlns:breadcrumb="http://panax.io/widget/breadcrumb"
 xmlns:treeView="http://panax.io/widget/treeView"
 xmlns:fileExplorer="http://panax.io/widget/fileExplorer"
 xmlns:data="http://panax.io/source"
@@ -15,6 +16,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 >
 	<xsl:import href="../functions.xslt"/>
 	<xsl:import href="treeView.xslt"/>
+	<xsl:import href="breadcrumb.xslt"/>
 	<xsl:output method="xml"
 	   omit-xml-declaration="yes"
 	   indent="yes"/>
@@ -59,6 +61,14 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 								--bg-file-explorer-default: #2A3F54;
 								--border-right-sidebar: #1ABB9C;
 							}
+
+							.file-explorer nav:has( > .breadcrumb) {
+								margin-bottom: .5rem;
+							}
+							
+							.folder-view {
+								padding: .5rem;
+							}
 							
 							.file-explorer aside {
 								height: 100vh;
@@ -67,6 +77,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 								min-width: max-content;
 								overflow: auto;
 								padding-bottom: 1rem;
+								padding-top: 1rem;
 							}
 							
 							.file-explorer aside ul ul {
@@ -174,19 +185,12 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 									</xsl:apply-templates>
 								</aside>
 								<div class="col container">
-									<nav aria-label="breadcrumb">
-										<ol class="breadcrumb">
-											<xsl:apply-templates mode="fileExplorer:breadcrumb" select="$rows/..//*[key('active',@xo:id)]/@Name"/>
-											<li class="breadcrumb-item active">
-												<a href="javascript:void(0)">
-													<span class="text-info">
-														- <xsl:value-of select="count($files)"/> archivos
-													</span>
-												</a>
-											</li>
-										</ol>
-									</nav>
-									<div class="row">
+									<xsl:variable name="field" select="$rows/ancestor-or-self::*/xo:f"/>
+									<xsl:variable name="active" select="$field//*[key('active',@xo:id)]/@Name"/>
+									<xsl:apply-templates mode="breadcrumb:widget" select="$field/@Name">
+										<xsl:with-param name="items" select="$active/ancestor-or-self::Item/@Name|$active/ancestor-or-self::Folder/@Name"/>
+									</xsl:apply-templates>
+									<div class="row folder-view" xo-scope="{$rows}">
 										<xsl:apply-templates mode="fileExplorer:body" select="$rows[1]">
 											<xsl:with-param name="context" select="$context"/>
 											<xsl:with-param name="layout" select="$layout"/>
@@ -288,8 +292,8 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 	</xsl:template>
 
 	<xsl:template mode="fileExplorer:body-item-thumbnail" match="@*">
-		<a href="FilesRepository/{.}" target="_blank" xo-scope="x_r_e8bac8a7_db47_4f6c_851d_7fb10e839de8" xo-slot="Archivo" xo:id="a_9e1e875a_9803_4697_afa1_61ba582e8c8e">
-			<img id="" src="FilesRepository/{.}" style="height:100px;" xo-scope="x_r_e8bac8a7_db47_4f6c_851d_7fb10e839de8" xo-slot="Archivo" xo:id="img_7821a493_f8c7_496f_be62_179cb22725e8"/>
+		<a href="FilesRepository/{.}" target="_blank" xo-slot="Archivo" xo:id="a_9e1e875a_9803_4697_afa1_61ba582e8c8e">
+			<img id="" src="FilesRepository/{.}" style="height:100px;" xo-slot="Archivo" xo:id="img_7821a493_f8c7_496f_be62_179cb22725e8"/>
 		</a>
 		<xsl:apply-templates mode="fileExplorer:body-item-thumbnail-badge" select="current()"/>
 	</xsl:template>
@@ -417,25 +421,6 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 				</div>
 			</div>
 		</nav>
-	</xsl:template>
-
-	<xsl:template match="@*" mode="fileExplorer:breadcrumb">
-		<xsl:apply-templates mode="fileExplorer:breadcrumb" select="../../@Name"/>
-		<li class="breadcrumb-item">
-			<a href="javascript:void(0)"  onclick="scope.selectFirst('ancestor::xo:f').set('state:active-item','{../@xo:id}')">
-				<xsl:apply-templates select="../@Name"/>
-			</a>
-		</li>
-	</xsl:template>
-
-	<xsl:template match="@Name[.='']" mode="fileExplorer:breadcrumb">
-	</xsl:template>
-
-	<xsl:template match="*[key('active',@xo:id)]/@*" mode="fileExplorer:breadcrumb">
-		<xsl:apply-templates mode="fileExplorer:breadcrumb" select="../../@Name"/>
-		<li class="breadcrumb-item active" aria-current="page">
-			<xsl:apply-templates select="../@Name"/>
-		</li>
 	</xsl:template>
 
 	<xsl:template match="@*" mode="fileExplorer:title">

@@ -173,7 +173,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 		</xsl:apply-templates>
 		<xsl:variable name="files" select="$rows/..//*[key('treeView:active',@xo:id)]//*[key('File',@xo:id)]"/>
 		<ul class="tree" xo-scope="{../@xo:id}">
-			<xsl:apply-templates mode="treeView:aside" select="$rows[1]/..//Folder[1]/*/@Name">
+			<xsl:apply-templates mode="treeView:items" select="$rows[1]/..//Folder[1]/*/@Name">
 				<xsl:with-param name="context" select="$context"/>
 				<xsl:with-param name="layout" select="$layout"/>
 			</xsl:apply-templates>
@@ -184,7 +184,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 		</xsl:apply-templates>
 	</xsl:template>
 
-	<xsl:template mode="treeView:aside" match="@*">
+	<xsl:template mode="treeView:items" match="@*">
 		<xsl:variable name="class">
 			<xsl:choose>
 				<xsl:when test="key('Menu', ../@xo:id)">menu</xsl:when>
@@ -203,7 +203,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 					<xsl:when test="$class='menu'">
 						<xsl:choose>
 							<xsl:when test="not($empty-folders)">
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#f3da35" class="bi bi-folder2-open" viewBox="0 0 16 16" onclick="scope.selectFirst('ancestor::xo:f').set('state:active-item','{../@xo:id}')">
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#f3da35" class="bi bi-folder2-open" viewBox="0 0 16 16">
 									<path d="M9.828 3h3.982a2 2 0 0 1 1.992 2.181l-.637 7A2 2 0 0 1 13.174 14H2.825a2 2 0 0 1-1.991-1.819l-.637-7a1.99 1.99 0 0 1 .342-1.31L.5 3a2 2 0 0 1 2-2h3.672a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 9.828 3zm-8.322.12C1.72 3.042 1.95 3 2.19 3h5.396l-.707-.707A1 1 0 0 0 6.172 2H2.5a1 1 0 0 0-1 .981l.006.139z"/>
 								</svg>
 							</xsl:when>
@@ -240,7 +240,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 				</xsl:if>
 			</a>
 			<ul class="list-unstyled collapse {$show}">
-				<xsl:apply-templates mode="treeView:aside" select="../*/@Name"/>
+				<xsl:apply-templates mode="treeView:items" select="../*/@Name"/>
 			</ul>
 		</li>
 	</xsl:template>

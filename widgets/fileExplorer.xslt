@@ -3,6 +3,7 @@ xmlns:xo="http://panax.io/xover"
 xmlns:session="http://panax.io/session"
 xmlns:sitemap="http://panax.io/sitemap"
 xmlns:widget="http://panax.io/widget"
+xmlns:treeView="http://panax.io/widget/treeView"
 xmlns:fileExplorer="http://panax.io/widget/fileExplorer"
 xmlns:data="http://panax.io/source"
 xmlns:state="http://panax.io/state"
@@ -13,12 +14,13 @@ xmlns:js="http://panax.io/languages/javascript"
 exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 >
 	<xsl:import href="../functions.xslt"/>
+	<xsl:import href="treeView.xslt"/>
 	<xsl:output method="xml"
 	   omit-xml-declaration="yes"
 	   indent="yes"/>
 
-	<xsl:key name="Folder" match="Folder" use="@xo:id"/>
-	<xsl:key name="Folder" match="Item[not(@IsFile='1')]" use="@xo:id"/>
+	<xsl:key name="Menu" match="Folder" use="@xo:id"/>
+	<xsl:key name="Menu" match="Item[not(@IsFile='1')]" use="@xo:id"/>
 	<xsl:key name="File" match="Item[@IsFile='1']" use="@xo:id"/>
 
 	<xsl:key name="active" match="xo:f[not(@state:active-item)]/Folder" use="@xo:id"/>
@@ -53,12 +55,25 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 				<div class="col-md-12">
 					<style>
 						<![CDATA[
+							:root {
+								--bg-file-explorer-default: #2A3F54;
+								--border-right-sidebar: #1ABB9C;
+							}
+							
 							.file-explorer aside {
 								height: 100vh;
-								background-color: var(--bg-primary-dark);
+								background-color: var(--bg-primary-dark, var(--bg-file-explorer-default));
 								color: white;
 								min-width: max-content;
+								overflow: auto;
+								padding-bottom: 1rem;
 							}
+							
+							.file-explorer aside ul ul {
+								position: relative;
+								margin-left: 25px;
+							}
+
 							
 							.file-explorer aside li svg {
 								margin-right: 10px;
@@ -132,63 +147,16 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 							color: #f3da35;
 							}
 
-							/*tree*/
-							.tree .option-text {
-							white-space: nowrap;
+							.file-explorer .tree .sidebar-link {
+								color: #adb5bd;
 							}
 
-							ul.tree, ul.tree ul {
-							list-style:none;
-							margin:0;
-							padding:0;
-							font-family: Arial, sans-serif;
-							font-size: 12px;
+							.breadcrumb {
+								padding-left: 15px;
+								margin-bottom: 0px;
+								min-height: 25px;
 							}
-
-							ul.tree a {
-							display: block;
-							height:30px;
-							line-height: 30px;
-							padding-left: 15px;
-							}
-							ul.tree a:before {
-							content: '';
-							height: 30px;
-							position: absolute;
-							left: 0;
-							right: 0;
-							z-index: -1;
-							border-bottom-width: 1px;
-							border-bottom-color: lightgray;
-							border-bottom-style: solid;
-							}
-
-							ul.tree a:hover:before {
-							background-color: #DDDDDD;
-							}
-
-							ul.tree {
-							position: relative;
-							}
-
-							ul.tree a + ul {
-							padding-left: 15px;
-							}
-
-							.tree .folder:before {
-							content: " ";
-							border: solid;
-							border-width: 0 .1rem .1rem 0;
-							display: inline-block;
-							padding: 2px;
-							-webkit-transform: rotate(45deg);
-							transform: rotate(45deg);
-							position: absolute;
-							top: 1.2rem;
-							right: 1.25rem;
-							-webkit-transition: all .2s ease-out;
-							transition: all .2s ease-out;
-							}]]>
+							]]>
 					</style>
 					<xsl:variable name="rows" select="$context/ancestor-or-self::data:rows[1]/xo:r/@xo:id|$context[not(self::*) and namespace-uri()='http://www.w3.org/2001/XMLSchema-instance' and local-name()='nil']"/>
 					<xsl:apply-templates mode="fileExplorer:header" select="$rows">
@@ -196,30 +164,28 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 						<xsl:with-param name="layout" select="$layout"/>
 					</xsl:apply-templates>
 					<xsl:variable name="files" select="$rows/..//*[key('active',@xo:id)]//*[key('File',@xo:id)]"/>
-					<nav aria-label="breadcrumb">
-						<ol class="breadcrumb">
-							<xsl:apply-templates mode="fileExplorer:breadcrumb" select="$rows/..//*[key('active',@xo:id)]/@Name"/>
-							<li class="breadcrumb-item active">
-								<a href="javascript:void(0)">
-									<span class="text-info">
-										- <xsl:value-of select="count($files)"/> archivos
-									</span>
-								</a>
-							</li>
-						</ol>
-					</nav>
 					<div class="file_panel file_panel-default">
 						<div class="file_panel-body">
 							<div class="row">
-								<aside class="col-sm-4 col-md-4 col-lg-3">
-									<ul class="sidebar-nav sidebar-dropdown" xo-scope="{../@xo:id}">
-										<xsl:apply-templates mode="fileExplorer:aside" select="$rows[1]/..//Folder[1]/*/@Name">
-											<xsl:with-param name="context" select="$context"/>
-											<xsl:with-param name="layout" select="$layout"/>
-										</xsl:apply-templates>
-									</ul>
+								<aside class="col-12 col-md-4 col-lg-3 tree">
+									<xsl:apply-templates mode="treeView:widget" select=".">
+										<xsl:with-param name="context" select="$rows[1]/..//Folder[1]/*/@Name"/>
+										<xsl:with-param name="layout" select="$layout"/>
+									</xsl:apply-templates>
 								</aside>
-								<div class="col">
+								<div class="col container">
+									<nav aria-label="breadcrumb">
+										<ol class="breadcrumb">
+											<xsl:apply-templates mode="fileExplorer:breadcrumb" select="$rows/..//*[key('active',@xo:id)]/@Name"/>
+											<li class="breadcrumb-item active">
+												<a href="javascript:void(0)">
+													<span class="text-info">
+														- <xsl:value-of select="count($files)"/> archivos
+													</span>
+												</a>
+											</li>
+										</ol>
+									</nav>
 									<div class="row">
 										<xsl:apply-templates mode="fileExplorer:body" select="$rows[1]">
 											<xsl:with-param name="context" select="$context"/>
@@ -238,7 +204,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 	<xsl:template mode="fileExplorer:aside" match="@*">
 		<xsl:variable name="class">
 			<xsl:choose>
-				<xsl:when test="key('Folder', ../@xo:id)">menu</xsl:when>
+				<xsl:when test="key('Menu', ../@xo:id)">menu</xsl:when>
 			</xsl:choose>
 		</xsl:variable>
 		<xsl:variable name="show">
@@ -247,7 +213,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 			</xsl:choose>
 		</xsl:variable>
 		<xsl:variable name="files" select="..//*[key('File',@xo:id)]"/>
-		<xsl:variable name="empty-folders" select="..//descendant-or-self::*[key('Folder',@xo:id)][not(*[key('Folder',@xo:id) or key('File',@xo:id)])]"/>
+		<xsl:variable name="empty-folders" select="..//descendant-or-self::*[key('Menu',@xo:id)][not(*[key('Menu',@xo:id) or key('File',@xo:id)])]"/>
 		<li class="sidebar-item {$class}" xo-scope="{../@xo:id}">
 			<a href="javascript:void(0)" class="sidebar-link collapsed" onclick="classList.toggle('collapsed'); parentElement.querySelector(':scope > ul').classList.toggle('show'); scope.toggle('state:expanded',true,false);">
 				<xsl:choose>
@@ -284,7 +250,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 					</xsl:attribute>
 					<xsl:apply-templates mode="fileExplorer:item-legend" select="."/>
 				</span>
-				<xsl:if test="key('Folder',../@xo:id)">
+				<xsl:if test="key('Menu',../@xo:id)">
 					<span class="text-info">
 						- <xsl:value-of select="count($files)"/> archivos
 					</span>
@@ -306,7 +272,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 	<xsl:template mode="fileExplorer:body-item-thumbnail-attributes" match="@*">
 		<xsl:attribute name="onclick">
 			<xsl:text/>scope.selectFirst('ancestor::xo:f').set('state:active-item','<xsl:value-of select="../@xo:id"/>')<xsl:text/>
-		</xsl:attribute>		
+		</xsl:attribute>
 	</xsl:template>
 
 	<xsl:template mode="fileExplorer:body-item-thumbnail-badge" match="@*"/>
@@ -328,7 +294,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 		<xsl:apply-templates mode="fileExplorer:body-item-thumbnail-badge" select="current()"/>
 	</xsl:template>
 
-	<xsl:template mode="fileExplorer:body-item-thumbnail" match="*[key('Folder', @xo:id)]/@*">
+	<xsl:template mode="fileExplorer:body-item-thumbnail" match="*[key('Menu', @xo:id)]/@*">
 		<xsl:variable name="files" select="..//*[key('File',@xo:id)]"/>
 		<xsl:variable name="color">
 			<xsl:choose>
@@ -343,7 +309,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 		<xsl:apply-templates mode="fileExplorer:body-item-thumbnail-badge" select="current()"/>
 	</xsl:template>
 
-	<xsl:template mode="fileExplorer:body-item-thumbnail" match="*[key('Folder', @xo:id)][not(descendant-or-self::*[key('Folder',@xo:id)][not(*[key('Folder',@xo:id) or key('File',@xo:id)])])]/@*">
+	<xsl:template mode="fileExplorer:body-item-thumbnail" match="*[key('Menu', @xo:id)][not(descendant-or-self::*[key('Menu',@xo:id)][not(*[key('Menu',@xo:id) or key('File',@xo:id)])])]/@*">
 		<xsl:variable name="files" select="..//*[key('File',@xo:id)]"/>
 		<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" class="bi bi-folder-fill" viewBox="0 0 16 16">
 			<xsl:apply-templates mode="fileExplorer:body-item-thumbnail-attributes" select="current()"/>

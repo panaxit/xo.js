@@ -1619,6 +1619,10 @@ xo.listener.on(['append::.modal'], function () {
     bootstrap.Modal.getOrCreateInstance(this).show()
 })
 
+xo.listener.on([`change::@class[contains(concat(' ',.,' '),' modal ')][not(contains(.,'show'))]`], function ({ element }) {
+    element.remove()
+})
+
 xo.listener.on(['remove?designMode::association:ref|field:ref'], function ({ node }) {
     let entity = (this.parentNode || this.formerParentNode).$('ancestor::px:Entity[1]');
     [`'[${entity.get('Schema')}].[${entity.get('Name')}]', '${node.nodeName==`association:ref` ? 'fk::' : ''}${(node.ownerElement || node).get("Name")}', '@mode', 'none'`].forEach(config => xo.server.request({ command: "[#entity].[config]", parameters: config }, {}).then(response => response.render && response.render()))
@@ -1697,9 +1701,17 @@ xo.listener.on(['failure::#server:submit', 'failure::#server:request'], function
     if (!this.document) return;
 
     this.document.$$('//result[@status="error"]/@statusMessage|xo:message/text()').set(message => {
+        let return_value;
         let document = message.ownerDocument;
+        let full_message_xml = new xover.xml.createNode(`<message>${message.value.replace(/(Instrucción )(\w+)/, `$1<method>$2</method>`).replace(/(restricción )([^']+)'(\w+)[^']+/, `$1'<constraint type="$2">$3</constraint>`).replace(/(,?\s+(?:base de datos|tabla|column) '[^']+?')+/g, function (match) { return [...match.matchAll(/(,?)\s+(base de datos|tabla|column) '([^']+?)'/g)].map(([, separator, type, value]) => `${separator || ''} ${type} <entity type="${type}">${value}</entity>`).join("") })}</message>`);
+
         let [match, action, type, constraint_name, table, column] = [...message.value.matchAll(/^.*(INSERT|UPDATE|DELETE).*(REFERENCE|FOREIGN KEY)\s'([^']+)'.*, tabl[ae]\s'([^']+)'(?:, column '([^']+)')?/g)][0] || [];
         if (match) {
+            let constraint_event = new xover.listener.Event('constraint', { message, match, action, type, name: constraint_name, table, column, payload }, document);
+            window.top.dispatchEvent(constraint_event);
+            return_value = constraint_event.detail.returnValue;
+            if (return_value || constraint_event.defaultPrevented) return return_value || message.value;
+
             document.addStylesheet({ href: 'message.constraints.xslt', role: 'alertdialog' })
             message.parentNode.setAttributes({ action, type, constraint_name, column })
             let [schema, table_name] = table.split(".");
@@ -1719,6 +1731,8 @@ xo.listener.on(['failure::#server:submit', 'failure::#server:request'], function
                     let related_entity = association.selectFirst("px:Entity/@headerText");
                     return `El valor asignado en "${header_text}" sólo permite elementos existentes en el módulo ${related_entity}.`
                 }
+            } else if (action == 'INSERT') {
+                return `La operación no se puede completar porque hay una condición que no se está cumpliendo.${document.select(`response/transaction_id`).map((trid) => `\nId de la transacción: ${trid.textContent}`)}`;
             }
         }
         return message.value;

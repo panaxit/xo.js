@@ -1799,3 +1799,7 @@ xo.server.ws = function (url, target) {
 //        event.target.value = "";
 //    }
 //});
+xo.listener.on('error::img[src^=FilesRepository]', function () {
+    let src = this.getAttributeNode("src")
+    src.value = src.value.replace(/^FilesRepository/, 'Repository')
+})

@@ -48,6 +48,10 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 		<xsl:value-of select="substring-before(substring-after(.,'?name='),'&amp;')"/>
 	</xsl:template>
 
+	<xsl:template mode="fileExplorer:item-legend" match="@*[contains(.,'&amp;caption=')]">
+		<xsl:value-of select="substring-before(substring-after(.,'&amp;caption='),'&amp;')"/>
+	</xsl:template>
+
 	<xsl:template mode="fileExplorer:widget" match="@*">
 		<xsl:param name="schema" select="nodeset-expected"/>
 		<xsl:param name="context" select="nodeset-expected"/>
@@ -292,8 +296,8 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 	</xsl:template>
 
 	<xsl:template mode="fileExplorer:body-item-thumbnail" match="@*">
-		<a href="FilesRepository/{.}" target="_blank" xo-slot="Archivo" xo:id="a_9e1e875a_9803_4697_afa1_61ba582e8c8e">
-			<img id="" src="FilesRepository/{.}" style="height:100px;" xo-slot="Archivo" xo:id="img_7821a493_f8c7_496f_be62_179cb22725e8"/>
+		<a href="FilesRepository/{.}" target="_blank" xo-slot="{name()}">
+			<img id="" src="FilesRepository/{.}" style="height:100px;" xo-slot="{name()}"/>
 		</a>
 		<xsl:apply-templates mode="fileExplorer:body-item-thumbnail-badge" select="current()"/>
 	</xsl:template>

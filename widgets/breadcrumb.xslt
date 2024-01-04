@@ -21,23 +21,22 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 		<xsl:variable name="active" select="$items[last()]"/>
 		<xsl:variable name="current" select="current()"/>
 		<nav aria-label="breadcrumb">
-			<style><![CDATA[
-			nav:has( > .breadcrumb) {
-				margin-bottom: 1rem;
-			}]]></style>
 			<ol class="breadcrumb">
 				<xsl:for-each select="$items[count(.|$active)!=1]">
-					<li class="breadcrumb-item" xo-scope="inherit">
-						<a href="#" xo-slot="state:active-item" onclick="scope.set('{ancestor-or-self::*[1]/@xo:id}')">
+					<xsl:variable name="xo:id" select="ancestor-or-self::*[1]/@xo:id"/>
+					<li class="breadcrumb-item" xo-scope="inherit" xo-slot="state:active-item" onclick="scope.set('{$xo:id}')">
+						<a href="#" xo-scope="{$xo:id}" xo-slot="{name()}">
 							<xsl:apply-templates mode="breadcrumb:item-attributes" select="."/>
 							<xsl:apply-templates mode="breadcrumb:item-content" select="."/>
 						</a>
 					</li>
 				</xsl:for-each>
-				<li class="breadcrumb-item active" aria-current="page">
-					<xsl:apply-templates mode="breadcrumb:item-attributes" select="$active"/>
-					<xsl:apply-templates mode="breadcrumb:item-content" select="$active"/>
-				</li>
+				<xsl:for-each select="$active">
+					<li class="breadcrumb-item active" aria-current="page">
+						<xsl:apply-templates mode="breadcrumb:item-attributes" select="."/>
+						<xsl:apply-templates mode="breadcrumb:item-content" select="."/>
+					</li>
+				</xsl:for-each>
 			</ol>
 		</nav>
 	</xsl:template>

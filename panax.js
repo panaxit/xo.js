@@ -1524,12 +1524,12 @@ px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data
                     })
                 } else {
                     dataRow = xo.xml.createNode(`<insertRow xmlns="http://panax.io/persistence"/>`);
-                    fields.forEach(field => {
+                    for (let field of fields.filter(field => !mappings.map(ref => ref.value).includes(field.value))) {
                         let isPK = primary_fields.some(pf => pf.value == field.value);
                         let field_node = xo.xml.createNode(`<field xmlns="http://panax.io/persistence" name="${field}"${isPK ? ` isPK="true"` : ''}/>`);
-                        field_node.textContent = [row.get(field.value)].map(val => xover.xml.encodeValue(val && val.value || field.$("../@defaultValue") || 'null')).join();
+                        field_node.textContent = [row.get(field.value)].map(val => val && xover.xml.encodeValue(val.value) || `${field.$("../@defaultValue")}` || 'null').join();
                         dataRow.append(field_node);
-                    })
+                    }
                 }
             }
             mappings.forEach(mapping => dataRow.nodeName != 'deleteRow' && dataRow.insertFirst(xo.xml.createNode(`<fkey xmlns="http://panax.io/persistence" name="${mapping}" maps="${mapping.$("../@Referencee")}"/>`)))
@@ -1703,7 +1703,7 @@ xo.listener.on(['failure::#server:submit', 'failure::#server:request'], function
     this.document.$$('//result[@status="error"]/@statusMessage|xo:message/text()').set(message => {
         let return_value;
         let document = message.ownerDocument;
-        let full_message_xml = new xover.xml.createNode(`<message>${message.value.replace(/(Instrucción )(\w+)/, `$1<method>$2</method>`).replace(/(restricción )([^']+)'(\w+)[^']+/, `$1'<constraint type="$2">$3</constraint>`).replace(/(,?\s+(?:base de datos|tabla|column) '[^']+?')+/g, function (match) { return [...match.matchAll(/(,?)\s+(base de datos|tabla|column) '([^']+?)'/g)].map(([, separator, type, value]) => `${separator || ''} ${type} <entity type="${type}">${value}</entity>`).join("") })}</message>`);
+        let full_message_xml = new xover.xml.createNode(`<message>${message.value.replace(/(DELETE|INSERT|UPDATE)/, `<method>$1</method>`).replace(/(restricción )([^']+)'([^']+)/, `$1'<constraint type="$2">$3</constraint>`).replace(/(,?\s+(?:base de datos|tabla|column) '[^']+?')+/g, function (match) { return [...match.matchAll(/(,?)\s+(base de datos|tabla|column) '([^']+?)'/g)].map(([, separator, type, value]) => `${separator || ''} ${type} <entity type="${type}">${value}</entity>`).join("") })}</message>`);
 
         let [match, action, type, constraint_name, table, column] = [...message.value.matchAll(/^.*(INSERT|UPDATE|DELETE).*(REFERENCE|FOREIGN KEY)\s'([^']+)'.*, tabl[ae]\s'([^']+)'(?:, column '([^']+)')?/g)][0] || [];
         if (match) {

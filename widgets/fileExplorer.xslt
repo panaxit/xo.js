@@ -222,7 +222,7 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 		</xsl:variable>
 		<xsl:variable name="files" select="..//*[key('File',@xo:id)]"/>
 		<xsl:variable name="empty-folders" select="..//descendant-or-self::*[key('Menu',@xo:id)][not(*[key('Menu',@xo:id) or key('File',@xo:id)])]"/>
-		<li class="sidebar-item {$class}" xo-scope="{../@xo:id}">
+		<li class="sidebar-item {$class}">
 			<a href="javascript:void(0)" class="sidebar-link collapsed" onclick="classList.toggle('collapsed'); parentElement.querySelector(':scope > ul').classList.toggle('show'); scope.toggle('state:expanded',true,false);">
 				<xsl:choose>
 					<xsl:when test="$class='menu'">
@@ -327,7 +327,10 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 	</xsl:template>
 
 	<xsl:template mode="fileExplorer:body-item" match="@*">
-		<div class="col-xs-6 col-sm-6 col-md-3 col-lg-3 file-explorer-item position-relative" xo-scope="{../@xo:id}">
+		<div class="col-xs-6 col-sm-6 col-md-3 col-lg-3 file-explorer-item position-relative">
+			<xsl:attribute name="title">
+				<xsl:apply-templates mode="fileExplorer:item-legend" select="."/>
+			</xsl:attribute>
 			<xsl:apply-templates mode="fileExplorer:body-item-thumbnail" select="."/>
 			<p class="file_panel-paragraphs">
 				<xsl:apply-templates mode="fileExplorer:item-legend" select="."/>

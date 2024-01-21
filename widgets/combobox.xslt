@@ -296,6 +296,7 @@ xo.components.combobox.filter = function (event) {
 		showDropdown()
 	}
     let optionsList = self.ownerDocument.contains(self.optionsList) && self.optionsList || dropdown.querySelector('.dropdown-menu');
+	optionsList.ownerDocument.disconnect()
     self.optionsList = optionsList;
 
     let options = optionsList.querySelectorAll(".filterable li,.filterable option");

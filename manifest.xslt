@@ -200,10 +200,10 @@
 					<xsl:apply-templates mode="value" select="."/>
 				</xsl:variable>
 				<div class="form-check form-check-inline data-row" xo-scope="{../@xo:id}" xo-slot="{name(.)}">
-					<input class="form-check-input" type="radio" value="{$value}" id="{../@xo:id}_{position()}" xo-scope="{$current/../@xo:id}" xo-slot="{name($current)}" name="{name($current)}" xo-swap="self::*">
+					<input class="form-check-input" type="radio" value="{$value}" id="{../@xo:id}_{position()}" xo-scope="{$current/../@xo:id}" xo-slot="{name($current)}" name="{local-name($current)}" xo-swap="self::*">
 						<xsl:if test="string($current) = string($value)">
 							<xsl:attribute name="onclick">scope.set('')</xsl:attribute>
-							<xsl:attribute name="checked"/>
+							<xsl:attribute name="checked">checked</xsl:attribute>
 						</xsl:if>
 						<xsl:for-each select="$schema/px:Mappings/px:Mapping">
 							<xsl:attribute name="onclick">

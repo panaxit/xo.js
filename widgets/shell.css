@@ -19,6 +19,19 @@
     --header-height: 70px;
 }
 
+*[onclick]:not([disabled]) {
+    cursor: pointer;
+}
+
+svg[disabled] {
+    color: silver
+}
+
+.editable input {
+    width: 100%;
+    text-align: right;
+}
+
 aside * {
     scrollbar-width: thin;
     scrollbar-color: rgba(50, 62, 72, 0.9);
@@ -510,6 +523,17 @@ dialog::-webkit-backdrop {
 
 dialog::backdrop {
     background: rgba(0, 0, 0, 0.4);
+}
+/* This is the style for outside the dialog
+when the dialog is displayed
+to make it clear that it is a "modal dialog" and
+the user cannot interact with anything outside it. */
+::backdrop, /* for native <dialog> */
+dialog + .backdrop {
+    /* for dialog-polyfill */
+    /* a transparent shade of gray */
+    background: repeating-linear-gradient( 45deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2) 1px, rgba(0, 0, 0, 0.3) 1px, rgba(0, 0, 0, 0.3) 20px );
+    backdrop-filter: blur(2px);
 }
 
 dialog #content .content-container {

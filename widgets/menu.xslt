@@ -38,7 +38,7 @@ xmlns="http://www.w3.org/1999/xhtml"
 	</xsl:template>
 
 	<xsl:template match="@*|*" mode="menu:item-icon" priority="-1"/>
-	
+
 	<xsl:template match="@*|*" mode="menu:item-link-attribute" priority="-1"/>
 
 	<xsl:template match="*[@href]|*[@href]/@*" mode="menu:item-link-attribute">
@@ -66,14 +66,16 @@ xmlns="http://www.w3.org/1999/xhtml"
 	</xsl:template>
 
 	<xsl:template match="@*|*" mode="menu:item-title">
-		<xsl:choose>
-			<xsl:when test="ancestor-or-self::*[1]/@title">
-				<xsl:apply-templates select="ancestor-or-self::*[1]/@title"/>
-			</xsl:when>
-			<xsl:when test="not(ancestor-or-self::*[1]/@icon)">
-				<xsl:apply-templates mode="title" select="."/>
-			</xsl:when>
-		</xsl:choose>
+		<slot>
+			<xsl:choose>
+				<xsl:when test="ancestor-or-self::*[1]/@title">
+					<xsl:apply-templates select="ancestor-or-self::*[1]/@title"/>
+				</xsl:when>
+				<xsl:when test="not(ancestor-or-self::*[1]/@icon)">
+					<xsl:apply-templates mode="title" select="."/>
+				</xsl:when>
+			</xsl:choose>
+		</slot>
 	</xsl:template>
 
 	<xsl:template match="@*|*" mode="menu:item">

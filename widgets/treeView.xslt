@@ -42,6 +42,10 @@ exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 			.tree .option-text {
 				white-space: nowrap;
 			}
+							
+			.tree a {
+				text-decoration: none
+			}
 
 			ul.tree, ul.tree ul {
 				list-style:none;

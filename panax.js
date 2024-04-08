@@ -433,9 +433,9 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
                 if (!options.length) {
                     if (attribs[referencer]) {
                         if (attribs[referencer].value) {
-                            qri.predicate.set(referencer, attribs[referencer]);
+                            qri.predicate.set(referencee, attribs[referencer]);
                         } else {
-                            qri.predicate.delete(referencer);
+                            qri.predicate.delete(referencee);
                         }
                     } else {
                         let attr = row.getAttributeNode(referencer);
@@ -1340,7 +1340,8 @@ px.getData = async function (...args) {
     if (node) {
         let command = parameters;
         let attribute_base_name = node.localName;
-        let fields, request = '', predicate = {}, url_settings;
+        let fields = '', request = '', predicate = {}, url_settings;
+        let page_index, page_size, max_records, order_by;
         if (parameters && typeof (parameters.value || parameters) === 'string') {
             ({
                 fields, schema, name, mode, identity_value, primary_values, predicate, headers: url_settings
@@ -1776,8 +1777,11 @@ xover.listener.on('error', async function ({ event }) {
 xo.server.ws = function (url, target) {
     try {
         const socket_io = io(url, { transports: ['websocket'] });
+        xo.server.ws.send = function (msg) {
+            socket_io.send(msg)
+        }
         socket_io.on('message', function (data) {
-            xo.sources[target, target].documentElement.append(xo.xml.createNode(`<item/>`).set(data))
+            xo.sources[target].documentElement.append(xo.xml.createNode(`<item/>`).set(data))
         })
     } catch (e) {
         return Promise.reject(e);

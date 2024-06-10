@@ -1,6 +1,6 @@
 ﻿<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/xhtml"
 xmlns:xo="http://panax.io/xover"
-xmlns:shell="http://xover.dev/shell"
+xmlns:shell="http://panax.io/shell"
 >
 	<xsl:output method="xml"
 	   omit-xml-declaration="yes"

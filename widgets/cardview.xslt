@@ -7,10 +7,8 @@
   xmlns:session="http://panax.io/session"
   xmlns:filters="http://panax.io/filters"
   xmlns:custom="http://panax.io/custom"
-  xmlns:cardview="http://panax.io/widgets/cardview"
-  xmlns:datagrid="http://panax.io/widgets/datagrid"
-  xmlns:source="http://panax.io/xover/binding/source"
-  exclude-result-prefixes="debug msxsl x state session filters custom datagrid source cardview"
+  xmlns:cardview="http://panax.io/widget/cardview"
+  xmlns:datagrid="http://panax.io/widget/datagrid"
   xmlns="http://www.w3.org/1999/xhtml"
 >
 	<xsl:output method="xml" indent="yes" />

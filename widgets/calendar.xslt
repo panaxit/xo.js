@@ -6,9 +6,8 @@ xmlns:xover="http://panax.io/xover"
 xmlns:state="http://panax.io/state"
 xmlns:data="http://panax.io/source"
 xmlns:calendar="http://panax.io/widget/calendar"
+xmlns:px="http://panax.io/entity"
 xmlns="http://www.w3.org/1999/xhtml"
-xmlns:px="http://panax.io"
-exclude-result-prefixes="#default xsl state data"
 >
 	<xsl:key name="data_table" match="px:Entity" use="generate-id()"/>
 	<xsl:key name="data_row" match="data:rows/xo:r/@Titulo" use="concat(ancestor::px:Entity[1]/@xo:id,'::',substring(../@Fecha,1,10))"/>

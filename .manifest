@@ -1,14 +1,4 @@
 {
-  "server": {
-    "login": "POST server/login.asp",
-    "logout": "server/logout.asp",
-    "submit": "POST server/post.asp",
-    "session": "server/session.asp",
-    "request": "server/request.asp",
-    "sitemap": "server/sitemap.asp",
-    "uploadFile": "server/upload_file.asp",
-    "uploadFileManager": "server/upload_file_manager.asp"
-  },
   "sources": {
     "^#(.+)": "$1.xml",
     "^data:(.*)": { "px.getData": [] },
@@ -22,10 +12,11 @@
         }
       ]
     },
-    "^#([^\\/]+\\/.+)$": { "px.request": [ "{$1}" ] },
+    "^#([^\\/]+\\/.+)$": { "px.request": [ "$1" ] },
     "#sitemap": { "server:sitemap": [] },
     "#shell": null,
-    "#login": null
+    "#login": null,
+    "#loading": "loading.xslt"
   },
   "settings": {
     "#shell": {

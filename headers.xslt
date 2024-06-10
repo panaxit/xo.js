@@ -5,13 +5,12 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xmlns:px="http://panax.io/entity"
   xmlns:data="http://panax.io/source"
-  xmlns:form="http://panax.io/widgets/form"
-  xmlns:datagrid="http://panax.io/widgets/datagrid"
+  xmlns:form="http://panax.io/widget/form"
+  xmlns:datagrid="http://panax.io/widget/datagrid"
   xmlns:field="http://panax.io/layout/fieldref"
   xmlns:container="http://panax.io/layout/container"
   xmlns:association="http://panax.io/datatypes/association"
   xmlns:globalization="http://xover.dev/globalization"
-  exclude-result-prefixes="xo xsl sitemap layout px data form"
 >
 	<xsl:param name="globalization:headerText">#globalization</xsl:param>
 

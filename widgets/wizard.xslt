@@ -4,11 +4,9 @@
   xmlns:field="http://panax.io/layout/fieldref"
   xmlns:association="http://panax.io/datatypes/association"
   xmlns:state="http://panax.io/state"
-  xmlns:source="http://panax.io/xdom/binding/source"
   xmlns:container="http://panax.io/layout/container"
   xmlns:wizard="http://panax.io/widget/wizard"
   xmlns:px="http://panax.io/entity"
-  exclude-result-prefixes="px form state xo source container wizard field association"
   xmlns="http://www.w3.org/1999/xhtml"
 >
 	<xsl:import href="keys.xslt"/>

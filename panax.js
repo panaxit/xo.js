@@ -12,6 +12,31 @@ px = {}
 
 xover.qrl = xover.QUERI;
 xover.QRL = xover.QUERI;
+
+/* Binding */
+xover.spaces["request"] = "http://panax.io/fetch/request"
+//xover.spaces["source"] = "http://panax.io/source"
+xover.spaces["binding"] = "http://panax.io/xover/binding"
+xover.spaces["changed"] = "http://panax.io/xover/binding/changed"
+xover.spaces["source_text"] = "http://panax.io/source/request/text"
+xover.spaces["source_prefix"] = "http://panax.io/source/request/prefix"
+xover.spaces["source_value"] = "http://panax.io/source/request/value"
+xover.spaces["source_filters"] = "http://panax.io/source/request/filters"
+xover.spaces["source_fields"] = "http://panax.io/source/request/fields"
+/* Values */
+xover.spaces["exception"] = "http://panax.io/state/exception"
+xover.spaces["confirmation"] = "http://panax.io/state/confirmation"
+xover.spaces["readonly"] = "http://panax.io/state/readonly"
+xover.spaces["suggested"] = "http://panax.io/state/suggested"
+xover.spaces["initial"] = "http://panax.io/state/initial"
+xover.spaces["search"] = "http://panax.io/state/search"
+xover.spaces["filter"] = "http://panax.io/state/filter"
+xover.spaces["prev"] = "http://panax.io/state/previous"
+xover.spaces["sort"] = "http://panax.io/state/sort"
+xover.spaces["fixed"] = "http://panax.io/state/fixed"
+xover.spaces["draft"] = "http://panax.io/state/draft"
+xover.spaces["text"] = "http://panax.io/state/text"
+
 xo.spaces["px"] = "http://panax.io/entity";
 xo.spaces["data"] = "http://panax.io/source";
 
@@ -410,7 +435,8 @@ xo.listener.on(`change::xo:r/@*[not(contains(namespace-uri(),'http://panax.io/st
     let field = (node.schema || {});
     if (!field) return;
 
-    let associations = row.select(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo'][px:Mappings/px:Mapping/@Referencer="${node.name}"]`)/*.sort((node1, node2) => node2.select(`px:Mappings/px:Mapping`).length - node1.select(`px:Mappings/px:Mapping`).length)*///.reverse();
+    let references = row.select(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo'][px:Mappings/px:Mapping/@Referencer="${node.name}"]/px:Mappings/px:Mapping/@Referencer`).distinct(String)
+    let associations = row.select(`ancestor::px:Entity[1]/px:Record/px:Association[@Type='belongsTo']/px:Mappings/px:Mapping/@Referencer`).filter(referencer => references.includes(referencer.value)).map(referencer => referencer.selectFirst('ancestor::px:Association[1]')).distinct().sort((node1, node2) => node1.select(`px:Mappings/px:Mapping`).length - node2.select(`px:Mappings/px:Mapping`).length)//.reverse();
     let attribs = {};
     for (let association of associations) {
         let meta_attribute_name = `meta:${association.attributes.Name}`;
@@ -1806,4 +1832,10 @@ xo.server.ws = function (url, target) {
 xo.listener.on('error::img[src^=FilesRepository]', function () {
     let src = this.getAttributeNode("src")
     src.value = src.value.replace(/^FilesRepository/, 'Repository')
+})
+
+xo.listener.on('xover-initialized', function ({ progress_renders }) {
+    if ('#loading' in xover.sources) {
+        progress_renders.push(xover.sources['#loading'].render());
+    }
 })

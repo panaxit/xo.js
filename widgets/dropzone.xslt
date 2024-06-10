@@ -9,10 +9,8 @@ xmlns:file="http://panax.io/widget/file"
 xmlns:dropzone="http://panax.io/widget/dropzone"
 xmlns:state="http://panax.io/state"
 xmlns:text="http://panax.io/state/text"
-xmlns:source="http://panax.io/xover/binding/source"
 xmlns:js="http://panax.io/languages/javascript"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-exclude-result-prefixes="#default xo session sitemap login widget state source js meta xsi"
 >
 	<xsl:import href="../functions.xslt"/>
 	<xsl:output method="xml"

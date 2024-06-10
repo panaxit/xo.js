@@ -7,10 +7,8 @@ xmlns:treeView="http://panax.io/widget/treeView"
 xmlns:data="http://panax.io/source"
 xmlns:state="http://panax.io/state"
 xmlns:text="http://panax.io/state/text"
-xmlns:source="http://panax.io/xover/binding/source"
 xmlns:js="http://panax.io/languages/javascript"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-exclude-result-prefixes="#default xo session sitemap widget state source js xsi"
 >
 	<xsl:key name="Menu" match="Folder" use="@xo:id"/>
 	<xsl:key name="Menu" match="Item[not(@IsFile='1')]" use="@xo:id"/>

@@ -66,9 +66,20 @@
 	<xsl:template mode="gearButton:menu" match="@*">
 		<xsl:param name="selection" select="node-expected"/>
 		<xsl:param name="items" select="."/>
-		<xsl:apply-templates mode="menu:widget" select="$items">
-			<xsl:with-param name="selection" select="$selection"/>
-			<xsl:with-param name="items" select="$items"/>
-		</xsl:apply-templates>
+		<xsl:choose>
+			<xsl:when test="$items">
+				<xsl:apply-templates mode="menu:widget" select="$items">
+					<xsl:with-param name="selection" select="$selection"/>
+					<xsl:with-param name="items" select="$items"/>
+				</xsl:apply-templates>
+			</xsl:when>
+			<xsl:otherwise>
+				<menu class="dropdown-menu">
+					<li>
+						<a class="dropdown-item disabled" aria-disabled="true" href="#">No hay opciones</a>
+					</li>
+				</menu>
+			</xsl:otherwise>
+		</xsl:choose>
 	</xsl:template>
 </xsl:stylesheet>

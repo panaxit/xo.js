@@ -18,6 +18,7 @@ exclude-result-prefixes="#default session sitemap shell"
 	<xsl:param name="session:autoRebuild">false</xsl:param>
 	<xsl:param name="session:disableCache">true</xsl:param>
 	<xsl:param name="session:autoRefresh"/>
+	<xsl:param name="session:user_login"/>
 	<xsl:param name="js:autorefresh">!!((xo.stores.active.sources.reload || {}).interval || {}).pause</xsl:param>
 	<xsl:param name="js:cache_name">xover.session.cache_name.split('_').pop()</xsl:param>
 	<xsl:key name="expanded" match="*[@state:expanded='true']" use="true()"/>
@@ -183,70 +184,72 @@ exclude-result-prefixes="#default session sitemap shell"
 								</div>
 							</div>
 						</div>
-						<div class="accordion-item">
-							<h2 class="accordion-header">
-								<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#settings-menu-Two" aria-expanded="false" aria-controls="settings-menu-Two">
-									Desarrollador
-								</button>
-							</h2>
-							<div id="settings-menu-Two" class="accordion-collapse collapse" data-bs-parent="#settings-accordion">
-								<div class="accordion-body">
-									<menu class="list-group">
-										<button type="button" class="list-group-item list-group-item-action" onclick="xo.stores.active.toClipboard();">Copiar fuente</button>
-										<button type="button" class="list-group-item list-group-item-action">
-											<xsl:choose>
-												<xsl:when test="$session:debug='true'">
-													<xsl:attribute name="onclick">xover.session.debug=false</xsl:attribute>
-													Deshabilitar depurar
-												</xsl:when>
-												<xsl:otherwise>
-													<xsl:attribute name="onclick">xover.session.debug=true</xsl:attribute>
-													Depurar
-												</xsl:otherwise>
-											</xsl:choose>
-										</button>
-										<button type="button" class="list-group-item list-group-item-action">
-											<xsl:choose>
-												<xsl:when test="$session:autoRebuild='true'">
-													<xsl:attribute name="onclick">xover.session.autoRebuild=false</xsl:attribute>
-													Deshabilitar rebuild
-												</xsl:when>
-												<xsl:otherwise>
-													<xsl:attribute name="onclick">xover.session.autoRebuild=true</xsl:attribute>
-													Habilitar rebuild
-												</xsl:otherwise>
-											</xsl:choose>
-										</button>
-										<button type="button" class="list-group-item list-group-item-action" onclick="xo.stores.active.render()">Actualizar módulo</button>
-										<button type="button" class="list-group-item list-group-item-action" onclick="xo.stores.active.sources.reload()">Actualizar librerías</button>
-										<button type="button" class="list-group-item list-group-item-action">
-											<xsl:choose>
-												<xsl:when test="$js:autorefresh='true'">
-													<xsl:attribute name="onclick">xo.stores.active.sources.reload.interval.stop(); xo.session.autoRefresh = !xo.session.autoRefresh;</xsl:attribute>
-													Detener autorefresh
-												</xsl:when>
-												<xsl:otherwise>
-													<xsl:attribute name="onclick">xo.stores.active.sources.reload.interval(3); xo.session.autoRefresh = !xo.session.autoRefresh;</xsl:attribute>
-													Activar/desactivar autorefresh
-												</xsl:otherwise>
-											</xsl:choose>
-										</button>
-										<button type="button" class="list-group-item list-group-item-action">
-											<xsl:choose>
-												<xsl:when test="$session:disableCache='true'">
-													<xsl:attribute name="onclick">xover.session.disableCache=false</xsl:attribute>
-													Habilitar caché
-												</xsl:when>
-												<xsl:otherwise>
-													<xsl:attribute name="onclick">xover.session.disableCache=true</xsl:attribute>
-													Deshabilitar caché
-												</xsl:otherwise>
-											</xsl:choose>
-										</button>
-									</menu>
+						<xsl:if test="contains($session:user_login,'@panax.io')">
+							<div class="accordion-item">
+								<h2 class="accordion-header">
+									<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#settings-menu-Two" aria-expanded="false" aria-controls="settings-menu-Two">
+										Desarrollador
+									</button>
+								</h2>
+								<div id="settings-menu-Two" class="accordion-collapse collapse" data-bs-parent="#settings-accordion">
+									<div class="accordion-body">
+										<menu class="list-group">
+											<button type="button" class="list-group-item list-group-item-action" onclick="xo.stores.active.toClipboard();">Copiar fuente</button>
+											<button type="button" class="list-group-item list-group-item-action">
+												<xsl:choose>
+													<xsl:when test="$session:debug='true'">
+														<xsl:attribute name="onclick">xover.session.debug=false</xsl:attribute>
+														Deshabilitar depurar
+													</xsl:when>
+													<xsl:otherwise>
+														<xsl:attribute name="onclick">xover.session.debug=true</xsl:attribute>
+														Depurar
+													</xsl:otherwise>
+												</xsl:choose>
+											</button>
+											<button type="button" class="list-group-item list-group-item-action">
+												<xsl:choose>
+													<xsl:when test="$session:autoRebuild='true'">
+														<xsl:attribute name="onclick">xover.session.autoRebuild=false</xsl:attribute>
+														Deshabilitar rebuild
+													</xsl:when>
+													<xsl:otherwise>
+														<xsl:attribute name="onclick">xover.session.autoRebuild=true</xsl:attribute>
+														Habilitar rebuild
+													</xsl:otherwise>
+												</xsl:choose>
+											</button>
+											<button type="button" class="list-group-item list-group-item-action" onclick="xo.stores.active.render()">Actualizar módulo</button>
+											<button type="button" class="list-group-item list-group-item-action" onclick="xo.stores.active.sources.reload()">Actualizar librerías</button>
+											<button type="button" class="list-group-item list-group-item-action">
+												<xsl:choose>
+													<xsl:when test="$js:autorefresh='true'">
+														<xsl:attribute name="onclick">xo.stores.active.sources.reload.interval.stop(); xo.session.autoRefresh = !xo.session.autoRefresh;</xsl:attribute>
+														Detener autorefresh
+													</xsl:when>
+													<xsl:otherwise>
+														<xsl:attribute name="onclick">xo.stores.active.sources.reload.interval(3); xo.session.autoRefresh = !xo.session.autoRefresh;</xsl:attribute>
+														Activar/desactivar autorefresh
+													</xsl:otherwise>
+												</xsl:choose>
+											</button>
+											<button type="button" class="list-group-item list-group-item-action">
+												<xsl:choose>
+													<xsl:when test="$session:disableCache='true'">
+														<xsl:attribute name="onclick">xover.session.disableCache=false</xsl:attribute>
+														Habilitar caché
+													</xsl:when>
+													<xsl:otherwise>
+														<xsl:attribute name="onclick">xover.session.disableCache=true</xsl:attribute>
+														Deshabilitar caché
+													</xsl:otherwise>
+												</xsl:choose>
+											</button>
+										</menu>
+									</div>
 								</div>
 							</div>
-						</div>
+						</xsl:if>
 					</div>
 				</div>
 			</div>

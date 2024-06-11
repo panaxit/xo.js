@@ -37,6 +37,10 @@ xover.spaces["fixed"] = "http://panax.io/state/fixed"
 xover.spaces["draft"] = "http://panax.io/state/draft"
 xover.spaces["text"] = "http://panax.io/state/text"
 
+xover.spaces["context"] = "http://panax.io/context"
+xover.spaces["width"] = "http://panax.io/state/width"
+xover.spaces["height"] = "http://panax.io/state/height"
+
 xo.spaces["px"] = "http://panax.io/entity";
 xo.spaces["data"] = "http://panax.io/source";
 

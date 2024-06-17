@@ -63,7 +63,7 @@
 		</div>
 	</xsl:template>
 
-	<xsl:template mode="cardview:Card" match="*[@x:deleting='true']">
+	<xsl:template mode="cardview:Card" match="*[@xo:deleting='true']">
 		<div class="card" style="width:15px; background-color:red; flex: 0 1%;"></div>
 	</xsl:template>
 
@@ -86,7 +86,7 @@
 	</xsl:template>
 
 	<xsl:template mode="cardview:Card.Picture" match="*|@*">
-		<xsl:variable name="id" select="ancestor-or-self::*[@x:id][1]/@x:id"/>
+		<xsl:variable name="id" select="ancestor-or-self::*[@xo:id][1]/@xo:id"/>
 		<picture class="card-img-top">
 			<xsl:apply-templates mode="cardview:Card.Picture.attributes" select="."/>
 			<xsl:apply-templates mode="cardview:Card.Picture.Sources" select="."/>
@@ -97,7 +97,7 @@
 	<xsl:template mode="cardview:Card.Picture.Sources" match="*|@*"/>
 
 	<xsl:template mode="cardview:Card.Image" match="*|@*">
-		<xsl:variable name="id" select="ancestor-or-self::*[@x:id][1]/@x:id"/>
+		<xsl:variable name="id" select="ancestor-or-self::*[@xo:id][1]/@xo:id"/>
 		<xsl:variable name="class"><xsl:apply-templates mode="cardview:Card.Image.attributes.class" select="."/></xsl:variable>
 		<img class="card-img-top {$class}" alt="Imagen" id="img_{$id}">
 			<xsl:attribute name="src">

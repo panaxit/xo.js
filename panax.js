@@ -755,7 +755,7 @@ xo.listener.on('appendTo::data:rows', function ({ addedNodes }) {
             if (target_rows.length) {
                 for (let row of target_rows) {
                     let association_copy = association.cloneNode(true);
-                    //let field_association = xo.xml.createNode(`<x:f Name="${association.getAttribute("AssociationName")}"/>`)
+                    //let field_association = xo.xml.createNode(`<xo:f Name="${association.getAttribute("AssociationName")}"/>`)
                     association_copy.select(".//@xo:id").remove();
                     association_copy.seed();
                     row.append(association_copy);
@@ -1064,11 +1064,11 @@ px.request = async function (request_or_entity_name, ...args) {
             //if (caller && caller.selectSingleNode('self::px:dataRow')) {
             //    let new_datarow = store.document.selectSingleNode('*/px:data/px:dataRow')
             //    if (new_datarow) {
-            //        new_datarow.setAttribute('x:id', caller.getAttribute('x:id'))
+            //        new_datarow.setAttribute('xo:id', caller.getAttribute('xo:id'))
             //    }
             //}
             //if (caller && caller.selectSingleNode('(ancestor-or-self::*[@Name and @Schema][1])[@foreignReference]')) {
-            //    store.document.documentElement.setAttribute('x:reference', caller.getAttribute('x:id'), false)
+            //    store.document.documentElement.setAttribute('xo:reference', caller.getAttribute('xo:id'), false)
             //    let foreignReference = caller.selectSingleNode('ancestor-or-self::*[@foreignReference]');
             //    if (foreignReference) {
             //        store.documentElement.selectNodes('//px:layout//px:field[@fieldName="' + foreignReference.getAttribute('foreignReference') + '"]').remove(false);
@@ -1194,7 +1194,7 @@ px.loadData = async function (entity, keys) {
         predicate = predicate.concat(mappings)
     }
     data_rows = xo.xml.createNode(`<data:rows xmlns:data="http://panax.io/source"/>`);
-    let command = xo.QUERI(`${entity.get("Schema")}/${entity.get("Name")}?${new URLSearchParams(predicate || {})}#&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '300')}&orderBy=${order_by}&fields=${encodeURIComponent(Object.entries(fields).filter(([, value]) => value).sort((first, second) => first[1].indexOf("XML") - second[1].indexOf("XML")).map(([key, value]) => `[${value.indexOf("prepareXML") == -1 ? '@' + key : "x:f/@Name]='" + key + "', [x:f"}]=${value.replace(/#panax\.prepareXML/, '')}`).join('&'))}`).toString();
+    let command = xo.QUERI(`${entity.get("Schema")}/${entity.get("Name")}?${new URLSearchParams(predicate || {})}#&pageIndex=${page_index || 1}&pageSize=${page_size || (parent_row ? '100' : '300')}&orderBy=${order_by}&fields=${encodeURIComponent(Object.entries(fields).filter(([, value]) => value).sort((first, second) => first[1].indexOf("XML") - second[1].indexOf("XML")).map(([key, value]) => `[${value.indexOf("prepareXML") == -1 ? '@' + key : "xo:f/@Name]='" + key + "', [xo:f"}]=${value.replace(/#panax\.prepareXML/, '')}`).join('&'))}`).toString();
     data_rows.setAttribute("command", command);
     returnValue.push(data_rows);
     entity.append(data_rows);
@@ -1615,7 +1615,7 @@ px.submit = async function (data_rows = xo.stores.active.select(`/px:Entity/data
         row.setAttribute("xmlns:session", "http://panax.io/session")
         post.setAttribute("xmlns:session", "http://panax.io/session")
         post = xo.xml.normalizeNamespaces(post).documentElement;
-        payload = xover.xml.createDocument(`<x:post xmlns:x="http://panax.io/xover" xmlns:session="http://panax.io/session"><x:source/><x:submit/></x:post>`);
+        payload = xover.xml.createDocument(`<xo:post xmlns:x="http://panax.io/xover" xmlns:session="http://panax.io/session"><xo:source/><xo:submit/></xo:post>`);
         payload.documentElement.$("xo:source").append(row.cloneNode(true));
         payload.documentElement.$("xo:submit").append(post);
         let loading = xo.sources["loading.xslt"].render()
@@ -1747,7 +1747,7 @@ xo.listener.on(['failure::#server:submit', 'failure::#server:request'], function
             let [schema, table_name] = table.split(".");
             message.parentNode.setAttributes({ schema, table_name });
             if (action == 'DELETE') {
-                let references = payload.select("/x:post/x:submit/post:batch/post:dataTable/post:deleteRow/@identityValue").map(identity => identity.value);
+                let references = payload.select("/xo:post/xo:submit/post:batch/post:dataTable/post:deleteRow/@identityValue").map(identity => identity.value);
                 let [schema, table_name] = table.split(".")
                 if (references.length) {
                     message.parentNode.setAttributes({ schema, table_name });

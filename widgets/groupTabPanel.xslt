@@ -1,13 +1,11 @@
 ﻿<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
   xmlns:xo="http://panax.io/xover"
-  xmlns:source="http://panax.io/fetch/request"
   xmlns:state="http://panax.io/state"
   xmlns:data="http://panax.io/source"
   xmlns:groupTabPanel="http://panax.io/widget/groupTabPanel"
   xmlns:container="http://panax.io/layout/container"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xmlns:px="http://panax.io/entity"
-  exclude-result-prefixes="px state xo source data xsi"
   xmlns="http://www.w3.org/1999/xhtml"
 >
 	<xsl:template match="/" priority="-1">

@@ -62,7 +62,6 @@ xmlns:shell="http://panax.io/shell"
 					height: var(--footer-height);
 					background-color: var(--bg-white) !important;
 					padding-top: 0 !important;
-					padding-left: 0 !important;
 					/*z-index: var(--layer-4, 98);*/
 					width: 100%;
 					overflow: hidden;

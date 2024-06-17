@@ -1,13 +1,9 @@
 ﻿<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/xhtml"
 xmlns:xo="http://panax.io/xover"
 xmlns:session="http://panax.io/session"
-xmlns:sitemap="http://panax.io/sitemap"
-xmlns:widget="http://panax.io/widget"
 xmlns:login="http://panax.io/widget/login"
 xmlns:state="http://panax.io/state"
-xmlns:source="http://panax.io/xover/binding/source"
 xmlns:js="http://panax.io/languages/javascript"
-exclude-result-prefixes="#default xo session sitemap login widget state source js"
 >
 	<xsl:output method="xml"
 	   omit-xml-declaration="yes"

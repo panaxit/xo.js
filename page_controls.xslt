@@ -16,9 +16,9 @@ exclude-result-prefixes="#default xsl px xsi xo data site"
 	<xsl:param name="site:seed">''</xsl:param>
 
 	<xsl:template match="/">
-		<nav id="page_controls" class="nav col-md-8 justify-content-center list-unstyled d-flex p-3" xo-source="active">
+		<menu id="page_controls" class="nav col-md-8 list-unstyled d-flex" xo-source="active">
 			<xsl:apply-templates select="px:Entity/@xo:id"/>
-		</nav>
+		</menu>
 	</xsl:template>
 
 	<xsl:template match="@*" priority="-1"/>

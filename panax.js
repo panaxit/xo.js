@@ -14,7 +14,6 @@ xover.qrl = xover.QUERI;
 xover.QRL = xover.QUERI;
 
 /* Binding */
-xover.spaces["request"] = "http://panax.io/fetch/request"
 //xover.spaces["source"] = "http://panax.io/source"
 xover.spaces["binding"] = "http://panax.io/xover/binding"
 xover.spaces["changed"] = "http://panax.io/xover/binding/changed"

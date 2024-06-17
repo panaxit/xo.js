@@ -1,15 +1,11 @@
 ﻿<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
   xmlns:xo="http://panax.io/xover"
-  xmlns:source="http://panax.io/fetch/request"
   xmlns:state="http://panax.io/state"
   xmlns:data="http://panax.io/source"
   xmlns:tabPanel="http://panax.io/widget/tabPanel"
   xmlns:container="http://panax.io/layout/container"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xmlns:px="http://panax.io/entity"
-  exclude-result-prefixes="px state xo source data xsi"
-  xmlns="http://www.w3.org/1999/xhtml"
->
+  xmlns:px="http://panax.io/entity">
 	<xsl:key name="state:hidden" match="node-expected" use="."/>
 	<xsl:template match="/" priority="-1">
 		<xsl:apply-templates select="*/@xo:id" mode="tabPanel:widget"/>

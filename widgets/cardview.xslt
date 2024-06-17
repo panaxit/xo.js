@@ -1,7 +1,7 @@
 ﻿<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
   xmlns:debug="http://panax.io/debug"
   xmlns:msxsl="urn:schemas-microsoft-com:xslt"
-  xmlns:x="http://panax.io/xover"
+  xmlns:xo="http://panax.io/xover"
   xmlns:state="http://panax.io/state"
   xmlns:metadata="http://panax.io/metadata"
   xmlns:session="http://panax.io/session"

@@ -121,22 +121,12 @@
 		<xsl:variable name="schema" select="key('schema',concat(ancestor::px:Entity[1]/@xo:id,'::',name($selection)))/../px:Mappings/px:Mapping/@Referencee"/>
 		<xsl:variable name="current" select="."/>
 		<style>
-			<![CDATA[
-			.dropdown.form-input > button.form-control {
-				height: calc(3.5rem + 2px);
-			}
-			
-			.dropdown.form-input > button.form-control::after {
+			<![CDATA[.dropdown.form-input > button.form-control::after {
 				left: 1.25rem;
 				border-width: 0 1px 1px 0 !important;
 				scale: 1.5;
 				margin: auto;
 				position: relative;
-			}
-			
-			.form-floating>.form-control~label {
-				opacity: .65;
-				transform: scale(.85) translateY(-.5rem) translateX(.15rem);
 			}
 			
 			.dropdown.form-input > .dropdown-menu {
@@ -147,6 +137,7 @@
 				margin: 0px;/*
 				transform: translate(0px, 0px);
 				top: 57px !important;*/
+				top: 100%;
 			}
 			
 			option.hidden {
@@ -187,15 +178,13 @@
     display: flex;
     position: relative;
     flex: 1 1 auto;
-    width: 1%;
     padding: 0;
-    height: calc(3.5rem + 3px);
     border: none !important;
 ">
 			<xsl:attribute name="onmouseover">scope.dispatch('downloadCatalog')</xsl:attribute>
 			<xsl:variable name="data_rows" select="$context/ancestor-or-self::data:rows[1]"/>
 			<xsl:variable name="options" select="$context|$schema/ancestor::px:Association[1]/@IsNullable[.=1]"/>
-			<button class="btn btn-lg dropdown-toggle form-control" xo-static="@*" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="display:flex; padding: 0; background: transparent; padding-right: 2.5rem; position: absolute; top: 0;" tabindex="-1" onfocus="this.querySelector('input').focus()" >
+			<button class="btn btn-lg dropdown-toggle form-control" xo-static="@*" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="display:flex; padding: 0; background: transparent; padding-right: 2.5rem; top: 0;" tabindex="-1" onfocus="let input = this.querySelector('[type=search]'); input !== document.activeElement &amp;&amp; !input.justLostFocus &amp;&amp; this.querySelector('input').focus();">
 				<div class="form-group form-floating input-group" style="min-width: calc(19ch + 6rem);border: none;">
 					<input type="search" name="" class="form-control" autocomplete="off" aria-autocomplete="none" maxlength="" size="" value="{current()}" style="border: 0 solid transparent !important; background: transparent;" xo-scope="{$data_rows/@xo:id}" xo-slot="state:filter">
 						<xsl:attribute name="onfocus">
@@ -205,7 +194,7 @@
 				</div>
 			</button>
 			<ul class="dropdown-menu context" style="width: 100%;" aria-labelledby="dropdownMenuLink" xo-scope="{$data_rows/@xo:id}" xo-static="@* -@xo-scope">
-				<select class="form-select data-rows" xo-static="@*" xo-scope="{../@xo:id}" xo-slot="{name()}" size="10" tabindex="-1" onchange="xo.components.combobox.change()">
+				<select class="form-select data-rows" xo-static="@*" xo-scope="{../@xo:id}" xo-slot="{name()}" size="10" tabindex="-1" onchange="xo.components.combobox.change.call(this)">
 					<xsl:if test="count($options) &lt; 10 and not($data_rows/@meta:totalCount) &gt; 10">
 						<xsl:attribute name="size">
 							<xsl:value-of select="count($options) + 1"/>
@@ -256,6 +245,7 @@
 xo.components.combobox = xo.components.combobox || {};
 
 xo.components.combobox.focusin = function() {
+	event.preventDefault(); event.stopPropagation(); 
     let srcElement = this;
 	let opened_menus = [...document.querySelectorAll(`.combobox .dropdown-menu.show`)].filter(element => element.closest('.dropdown') != srcElement.closest('.dropdown'));
     for (let menu of opened_menus) {
@@ -271,6 +261,13 @@ xo.components.combobox.focusin = function() {
 }
 xo.listener.on('focusin::.combobox [data-bs-toggle]:not(.show) [type=search],body', xo.components.combobox.focusin)
 
+xo.listener.on('focusout', function(){
+    this.justLostFocus   = true
+    xo.delay(100).then(()=>{
+    	delete this.justLostFocus
+    })
+})
+
 xo.components.combobox.filter = function (event) {
     let self = this;
     let inputField = self;
@@ -283,7 +280,11 @@ xo.components.combobox.filter = function (event) {
 			focus_attr && focus_attr.remove()
 			toggler = (bootstrap.Dropdown.getOrCreateInstance(toggler))
 			xo.listener.turnOff()
+			xover.disablePolyfill["toString"] = true;
 			toggler.show();
+			xo.delay(100).then(()=>{
+				delete xover.disablePolyfill["toString"];
+			});
 			xo.listener.on()
 			focus_attr && self.setAttributeNode(focus_attr)
 		}
@@ -296,7 +297,7 @@ xo.components.combobox.filter = function (event) {
 		showDropdown()
 	}
     let optionsList = self.ownerDocument.contains(self.optionsList) && self.optionsList || dropdown.querySelector('.dropdown-menu');
-	optionsList.ownerDocument.disconnect()
+	//optionsList.ownerDocument.disconnect()
     self.optionsList = optionsList;
 
     let options = optionsList.querySelectorAll(".filterable li,.filterable option");
@@ -326,6 +327,9 @@ xo.listener.on('focusin::.combobox [data-bs-toggle]:not(.show) [type=search]', x
 xo.components.combobox.change = function () {
     let srcElement = event.srcElement;
     let dropdown = srcElement.closest('.dropdown');
+	let selected_option = this.options[this.selectedIndex];
+	let value = (selected_option  || document.createElement('p')).getAttributeNode("value");
+	this.scope.set(value instanceof Attr ? value.value : selected_option.scope || select_option.value);
     let toggler = dropdown.querySelector("[data-bs-toggle]");
     try {
         if (toggler) {
@@ -340,7 +344,7 @@ xo.components.combobox.keyup = function (event) {
 			event.preventDefault()
 			event.stopImmediatePropagation();
 	}
-    if ((event.ctrlKey || event.altKey) || !['ArrowDown', 'ArrowUp', 'Escape'].includes(event.key)) return;
+    if ((event.ctrlKey || event.altKey) || !['ArrowDown', 'ArrowUp', 'Escape', 'End', 'Home', 'PageDown', 'PageUp'].includes(event.key)) return;
     let self = event.srcElement;
     let dropdown = self.closest('.dropdown');
     let optionsList = self.optionsList || dropdown.querySelector('.dropdown-menu');
@@ -353,7 +357,7 @@ xo.components.combobox.keyup = function (event) {
     } else {
         optionsList.classList.add('show');
     }
-    let active_item = filtered_options.toArray().filter(option => option.disabled || option.classList.contains("disabled") || option.selected || option.classList.contains("active")).pop();
+    let active_item = filtered_options.toArray().filter(option => option.selected || !option.disabled && !option.classList.contains("disabled") && option.classList.contains("active")).pop();
     let active_item_index = filtered_options.toArray().findIndex(option => option === active_item);
     if (event.key == 'ArrowDown') {
         ++active_item_index;
@@ -361,7 +365,17 @@ xo.components.combobox.keyup = function (event) {
     } else if (event.key == 'ArrowUp') {
         --active_item_index;
         active_item_index = active_item_index < 0 ? 0 : active_item_index;
-    }
+    } else if (event.key == 'Home') {
+		active_item_index = 0
+	} else if (event.key == 'End') {
+		active_item_index = filtered_options.length - 1
+	} else if (event.key == 'PageDown') {
+        active_item_index += active_item.closest('select,ul').size || 10;
+        active_item_index = active_item_index >= filtered_options.length ? filtered_options.length - 1 : active_item_index;
+	} else if (event.key == 'PageUp') {
+        active_item_index -= active_item.closest('select,ul').size || 10;
+        active_item_index = active_item_index < 0 ? 0 : active_item_index;
+	}
     active_item = filtered_options[active_item_index];
     [...filtered_options].forEach(op => op.classList.remove("active"));
     active_item && active_item.classList.add("active");
@@ -385,15 +399,25 @@ xo.components.combobox.keydown = function (event) {
     toggler && new bootstrap.Dropdown(toggler).hide();
     let input = dropdown.querySelector('input');
     let active_item = optionsList.querySelectorAll("li, option").toArray().filter(option => !(option.disabled || option.classList.contains("disabled")) && (option.selected || option.classList.contains("active"))).pop();
-    if (active_item) scope.set(active_item.scope);
+	value = (active_item  || document.createElement('p')).getAttributeNode("value");
+    if (value) scope.set(value);
     if (input === input.ownerDocument.activeElement) input.blur();
 }
 xo.listener.on('keydown::.combobox [type=search]', xo.components.combobox.keydown)
+xo.listener.on('keydown::button.combobox', function() {
+	debugger
+})
 
 xo.listener.on('click::.dropdown li', function () {
     let active_item = this;
     active_item && active_item.closest('.autocomplete-box').scope.set(active_item.classList.contains("disabled") ? "" : active_item.textContent);
     optionsList.classList.remove('show');
+})
+
+xo.listener.on('hide.bs.dropdown', function() {
+	if (this !== document.activeElement && this.contains(document.activeElement)) {
+		event.preventDefault();
+	}
 })
 		]]>
 			</script>

@@ -14,7 +14,7 @@ xmlns:js="http://panax.io/languages/javascript"
 	<xsl:param name="session:connection_id"/>
 	<xsl:param name="js:year"><![CDATA[(new Date()).getFullYear()]]></xsl:param>
 	<xsl:param name="session:copyright"><![CDATA['']]></xsl:param>
-	
+
 
 	<xsl:template mode="widget-attributes" match="@*" priority="-1"/>
 
@@ -28,11 +28,11 @@ xmlns:js="http://panax.io/languages/javascript"
 
 	<xsl:template match="/" priority="-1">
 		<section>
-			<xsl:apply-templates mode="widget" select="*/@xo:id"/>
+			<xsl:apply-templates mode="login:widget" select="*/@xo:id"/>
 		</section>
 	</xsl:template>
 
-	<xsl:template mode="widget" match="*|@*">
+	<xsl:template mode="login:widget" match="*|@*">
 		<div class="login">
 			<style>
 				<![CDATA[
@@ -121,7 +121,7 @@ xmlns:js="http://panax.io/languages/javascript"
 					</xsl:choose>
 				</button>
 				<p class="mt-5 mb-3 text-muted mx-auto">©<xsl:value-of select="concat($session:copyright,' ')"/> <xsl:value-of select="$js:year"/>
-			</p>
+				</p>
 			</form>
 		</div>
 	</xsl:template>

@@ -323,5 +323,6 @@ xmlns:shell="http://panax.io/shell"
 	<xsl:template mode="shell:extra" match="@*|*">
 	</xsl:template>
 
+	<xsl:template mode="shell:nav-brand" match="@*|*"/>
 	<xsl:template mode="shell:nav-content" match="@*|*"/>
 </xsl:stylesheet>

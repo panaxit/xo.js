@@ -88,7 +88,7 @@ xmlns:shell="http://panax.io/shell"
 					opacity: .3;
 				}
 				
-				nav menu svg.bi {
+				nav ul svg.bi {
 					width: 1em;
 					height: 1em;
 					vertical-align: -.125em;
@@ -221,8 +221,8 @@ xmlns:shell="http://panax.io/shell"
 							<button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
 						</div>
 						<div class="offcanvas-body">
-							<h2 xo-source="active" xo-stylesheet="title.xslt"></h2>
-							<menu class="navbar-nav justify-content-end flex-grow-1 pe-3 m-0" xo-source="#menu" xo-static="@class"/>
+							<h1 xo-source="active" xo-stylesheet="title.xslt"></h1>
+							<ul class="navbar-nav justify-content-end flex-grow-1 pe-3 m-0" xo-source="#menu" xo-static="@class"/>
 						</div>
 					</div>
 				</div>

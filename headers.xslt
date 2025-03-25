@@ -10,7 +10,7 @@
   xmlns:field="http://panax.io/layout/fieldref"
   xmlns:container="http://panax.io/layout/container"
   xmlns:association="http://panax.io/datatypes/association"
-  xmlns:globalization="http://xover.dev/globalization"
+  xmlns:globalization="http://panax.io/globalization"
 >
 	<xsl:param name="globalization:headerText">#globalization</xsl:param>
 

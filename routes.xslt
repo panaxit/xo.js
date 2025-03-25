@@ -11,7 +11,7 @@
   xmlns:custom="http://panax.io/custom"
   xmlns:px="http://panax.io/entity"
   xmlns:route="http://panax.io/routes"
-  xmlns:globalization="http://xover.dev/globalization"
+  xmlns:globalization="http://panax.io/globalization"
   xmlns:menu="http://panax.io/widget/menu"
   exclude-result-prefixes="xo state xsl meta custom data route"
 >

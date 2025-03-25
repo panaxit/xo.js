@@ -5,7 +5,7 @@ xmlns:session="http://panax.io/session"
 xmlns:sitemap="http://panax.io/sitemap"
 xmlns:shell="http://panax.io/shell"
 xmlns:state="http://panax.io/state"
-xmlns:globalization="http://xover.dev/globalization"
+xmlns:globalization="http://panax.io/globalization"
 xmlns:xo="http://panax.io/xover"
 exclude-result-prefixes="#default session sitemap shell state"
 >

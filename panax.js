@@ -54,6 +54,19 @@ xover.listener.on('logout', function () {
     delete xover.session.id_token
 })
 
+xo.listener.on(['append::main > [xo-source][xo-stylesheet], body > [xo-source][xo-stylesheet]'], function ({ target }) {
+    const self = this;
+    let mutually_inclusive_selector = `slot,script,dialog,[role=alertdialog],[role=alert],[role=dialog],[role=status],[role=progressbar],[role=complementary]`
+    for (const node of [...target.children].filter(node =>
+        node !== this && node.nodeType === Node.ELEMENT_NODE
+        && node.matches(`[xo-source]`)
+        && !node.matches(mutually_inclusive_selector)
+        && !self.matches(mutually_inclusive_selector)
+    )) {
+        node.remove()
+    }
+})
+
 px = {}
 //px.configurations = {};
 //px.configurations.nodes = new Map();
@@ -106,7 +119,7 @@ xover.listener.on('ErrorEvent', function () {
 })
 
 xo.listener.on(`fetch?path=server/&document`, function () {
-    for (let stylesheet of this.stylesheets) {
+    for (let stylesheet of this.stylesheets || []) {
         if (stylesheet.href[0] !== '/') {
             stylesheet.href = '/' + stylesheet.href
         }
@@ -726,7 +739,7 @@ xo.listener.on(['append::data:rows[@command][not(xo:r) and not(@xsi:nil)]', 'cha
         source = xover.sources.get(command);
         //let source = xover.sources[`${node.nodeName}:=${command.value}`];//.cloneNode(true);
         node.context = source;
-        response = await source.fetch();
+        response = await source.fetch.call(command);
         response.seed();
         let firstElementChild = response.cloneNode(true).firstElementChild;
         if (firstElementChild) {
@@ -1095,7 +1108,7 @@ px.request = async function (request_or_entity_name, ...args) {
             , "x-Debugging": xover.debug.enabled
         });
         headers = Object.fromEntries([...headers].concat(Object.entries((this.settings || {}).headers || {})));
-        let { return_value: response, request, response: Response } = await xover.server.request.call(this, `command=[#entity].request @@user_id=NULL, @full_entity_name='[${schema}].[${entity_name}]', @mode=${(!mode ? 'DEFAULT' : `'${mode}'`)}, @page_index=${(page_index || 'DEFAULT')}, @page_size=${(page_size || 'DEFAULT')}, @max_records=DEFAULT, @control_type=DEFAULT, @Filters=DEFAULTS, @lang=es, @rebuild=${rebuild}, @column_list=DEFAULT, @output=HTML`, {
+        let { return_value: response, request, response: Response } = await xover.server.request.call(this, new URLSearchParams({ command: `[#entity].request @@user_id=NULL, @full_entity_name='[${schema}].[${entity_name}]', @mode=${(!mode ? 'DEFAULT' : `'${mode}'`)}, @page_index=${(page_index || 'DEFAULT')}, @page_size=${(page_size || 'DEFAULT')}, @max_records=DEFAULT, @control_type=DEFAULT, @Filters=DEFAULTS, @lang=es, @rebuild=${rebuild}, @column_list=DEFAULT, @output=HTML` }), {
             headers: headers
         }, (return_value, request, response) => { return { return_value, request, response } });
 
@@ -1480,7 +1493,7 @@ px.getData = async function (...args) {
             , "Accept": content_type.xml
             , "cache-control": 'max-age=0'
             /*, "pragma": 'force-cache'*/
-            , "x-original-request": command
+            /*, "x-original-request": command*/
             , "x-namespaces": `'${node.resolveNS(node.prefix)}' as ${node.prefix}`
             , "x-Root-Node": root_node
             , "x-Page-Index": (page_index || '')

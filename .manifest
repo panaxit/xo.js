@@ -1,12 +1,12 @@
 {
   "sources": {
     "^#(.+)": "$1.xml",
-    "^data:(.*)": { "px.getData": [] },
-    "^@command::(.*)": {
+    "data": { "px.getData": [] },
+    "@command": {
       "px.getData": [
-        "${xover.json.tryParse(tag.value)}",
+        "${xover.json.tryParse(value)}",
         {
-          "source": "${tag.parentNode}",
+          "source": "{$parentNode}",
           "method": "GET",
           "headers": { "Accept": "text/xml" }
         }
